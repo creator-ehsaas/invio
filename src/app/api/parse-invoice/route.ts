@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { groq } from "@/lib/groq";
 import { Invoice } from "@/types/invoice";
 
-const EXTRACTION_PROMPT = `You are an invoice field extractor for an Indian billing app.
+const EXTRACTION_PROMPT = `You are an expert invoice field extractor for an Indian billing app.
 Extract structured invoice data from the following voice transcript.
-The transcript may be in Hindi, Marathi, English, or a mix.
+The transcript may be in Hindi, Marathi, English, or a mix (code-switching is common).
+
+CRITICAL RULES:
+1. Listen carefully to EXACT numbers mentioned. Do NOT round or change them.
+2. "sau" = 100, "hazaar/hazar" = 1000, "lakh" = 100000
+3. "chhe sau" = 600, "chhe hazaar" = 6000 — be precise!
+4. If quantity is not mentioned, assume 1
+5. Parse Hindi numbers: ek=1, do=2, teen=3, char=4, paanch=5, chhe=6, saat=7, aath=8, nau=9, das=10
+6. "rupaye/rupay/rs" indicates price, "percent/pratishat" indicates GST
 
 Return ONLY a valid JSON object with these fields:
 - buyer_name (string or null)
@@ -14,16 +22,16 @@ Return ONLY a valid JSON object with these fields:
 - total (number or null)
 - notes (string or null)
 
-For each item, calculate:
-- amount = quantity * rate (if both provided)
+For each item:
+- amount = quantity * rate
 
 Calculate totals:
 - subtotal = sum of all item amounts
-- gst_amount = subtotal * (gst_percent / 100) using the first item's GST rate if uniform
+- gst_amount = subtotal * (gst_percent / 100)
 - total = subtotal + gst_amount
 
-If a field is not mentioned, use null. Do not guess.
-Return ONLY the JSON object, no markdown, no explanation.
+If a field is not mentioned, use null. Do NOT guess values.
+Return ONLY the JSON object, no markdown, no explanation, no extra text.
 
 Transcript: "{transcript}"`;
 

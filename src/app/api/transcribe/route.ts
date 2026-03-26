@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
       model: "whisper-large-v3",
       language: language?.split("-")[0] || "en",
       response_format: "json",
+      prompt: "This is an invoice dictation in Indian context. Numbers and prices are important. Listen carefully for: rupees, percent, GST, quantities, item names, customer names.",
     });
 
     return NextResponse.json({ transcript: transcription.text });
