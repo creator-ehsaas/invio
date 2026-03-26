@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { groq } from "@/lib/groq";
 import { Invoice } from "@/types/invoice";
 
-const EXTRACTION_PROMPT = `You are an expert invoice field extractor for an Indian billing app.
+const getExtractionPrompt = (outputLang: string) => {
+  const langInstructions: Record<string, string> = {
+    en: "Output all item names, units, and buyer names in ENGLISH.",
+    hi: "Output all item names, units, and buyer names in HINDI (Devanagari script).",
+    mr: "Output all item names, units, and buyer names in MARATHI (Devanagari script).",
+  };
+
+  return `You are an expert invoice field extractor for an Indian billing app.
 Extract structured invoice data from the following voice transcript.
 The transcript may be in Hindi, Marathi, English, or a mix (code-switching is common).
+
+OUTPUT LANGUAGE: ${langInstructions[outputLang] || langInstructions.en}
 
 CRITICAL RULES:
 1. Listen carefully to EXACT numbers mentioned. Do NOT round or change them.
@@ -34,10 +43,11 @@ If a field is not mentioned, use null. Do NOT guess values.
 Return ONLY the JSON object, no markdown, no explanation, no extra text.
 
 Transcript: "{transcript}"`;
+};
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript } = await request.json();
+    const { transcript, outputLanguage = "en" } = await request.json();
 
     if (!transcript) {
       return NextResponse.json(
@@ -46,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = EXTRACTION_PROMPT.replace("{transcript}", transcript);
+    const prompt = getExtractionPrompt(outputLanguage).replace("{transcript}", transcript);
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",

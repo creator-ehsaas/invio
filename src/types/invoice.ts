@@ -23,3 +23,11 @@ export const LANGUAGES: { code: Language; label: string; webSpeechCode: string }
   { code: "mr-IN", label: "मराठी", webSpeechCode: "mr-IN" },
   { code: "en-IN", label: "English", webSpeechCode: "en-IN" },
 ];
+
+export type OutputLanguage = "en" | "hi" | "mr";
+
+export const OUTPUT_LANGUAGES: { code: OutputLanguage; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "hi", label: "हिंदी" },
+  { code: "mr", label: "मराठी" },
+];

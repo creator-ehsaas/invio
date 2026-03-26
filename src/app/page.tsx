@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LanguageSelector } from "@/components/language-selector";
 import { VoiceRecorder } from "@/components/voice-recorder";
 import { InvoiceForm } from "@/components/invoice-form";
-import { Invoice, Language } from "@/types/invoice";
+import { Invoice, Language, OutputLanguage, OUTPUT_LANGUAGES } from "@/types/invoice";
+import { Label } from "@/components/ui/label";
 
 type AppState = "record" | "processing" | "result";
 
@@ -20,6 +21,7 @@ const EMPTY_INVOICE: Invoice = {
 
 export default function Home() {
   const [language, setLanguage] = useState<Language>("hi-IN");
+  const [outputLanguage, setOutputLanguage] = useState<OutputLanguage>("en");
   const [state, setState] = useState<AppState>("record");
   const [transcript, setTranscript] = useState("");
   const [invoice, setInvoice] = useState<Invoice>(EMPTY_INVOICE);
@@ -34,7 +36,7 @@ export default function Home() {
       const response = await fetch("/api/parse-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: finalTranscript }),
+        body: JSON.stringify({ transcript: finalTranscript, outputLanguage }),
       });
 
       if (!response.ok) {
@@ -74,11 +76,36 @@ export default function Home() {
               <CardTitle>Record Invoice</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <LanguageSelector
-                selected={language}
-                onSelect={setLanguage}
-                disabled={state === "processing"}
-              />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Speak in</Label>
+                  <LanguageSelector
+                    selected={language}
+                    onSelect={setLanguage}
+                    disabled={state === "processing"}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Invoice output in</Label>
+                  <div className="flex gap-2 justify-center">
+                    {OUTPUT_LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => setOutputLanguage(lang.code)}
+                        disabled={state === "processing"}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          outputLanguage === lang.code
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80"
+                        } disabled:opacity-50`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               <VoiceRecorder
                 language={language}
