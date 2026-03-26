@@ -198,7 +198,7 @@ CREATE TABLE payments (
 );
 ```
 
-### item_catalog
+### item_catalog (with inventory)
 ```sql
 CREATE TABLE item_catalog (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -210,8 +210,71 @@ CREATE TABLE item_catalog (
   default_cess_percent NUMERIC(5,2) DEFAULT 0,
   default_unit TEXT,
   default_rate NUMERIC(12,2),
+
+  -- Inventory fields
+  track_inventory BOOLEAN DEFAULT FALSE,
+  current_stock NUMERIC(12,3) DEFAULT 0,
+  minimum_stock NUMERIC(12,3) DEFAULT 0,
+  purchase_price NUMERIC(12,2),
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(business_id, name)
+);
+```
+
+### stock_movements
+```sql
+CREATE TABLE stock_movements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID REFERENCES businesses(id) NOT NULL,
+  item_id UUID REFERENCES item_catalog(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('purchase', 'sale', 'adjustment', 'return')),
+  quantity NUMERIC(12,3) NOT NULL, -- positive for in, negative for out
+  unit_price NUMERIC(12,2),
+  reference_type TEXT CHECK (reference_type IN ('invoice', 'manual', 'purchase_order')),
+  reference_id UUID, -- invoice_id or purchase_order_id
+  notes TEXT,
+  date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for item stock queries
+CREATE INDEX idx_stock_movements_item ON stock_movements(item_id);
+CREATE INDEX idx_stock_movements_date ON stock_movements(business_id, date);
+```
+
+### purchase_orders
+```sql
+CREATE TABLE purchase_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID REFERENCES businesses(id) NOT NULL,
+  po_number TEXT NOT NULL,
+  supplier_name TEXT NOT NULL,
+  supplier_gstin TEXT,
+  date DATE DEFAULT CURRENT_DATE,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'ordered', 'received', 'partial', 'cancelled')),
+  subtotal NUMERIC(12,2) DEFAULT 0,
+  gst_amount NUMERIC(12,2) DEFAULT 0,
+  total NUMERIC(12,2) DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### purchase_order_items
+```sql
+CREATE TABLE purchase_order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE NOT NULL,
+  item_id UUID REFERENCES item_catalog(id),
+  name TEXT NOT NULL,
+  quantity NUMERIC(10,3) DEFAULT 1,
+  unit TEXT,
+  rate NUMERIC(12,2) DEFAULT 0,
+  gst_percent NUMERIC(5,2) DEFAULT 0,
+  amount NUMERIC(12,2) DEFAULT 0,
+  received_quantity NUMERIC(10,3) DEFAULT 0
 );
 ```
 
@@ -413,6 +476,51 @@ Thank you!
 
 ---
 
+## Inventory Management
+
+### Features
+- **Item Stock Tracking** — Track current stock levels for products
+- **Low Stock Alerts** — Dashboard alerts when stock falls below minimum
+- **Stock Movements** — Automatic tracking on invoice creation
+- **Purchase Orders** — Create POs to suppliers, receive stock
+- **Stock Adjustments** — Manual corrections with notes
+- **Stock Valuation** — FIFO-based valuation for accounting
+
+### Inventory Flow
+```
+Purchase Order → Receive Stock → current_stock increases
+                      ↓
+              stock_movement created (type: 'purchase')
+
+Invoice Created → Items sold → current_stock decreases
+                      ↓
+              stock_movement created (type: 'sale')
+
+Manual Adjustment → Correct discrepancies
+                      ↓
+              stock_movement created (type: 'adjustment')
+```
+
+### Conversational AI for Inventory
+| User says | AI action |
+|-----------|-----------|
+| "Stock kitna hai rice ka?" | Shows current stock for rice |
+| "Low stock items?" | Lists items below minimum stock |
+| "Add 50kg rice to stock" | Creates stock adjustment |
+| "Create PO for 100kg rice from ABC Suppliers" | Creates purchase order |
+| "Receive PO #12" | Marks PO received, updates stock |
+
+### Pages
+| Route | Description |
+|-------|-------------|
+| `/inventory` | Stock levels, low stock alerts |
+| `/inventory/items` | Item catalog with stock toggle |
+| `/inventory/movements` | Stock movement history |
+| `/inventory/purchase-orders` | PO list |
+| `/inventory/purchase-orders/new` | Create PO |
+
+---
+
 ## Implementation Phases
 
 | Phase | Features | Files | Est. |
@@ -423,12 +531,14 @@ Thank you!
 | **P4** | Item catalog, HSN auto-detect | 6 files | 1 day |
 | **P5** | PDF templates, customization | 10 files | 2 days |
 | **P6** | Payments, partial payments, status | 5 files | 1 day |
-| **P7** | Conversational AI, voice commands | 8 files | 2 days |
-| **P8** | GST reports, GSTR-1/3B, export | 8 files | 2 days |
-| **P9** | Email notifications, reminders | 6 files | 1 day |
-| **P10** | Dashboard, charts, alerts | 5 files | 1 day |
+| **P7** | Inventory management, stock tracking | 12 files | 2 days |
+| **P8** | Purchase orders, receiving stock | 8 files | 1 day |
+| **P9** | Conversational AI, voice commands | 10 files | 2 days |
+| **P10** | GST reports, GSTR-1/3B, export | 8 files | 2 days |
+| **P11** | Email notifications, reminders | 6 files | 1 day |
+| **P12** | Dashboard, charts, alerts | 5 files | 1 day |
 
-**Total: ~16 days**
+**Total: ~19 days**
 
 ---
 
@@ -440,6 +550,8 @@ Thank you!
 - [ ] HSN auto-detection with learning
 - [ ] 4 PDF templates with customization
 - [ ] Payment tracking with partial payments
+- [ ] Inventory tracking with low stock alerts
+- [ ] Purchase orders with stock receiving
 - [ ] Conversational AI understands queries and actions
 - [ ] GST reports exportable for filing
 - [ ] Email reminders sent automatically
@@ -451,7 +563,6 @@ Thank you!
 
 - WhatsApp Business API (use wa.me links for now)
 - Bank reconciliation
-- Inventory management
 - Multi-business support
 - Mobile app (PWA first)
 - Tally/Zoho export (future phase)
