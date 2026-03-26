@@ -52,7 +52,19 @@ export async function POST(request: NextRequest) {
       max_tokens: 1024,
     });
 
-    const responseText = completion.choices[0]?.message?.content || "";
+    let responseText = completion.choices[0]?.message?.content || "";
+
+    // Strip markdown code blocks if present (Llama sometimes wraps JSON in ```)
+    responseText = responseText
+      .replace(/^```json?\s*\n?/i, "")
+      .replace(/\n?```\s*$/i, "")
+      .trim();
+
+    // Also try to extract JSON if it's wrapped in other text
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      responseText = jsonMatch[0];
+    }
 
     let invoice: Invoice;
     try {
