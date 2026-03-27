@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/layout/navbar";
+import { BillingNotifications } from "@/components/billing/BillingNotifications";
 import type { User, Business } from "@/types/database";
 
 export default async function DashboardLayout({
@@ -42,6 +44,10 @@ export default async function DashboardLayout({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 md:pt-24 pb-24 md:pb-8">
         {children}
       </main>
+      {/* Billing notifications (subscription success, upgrade prompts, etc.) */}
+      <Suspense fallback={null}>
+        <BillingNotifications />
+      </Suspense>
     </div>
   );
 }

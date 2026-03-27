@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Mic,
@@ -18,6 +19,7 @@ import {
   IndianRupee,
   MessageCircle,
   Sparkles,
+  X,
 } from "lucide-react";
 
 const features = [
@@ -85,8 +87,34 @@ const testimonials = [
 ];
 
 export default function HomePage() {
+  const [showDemo, setShowDemo] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+      {/* Video Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-5xl">
+            <button
+              onClick={() => setShowDemo(false)}
+              className="absolute -top-12 right-0 text-white hover:text-white/80 transition-colors flex items-center gap-2"
+            >
+              <span className="text-sm">Close</span>
+              <X className="w-6 h-6" />
+            </button>
+            <div className="bg-black rounded-2xl overflow-hidden shadow-2xl">
+              <video
+                src="/demo.mp4"
+                controls
+                autoPlay
+                className="w-full aspect-video"
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -100,6 +128,7 @@ export default function HomePage() {
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
               <a href="#templates" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Templates</a>
+              <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
               <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
             </div>
             <div className="flex items-center gap-3">
@@ -144,7 +173,10 @@ export default function HomePage() {
                 Start Free Trial
                 <ArrowRight className="w-5 h-5" />
               </Link>
-              <button className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-foreground font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+              <button
+                onClick={() => setShowDemo(true)}
+                className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-foreground font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+              >
                 <Play className="w-5 h-5" />
                 Watch Demo
               </button>
@@ -382,8 +414,137 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+              Start free, upgrade when you need more
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Free Plan */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+              <h3 className="text-xl font-semibold text-foreground">Free</h3>
+              <p className="text-muted-foreground mt-2">Perfect to get started</p>
+              <div className="mt-6">
+                <span className="text-4xl font-bold text-foreground">₹0</span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+              <ul className="mt-8 space-y-4">
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">50 invoices/month</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">Voice input in 3 languages</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">Basic PDF templates</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">WhatsApp sharing</span>
+                </li>
+              </ul>
+              <Link
+                href="/signup"
+                className="mt-8 block w-full py-3 text-center border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-foreground hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              >
+                Get Started
+              </Link>
+            </div>
+
+            {/* Pro Monthly - Featured */}
+            <div className="bg-gradient-to-br from-primary to-blue-500 rounded-2xl p-8 text-white relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-400 text-amber-900 text-sm font-semibold rounded-full">
+                Most Popular
+              </div>
+              <h3 className="text-xl font-semibold">Pro Monthly</h3>
+              <p className="text-white/70 mt-2">For growing businesses</p>
+              <div className="mt-6">
+                <span className="text-4xl font-bold">₹499</span>
+                <span className="text-white/70">/month</span>
+              </div>
+              <ul className="mt-8 space-y-4">
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-white" />
+                  <span>Unlimited invoices</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-white" />
+                  <span>All 4 PDF templates</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-white" />
+                  <span>AI learning from corrections</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-white" />
+                  <span>Business insights & analytics</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-white" />
+                  <span>Inventory management</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-white" />
+                  <span>Priority support</span>
+                </li>
+              </ul>
+              <Link
+                href="/signup?plan=pro_monthly"
+                className="mt-8 block w-full py-3 text-center bg-white text-primary rounded-xl font-semibold hover:bg-white/90 transition-all"
+              >
+                Start Pro Trial
+              </Link>
+            </div>
+
+            {/* Pro Yearly */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+              <h3 className="text-xl font-semibold text-foreground">Pro Yearly</h3>
+              <p className="text-muted-foreground mt-2">Best value - save ₹999</p>
+              <div className="mt-6">
+                <span className="text-4xl font-bold text-foreground">₹4,999</span>
+                <span className="text-muted-foreground">/year</span>
+              </div>
+              <ul className="mt-8 space-y-4">
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">Everything in Pro Monthly</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">2 months free</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">Early access to features</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <span className="text-foreground">Dedicated account manager</span>
+                </li>
+              </ul>
+              <Link
+                href="/signup?plan=pro_yearly"
+                className="mt-8 block w-full py-3 text-center bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all"
+              >
+                Get Pro Yearly
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50/50 dark:bg-slate-900/50">
         <div className="max-w-4xl mx-auto text-center">
           <div className="bg-gradient-to-br from-primary to-blue-500 rounded-3xl p-8 sm:p-12 text-white">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">

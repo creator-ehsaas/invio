@@ -305,6 +305,40 @@ export default function NewInvoicePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Check subscription limits
+      const { data: userSubscription } = await supabase
+        .from("users")
+        .select("subscription_plan, invoices_this_month, invoices_reset_date")
+        .eq("id", user.id)
+        .single();
+
+      const plan = userSubscription?.subscription_plan || "free";
+      const isPro = plan === "pro_monthly" || plan === "pro_yearly";
+      let invoicesUsed = userSubscription?.invoices_this_month || 0;
+
+      // Reset counter if new month
+      const resetDate = userSubscription?.invoices_reset_date
+        ? new Date(userSubscription.invoices_reset_date)
+        : null;
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      if (!resetDate || resetDate < monthStart) {
+        await supabase
+          .from("users")
+          .update({ invoices_this_month: 0, invoices_reset_date: new Date().toISOString() })
+          .eq("id", user.id);
+        invoicesUsed = 0;
+      }
+
+      // Check if user can create invoice
+      if (!isPro && invoicesUsed >= 50) {
+        setError("You've reached the free plan limit of 50 invoices/month. Upgrade to Pro for unlimited invoices.");
+        setSaving(false);
+        return;
+      }
+
       const { data: userData } = await supabase
         .from("users")
         .select("business_id")
@@ -432,6 +466,14 @@ export default function NewInvoicePage() {
 
       const { error: itemsError } = await supabase.from("invoice_items").insert(invoiceItems);
       if (itemsError) throw itemsError;
+
+      // Increment invoice count for free plan users
+      if (!isPro) {
+        await supabase
+          .from("users")
+          .update({ invoices_this_month: invoicesUsed + 1 })
+          .eq("id", user.id);
+      }
 
       // Send AI learning feedback if user made corrections
       if (lastTranscript && aiParsedData) {

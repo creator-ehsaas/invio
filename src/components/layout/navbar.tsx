@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Bell, Settings, LogOut, Menu, X, Home, FileText, Users, Package, BarChart3 } from "lucide-react";
+import { Bell, Settings, LogOut, Menu, X, Home, FileText, Users, Package, BarChart3, CreditCard } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 
 interface NavbarProps {
@@ -90,6 +90,14 @@ export function Navbar({ user, business }: NavbarProps) {
                     </div>
                     <div className="py-1">
                       <Link
+                        href="/subscription"
+                        className="flex items-center px-4 py-2 text-sm hover:bg-muted transition-colors"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <CreditCard className="mr-3 h-4 w-4 text-muted-foreground" />
+                        Subscription
+                      </Link>
+                      <Link
                         href="/settings"
                         className="flex items-center px-4 py-2 text-sm hover:bg-muted transition-colors"
                         onClick={() => setDropdownOpen(false)}
@@ -170,6 +178,14 @@ export function Navbar({ user, business }: NavbarProps) {
               )}
             </div>
             <div className="py-1">
+              <Link
+                href="/subscription"
+                className="flex items-center px-4 py-3 text-sm hover:bg-muted"
+                onClick={() => setDropdownOpen(false)}
+              >
+                <CreditCard className="mr-3 h-4 w-4 text-muted-foreground" />
+                Subscription
+              </Link>
               <Link
                 href="/settings"
                 className="flex items-center px-4 py-3 text-sm hover:bg-muted"

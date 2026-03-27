@@ -23,6 +23,7 @@ import {
   Bell,
   Zap,
 } from "lucide-react";
+import { UpgradeBanner } from "@/components/billing/UpgradeBanner";
 
 interface DashboardStats {
   totalInvoices: number;
@@ -230,6 +231,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Upgrade banner for free users */}
+      <UpgradeBanner />
+
       {/* Header with AI Insights */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
