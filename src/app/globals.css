@@ -128,3 +128,87 @@
     @apply font-sans;
   }
 }
+
+/* Mobile App Styles (Capacitor) */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --keyboard-height: 0px;
+}
+
+/* Native app adjustments */
+html.native-app {
+  /* Prevent pull-to-refresh */
+  overscroll-behavior-y: contain;
+
+  /* Prevent text selection highlight on tap */
+  -webkit-tap-highlight-color: transparent;
+
+  /* Smoother scrolling */
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-app body {
+  /* Safe area padding */
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+
+  /* Prevent overscroll bounce */
+  overscroll-behavior: none;
+
+  /* Account for keyboard */
+  padding-bottom: max(var(--safe-area-inset-bottom), var(--keyboard-height));
+}
+
+/* Mobile bottom navigation safe area */
+.mobile-bottom-nav {
+  padding-bottom: max(0.5rem, var(--safe-area-inset-bottom));
+}
+
+/* Mobile header safe area */
+.mobile-header {
+  padding-top: max(0.75rem, var(--safe-area-inset-top));
+}
+
+/* Disable text selection on mobile UI elements */
+.native-app .no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Touch-friendly tap targets */
+.native-app button,
+.native-app a,
+.native-app [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Smooth transitions for theme changes */
+.native-app * {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.15s;
+  transition-timing-function: ease-out;
+}
+
+/* Hide scrollbars on mobile but keep functionality */
+.native-app ::-webkit-scrollbar {
+  display: none;
+}
+
+.native-app {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Active state for touch feedback */
+.native-app button:active,
+.native-app a:active,
+.native-app [role="button"]:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+}

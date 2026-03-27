@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-36,0a36,36 0,1 1,72 0a36,36 0,1 1,-72 0"/>
+
+    <!-- Invoice icon -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M38,30h32c2.2,0 4,1.8 4,4v40c0,2.2 -1.8,4 -4,4H38c-2.2,0 -4,-1.8 -4,-4V34C34,31.8 35.8,30 38,30z"/>
+
+    <!-- Lines on invoice -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,42h24v3H42z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,50h24v3H42z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,58h16v3H42z"/>
+
+    <!-- Microphone indicator -->
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M66,62c4.4,0 8,3.6 8,8s-3.6,8 -8,8s-8,-3.6 -8,-8S61.6,62 66,62z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,65v6M63,71h6"/>
+</vector>
