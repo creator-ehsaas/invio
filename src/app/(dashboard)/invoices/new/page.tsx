@@ -18,6 +18,7 @@ import {
   Package,
   User,
 } from "lucide-react";
+import { isIntraState } from "@/types/database";
 
 interface InvoiceItem {
   description: string;
@@ -32,7 +33,12 @@ interface Customer {
   id: string;
   name: string;
   business_name?: string;
-  gstin?: string;
+  gstin?: string | null;
+}
+
+interface BusinessInfo {
+  gstin: string | null;
+  state_code: string | null;
 }
 
 export default function NewInvoicePage() {
@@ -45,7 +51,9 @@ export default function NewInvoicePage() {
   // Form state
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [customerGstin, setCustomerGstin] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([
@@ -66,17 +74,61 @@ export default function NewInvoicePage() {
   const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    fetchCustomers();
+    fetchCustomersAndBusiness();
     // Set default due date to 15 days from now
     const due = new Date();
     due.setDate(due.getDate() + 15);
     setDueDate(due.toISOString().split("T")[0]);
   }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCustomersAndBusiness = async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("customers").select("id, name, business_name, gstin");
-    if (data) setCustomers(data);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Fetch user's business info
+    const { data: userData } = await supabase
+      .from("users")
+      .select("business_id")
+      .eq("id", user.id)
+      .single();
+
+    if (userData?.business_id) {
+      // Fetch business GSTIN
+      const { data: business } = await supabase
+        .from("businesses")
+        .select("gstin, state_code")
+        .eq("id", userData.business_id)
+        .single();
+
+      if (business) {
+        setBusinessInfo(business);
+      }
+
+      // Fetch customers for this business
+      const { data: customersData } = await supabase
+        .from("customers")
+        .select("id, name, business_name, gstin")
+        .eq("business_id", userData.business_id);
+
+      if (customersData) setCustomers(customersData);
+    }
+  };
+
+  // Handle customer selection from datalist
+  const handleCustomerNameChange = (name: string) => {
+    setCustomerName(name);
+    // Find matching customer to get their GSTIN
+    const matchedCustomer = customers.find(
+      c => c.name.toLowerCase() === name.toLowerCase()
+    );
+    if (matchedCustomer) {
+      setCustomerId(matchedCustomer.id);
+      setCustomerGstin(matchedCustomer.gstin || null);
+    } else {
+      setCustomerId("");
+      setCustomerGstin(null);
+    }
   };
 
   // Execute voice commands
@@ -276,23 +328,38 @@ export default function NewInvoicePage() {
 
   const calculateTotals = () => {
     let subtotal = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
+    let totalGst = 0;
 
     items.forEach((item) => {
       const amount = item.quantity * item.rate;
       subtotal += amount;
-      const gst = (amount * item.gst_rate) / 100;
-      totalCgst += gst / 2;
-      totalSgst += gst / 2;
+      totalGst += (amount * item.gst_rate) / 100;
     });
 
-    return {
-      subtotal,
-      cgst: totalCgst,
-      sgst: totalSgst,
-      total: subtotal + totalCgst + totalSgst,
-    };
+    // Determine if intra-state (CGST+SGST) or inter-state (IGST)
+    const intraState = isIntraState(businessInfo?.gstin, customerGstin);
+
+    if (intraState) {
+      // Same state: split GST into CGST and SGST
+      return {
+        subtotal,
+        cgst: totalGst / 2,
+        sgst: totalGst / 2,
+        igst: 0,
+        total: subtotal + totalGst,
+        isIntraState: true,
+      };
+    } else {
+      // Different states: use IGST
+      return {
+        subtotal,
+        cgst: 0,
+        sgst: 0,
+        igst: totalGst,
+        total: subtotal + totalGst,
+        isIntraState: false,
+      };
+    }
   };
 
   const handleSubmit = async () => {
@@ -439,7 +506,7 @@ export default function NewInvoicePage() {
           subtotal: totals.subtotal,
           cgst: totals.cgst,
           sgst: totals.sgst,
-          igst: 0,
+          igst: totals.igst,
           total: totals.total,
           status: "draft",
           notes,
@@ -449,20 +516,23 @@ export default function NewInvoicePage() {
 
       if (invoiceError) throw invoiceError;
 
-      // Create invoice items
-      const invoiceItems = items.map((item) => ({
-        invoice_id: invoice.id,
-        description: item.description,
-        hsn_code: item.hsn_code,
-        quantity: item.quantity,
-        unit: item.unit,
-        rate: item.rate,
-        gst_rate: item.gst_rate,
-        cgst: (item.quantity * item.rate * item.gst_rate) / 100 / 2,
-        sgst: (item.quantity * item.rate * item.gst_rate) / 100 / 2,
-        igst: 0,
-        amount: item.quantity * item.rate * (1 + item.gst_rate / 100),
-      }));
+      // Create invoice items with correct tax type
+      const invoiceItems = items.map((item) => {
+        const itemGst = (item.quantity * item.rate * item.gst_rate) / 100;
+        return {
+          invoice_id: invoice.id,
+          description: item.description,
+          hsn_code: item.hsn_code,
+          quantity: item.quantity,
+          unit: item.unit,
+          rate: item.rate,
+          gst_rate: item.gst_rate,
+          cgst: totals.isIntraState ? itemGst / 2 : 0,
+          sgst: totals.isIntraState ? itemGst / 2 : 0,
+          igst: totals.isIntraState ? 0 : itemGst,
+          amount: item.quantity * item.rate * (1 + item.gst_rate / 100),
+        };
+      });
 
       const { error: itemsError } = await supabase.from("invoice_items").insert(invoiceItems);
       if (itemsError) throw itemsError;
@@ -603,7 +673,7 @@ export default function NewInvoicePage() {
                   type="text"
                   placeholder="Customer name"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
+                  onChange={(e) => handleCustomerNameChange(e.target.value)}
                   list="customers-list"
                   className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
                 />
@@ -731,14 +801,28 @@ export default function NewInvoicePage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="text-foreground">₹{totals.subtotal.toLocaleString("en-IN")}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">CGST</span>
-                <span className="text-foreground">₹{totals.cgst.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">SGST</span>
-                <span className="text-foreground">₹{totals.sgst.toLocaleString("en-IN")}</span>
-              </div>
+              {totals.isIntraState ? (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">CGST</span>
+                    <span className="text-foreground">₹{totals.cgst.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">SGST</span>
+                    <span className="text-foreground">₹{totals.sgst.toLocaleString("en-IN")}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">IGST</span>
+                  <span className="text-foreground">₹{totals.igst.toLocaleString("en-IN")}</span>
+                </div>
+              )}
+              {!totals.isIntraState && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Inter-state supply (different state codes)
+                </p>
+              )}
               <div className="border-t border-slate-200 dark:border-slate-800 pt-3 flex justify-between">
                 <span className="font-semibold text-foreground">Total</span>
                 <span className="font-bold text-lg text-foreground">

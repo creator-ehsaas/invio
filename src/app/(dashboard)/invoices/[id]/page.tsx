@@ -54,6 +54,7 @@ interface Business {
   gstin?: string;
   phone?: string;
   email?: string;
+  logo_url?: string;
   bank_name?: string;
   bank_account_number?: string;
   bank_ifsc?: string;
@@ -125,7 +126,7 @@ export default function InvoiceDetailPage() {
       // Fetch business details
       const { data: businessData } = await supabase
         .from("businesses")
-        .select("name, address, gstin, phone, email, bank_name, bank_account_number, bank_ifsc, upi_id, default_template")
+        .select("name, address, gstin, phone, email, logo_url, bank_name, bank_account_number, bank_ifsc, upi_id, default_template")
         .eq("id", inv.business_id)
         .single();
 
@@ -458,19 +459,22 @@ Status: ${invoice.status.toUpperCase()}`;
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>₹{invoice.subtotal.toLocaleString("en-IN")}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">CGST</span>
-                <span>₹{invoice.cgst.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">SGST</span>
-                <span>₹{invoice.sgst.toLocaleString("en-IN")}</span>
-              </div>
-              {invoice.igst > 0 && (
+              {invoice.igst > 0 ? (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">IGST</span>
                   <span>₹{invoice.igst.toLocaleString("en-IN")}</span>
                 </div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">CGST</span>
+                    <span>₹{invoice.cgst.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">SGST</span>
+                    <span>₹{invoice.sgst.toLocaleString("en-IN")}</span>
+                  </div>
+                </>
               )}
               <div className="border-t pt-3 flex justify-between">
                 <span className="font-semibold">Total</span>

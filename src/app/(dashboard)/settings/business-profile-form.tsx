@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LogoUpload } from "@/components/logo-upload";
 import { updateBusiness } from "./actions";
 import type { Business } from "@/types/database";
 import { INDIAN_STATES } from "@/types/database";
@@ -17,6 +18,7 @@ export function BusinessProfileForm({ business }: BusinessProfileFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(business.logo_url);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,6 +38,7 @@ export function BusinessProfileForm({ business }: BusinessProfileFormProps) {
       email: (formData.get("email") as string) || null,
       invoice_prefix: (formData.get("invoice_prefix") as string) || "INV",
       terms_conditions: (formData.get("terms_conditions") as string) || null,
+      logo_url: logoUrl,
     });
 
     setLoading(false);
@@ -50,6 +53,13 @@ export function BusinessProfileForm({ business }: BusinessProfileFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Logo Upload */}
+      <LogoUpload
+        currentLogoUrl={logoUrl}
+        businessId={business.id}
+        onUpload={setLogoUrl}
+      />
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="name">Business Name *</Label>

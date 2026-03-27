@@ -118,6 +118,26 @@ export type StateCode = typeof INDIAN_STATES[number]["code"];
 // Helper to get state names as a string array
 export const INDIAN_STATE_NAMES = INDIAN_STATES.map(s => s.name);
 
+// Helper to extract state code from GSTIN (first 2 digits)
+export function getStateFromGSTIN(gstin: string | null | undefined): string | null {
+  if (!gstin || gstin.length < 2) return null;
+  const stateCode = gstin.substring(0, 2);
+  // Validate it's a valid state code
+  const isValid = INDIAN_STATES.some(s => s.code === stateCode);
+  return isValid ? stateCode : null;
+}
+
+// Determine if transaction is intra-state (CGST+SGST) or inter-state (IGST)
+export function isIntraState(businessGstin: string | null | undefined, customerGstin: string | null | undefined): boolean {
+  const businessState = getStateFromGSTIN(businessGstin);
+  const customerState = getStateFromGSTIN(customerGstin);
+
+  // If either party doesn't have GSTIN, default to intra-state (CGST+SGST)
+  if (!businessState || !customerState) return true;
+
+  return businessState === customerState;
+}
+
 // Customer types
 export interface Customer {
   id: string;

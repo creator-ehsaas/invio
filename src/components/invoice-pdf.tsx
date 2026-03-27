@@ -7,6 +7,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
   pdf,
 } from "@react-pdf/renderer";
 
@@ -48,6 +49,7 @@ export interface InvoicePDFData {
     gstin?: string;
     phone?: string;
     email?: string;
+    logo_url?: string;
     bank_name?: string;
     bank_account_number?: string;
     bank_ifsc?: string;
@@ -109,7 +111,9 @@ const professionalStyles = StyleSheet.create({
   page: { padding: 0, fontFamily: "Roboto", fontSize: 10, color: "#333" },
   headerBand: { backgroundColor: "#1e3a5f", padding: 30, paddingBottom: 20 },
   headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  businessInfo: { color: "#fff" },
+  businessInfo: { color: "#fff", flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  businessLogo: { width: 50, height: 50, objectFit: "contain", marginRight: 12 },
+  businessText: {},
   businessName: { fontSize: 22, fontWeight: 700, marginBottom: 8 },
   businessDetail: { fontSize: 9, color: "#ccc", marginBottom: 2 },
   invoiceInfo: { alignItems: "flex-end" },
@@ -155,7 +159,8 @@ const gstFormalStyles = StyleSheet.create({
   header: { textAlign: "center", marginBottom: 15, borderBottomWidth: 2, borderBottomColor: "#000", paddingBottom: 10 },
   title: { fontSize: 16, fontWeight: 700 },
   subtitle: { fontSize: 10, marginTop: 2 },
-  businessSection: { marginBottom: 15, padding: 10, borderWidth: 1, borderColor: "#000" },
+  businessSection: { marginBottom: 15, padding: 10, borderWidth: 1, borderColor: "#000", alignItems: "center" },
+  businessLogo: { width: 60, height: 60, objectFit: "contain", marginBottom: 8 },
   businessName: { fontSize: 14, fontWeight: 700, textAlign: "center", marginBottom: 5 },
   businessDetail: { fontSize: 9, textAlign: "center", marginBottom: 2 },
   gstin: { fontSize: 10, fontWeight: 700, textAlign: "center", marginTop: 5 },
@@ -205,7 +210,9 @@ const exportStyles = StyleSheet.create({
   page: { padding: 40, fontFamily: "Roboto", fontSize: 10, color: "#1a1a1a" },
   watermark: { position: "absolute", top: 300, left: 100, fontSize: 60, color: "#f0f0f0", transform: "rotate(-30deg)" },
   header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 30 },
-  businessSection: {},
+  businessSection: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  businessLogo: { width: 50, height: 50, objectFit: "contain", marginRight: 12 },
+  businessText: {},
   businessName: { fontSize: 20, fontWeight: 700, marginBottom: 5 },
   businessDetail: { fontSize: 9, color: "#666", marginBottom: 2 },
   invoiceSection: { alignItems: "flex-end" },
@@ -265,9 +272,14 @@ const MinimalTemplate = ({ data }: { data: InvoicePDFData }) => (
   <Document>
     <Page size="A4" style={minimalStyles.page}>
       <View style={minimalStyles.header}>
-        <View>
-          <Text style={minimalStyles.title}>INVOICE</Text>
-          <Text style={minimalStyles.invoiceNumber}>{data.invoice.invoice_number}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          {data.business?.logo_url && (
+            <Image src={data.business.logo_url} style={{ width: 45, height: 45, objectFit: "contain" }} />
+          )}
+          <View>
+            <Text style={minimalStyles.title}>INVOICE</Text>
+            <Text style={minimalStyles.invoiceNumber}>{data.invoice.invoice_number}</Text>
+          </View>
         </View>
         <View style={{ alignItems: "flex-end" }}>
           <Text style={[minimalStyles.status, { backgroundColor: data.invoice.status === "paid" ? "#d1fae5" : "#f1f5f9", color: data.invoice.status === "paid" ? "#059669" : "#64748b" }]}>
@@ -364,10 +376,15 @@ const ProfessionalTemplate = ({ data }: { data: InvoicePDFData }) => (
       <View style={professionalStyles.headerBand}>
         <View style={professionalStyles.headerContent}>
           <View style={professionalStyles.businessInfo}>
-            <Text style={professionalStyles.businessName}>{data.business?.name || "Your Business"}</Text>
-            {data.business?.address && <Text style={professionalStyles.businessDetail}>{data.business.address}</Text>}
-            {data.business?.gstin && <Text style={professionalStyles.businessDetail}>GSTIN: {data.business.gstin}</Text>}
-            {data.business?.phone && <Text style={professionalStyles.businessDetail}>{data.business.phone}</Text>}
+            {data.business?.logo_url && (
+              <Image src={data.business.logo_url} style={professionalStyles.businessLogo} />
+            )}
+            <View style={professionalStyles.businessText}>
+              <Text style={professionalStyles.businessName}>{data.business?.name || "Your Business"}</Text>
+              {data.business?.address && <Text style={professionalStyles.businessDetail}>{data.business.address}</Text>}
+              {data.business?.gstin && <Text style={professionalStyles.businessDetail}>GSTIN: {data.business.gstin}</Text>}
+              {data.business?.phone && <Text style={professionalStyles.businessDetail}>{data.business.phone}</Text>}
+            </View>
           </View>
           <View style={professionalStyles.invoiceInfo}>
             <Text style={professionalStyles.invoiceTitle}>INVOICE</Text>
@@ -498,6 +515,9 @@ const GSTFormalTemplate = ({ data }: { data: InvoicePDFData }) => (
       </View>
 
       <View style={gstFormalStyles.businessSection}>
+        {data.business?.logo_url && (
+          <Image src={data.business.logo_url} style={gstFormalStyles.businessLogo} />
+        )}
         <Text style={gstFormalStyles.businessName}>{data.business?.name || "Your Business Name"}</Text>
         {data.business?.address && <Text style={gstFormalStyles.businessDetail}>{data.business.address}</Text>}
         {data.business?.phone && <Text style={gstFormalStyles.businessDetail}>Phone: {data.business.phone}</Text>}
@@ -629,10 +649,15 @@ const ExportTemplate = ({ data }: { data: InvoicePDFData }) => (
 
       <View style={exportStyles.header}>
         <View style={exportStyles.businessSection}>
-          <Text style={exportStyles.businessName}>{data.business?.name || "Your Business"}</Text>
-          {data.business?.address && <Text style={exportStyles.businessDetail}>{data.business.address}</Text>}
-          {data.business?.gstin && <Text style={exportStyles.businessDetail}>GSTIN: {data.business.gstin}</Text>}
-          {data.business?.email && <Text style={exportStyles.businessDetail}>{data.business.email}</Text>}
+          {data.business?.logo_url && (
+            <Image src={data.business.logo_url} style={exportStyles.businessLogo} />
+          )}
+          <View style={exportStyles.businessText}>
+            <Text style={exportStyles.businessName}>{data.business?.name || "Your Business"}</Text>
+            {data.business?.address && <Text style={exportStyles.businessDetail}>{data.business.address}</Text>}
+            {data.business?.gstin && <Text style={exportStyles.businessDetail}>GSTIN: {data.business.gstin}</Text>}
+            {data.business?.email && <Text style={exportStyles.businessDetail}>{data.business.email}</Text>}
+          </View>
         </View>
         <View style={exportStyles.invoiceSection}>
           <Text style={exportStyles.invoiceTitle}>EXPORT INVOICE</Text>
