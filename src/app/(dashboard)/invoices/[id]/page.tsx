@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -10,14 +10,20 @@ import {
   Send,
   CheckCircle,
   Trash2,
-  Edit,
   Loader2,
   FileText,
   MessageCircle,
+  ChevronDown,
+  Package,
+  User,
+  X,
+  AlertCircle,
 } from "lucide-react";
+import { downloadInvoicePDF, type InvoicePDFData } from "@/components/invoice-pdf";
 
 interface Invoice {
   id: string;
+  business_id: string;
   invoice_number: string;
   invoice_date: string;
   due_date: string;
@@ -42,17 +48,59 @@ interface InvoiceItem {
   amount: number;
 }
 
+interface Business {
+  name: string;
+  address?: string;
+  gstin?: string;
+  phone?: string;
+  email?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  upi_id?: string;
+  default_template: "minimal" | "professional" | "gst_formal" | "export";
+}
+
+type TemplateType = "minimal" | "professional" | "gst_formal" | "export";
+
+const TEMPLATE_OPTIONS: { value: TemplateType; label: string }[] = [
+  { value: "minimal", label: "Minimal" },
+  { value: "professional", label: "Professional" },
+  { value: "gst_formal", label: "GST Formal" },
+  { value: "export", label: "Export" },
+];
+
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>("minimal");
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [showNotification, setShowNotification] = useState(true);
+
+  // Get auto-created items/customer from URL params
+  const newItems = searchParams.get("newItems")?.split(",").filter(Boolean) || [];
+  const newCustomer = searchParams.get("newCustomer");
+  const hasNotifications = (newItems.length > 0 || newCustomer) && showNotification;
 
   useEffect(() => {
     fetchInvoice();
   }, [params.id]);
+
+  // Close template menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowTemplateMenu(false);
+    if (showTemplateMenu) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showTemplateMenu]);
 
   const fetchInvoice = async () => {
     const supabase = createClient();
@@ -66,12 +114,25 @@ export default function InvoiceDetailPage() {
     if (inv) {
       setInvoice(inv);
 
+      // Fetch items
       const { data: invItems } = await supabase
         .from("invoice_items")
         .select("*")
         .eq("invoice_id", params.id);
 
       if (invItems) setItems(invItems);
+
+      // Fetch business details
+      const { data: businessData } = await supabase
+        .from("businesses")
+        .select("name, address, gstin, phone, email, bank_name, bank_account_number, bank_ifsc, upi_id, default_template")
+        .eq("id", inv.business_id)
+        .single();
+
+      if (businessData) {
+        setBusiness(businessData);
+        setSelectedTemplate(businessData.default_template || "minimal");
+      }
     }
 
     setLoading(false);
@@ -97,6 +158,82 @@ export default function InvoiceDetailPage() {
     const supabase = createClient();
     await supabase.from("invoices").delete().eq("id", invoice.id);
     router.push("/invoices");
+  };
+
+  const downloadPDF = async (template: TemplateType) => {
+    if (!invoice) return;
+    setDownloading(true);
+    setShowTemplateMenu(false);
+
+    try {
+      const pdfData: InvoicePDFData = {
+        invoice: {
+          invoice_number: invoice.invoice_number,
+          invoice_date: invoice.invoice_date,
+          due_date: invoice.due_date,
+          status: invoice.status,
+          customer_name: invoice.customer_name,
+          subtotal: invoice.subtotal,
+          cgst: invoice.cgst,
+          sgst: invoice.sgst,
+          igst: invoice.igst,
+          total: invoice.total,
+          notes: invoice.notes,
+        },
+        items: items.map(item => ({
+          description: item.description,
+          hsn_code: item.hsn_code,
+          quantity: item.quantity,
+          unit: item.unit,
+          rate: item.rate,
+          gst_rate: item.gst_rate,
+          amount: item.amount,
+        })),
+        business: business ? {
+          name: business.name,
+          address: business.address,
+          gstin: business.gstin,
+          phone: business.phone,
+          email: business.email,
+          bank_name: business.bank_name,
+          bank_account_number: business.bank_account_number,
+          bank_ifsc: business.bank_ifsc,
+          upi_id: business.upi_id,
+        } : undefined,
+        template,
+      };
+
+      await downloadInvoicePDF(pdfData);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const shareWhatsApp = () => {
+    if (!invoice) return;
+
+    const itemsList = items.map(item =>
+      `• ${item.description}: ${item.quantity} ${item.unit} × ₹${item.rate} = ₹${item.amount}`
+    ).join("\n");
+
+    const message = `*Invoice ${invoice.invoice_number}*
+Customer: ${invoice.customer_name}
+Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}
+
+*Items:*
+${itemsList}
+
+Subtotal: ₹${invoice.subtotal.toLocaleString("en-IN")}
+GST: ₹${(invoice.cgst + invoice.sgst + invoice.igst).toLocaleString("en-IN")}
+*Total: ₹${invoice.total.toLocaleString("en-IN")}*
+
+Status: ${invoice.status.toUpperCase()}`;
+
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
   };
 
   const getStatusStyle = (status: string) => {
@@ -136,6 +273,51 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Auto-created notification */}
+      {hasNotifications && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-medium text-amber-800 dark:text-amber-200">
+                New records auto-created
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                The following were automatically added. Please complete their details:
+              </p>
+              <div className="mt-3 space-y-2">
+                {newCustomer && (
+                  <Link
+                    href="/customers"
+                    className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200 hover:underline"
+                  >
+                    <User className="w-4 h-4" />
+                    <span>New customer: <strong>{newCustomer}</strong></span>
+                    <span className="text-xs text-amber-600">(click to edit)</span>
+                  </Link>
+                )}
+                {newItems.length > 0 && (
+                  <Link
+                    href="/inventory"
+                    className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200 hover:underline"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>New inventory items: <strong>{newItems.join(", ")}</strong></span>
+                    <span className="text-xs text-amber-600">(click to edit)</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setShowNotification(false)}
+              className="text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -158,11 +340,47 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-muted transition-colors">
-            <Download className="w-5 h-5" />
-          </button>
-          <button className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-muted transition-colors">
-            <Send className="w-5 h-5" />
+          {/* Download PDF with template selector */}
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowTemplateMenu(!showTemplateMenu); }}
+              disabled={downloading}
+              title="Download PDF"
+              className="flex items-center gap-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {downloading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Download className="w-5 h-5" />
+              )}
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showTemplateMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg z-10 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-xs font-medium text-muted-foreground">Select Template</p>
+                </div>
+                {TEMPLATE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={(e) => { e.stopPropagation(); downloadPDF(opt.value); }}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors flex items-center justify-between"
+                  >
+                    {opt.label}
+                    {opt.value === selectedTemplate && (
+                      <span className="text-xs text-primary">Default</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={shareWhatsApp}
+            title="Share on WhatsApp"
+            className="p-2.5 rounded-xl border border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors"
+          >
+            <MessageCircle className="w-5 h-5" />
           </button>
           <button
             onClick={deleteInvoice}

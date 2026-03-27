@@ -1,20 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { groq } from "@/lib/groq";
 import { Invoice } from "@/types/invoice";
+import { createClient } from "@/lib/supabase/server";
 
-const getExtractionPrompt = (outputLang: string) => {
+interface LearnedExample {
+  original_transcript: string;
+  user_corrected: any;
+}
+
+const getExtractionPrompt = (outputLang: string, learnedExamples: LearnedExample[] = []) => {
   const langInstructions: Record<string, string> = {
     en: "Output all item names, units, and buyer names in ENGLISH.",
     hi: "Output all item names, units, and buyer names in HINDI (Devanagari script).",
     mr: "Output all item names, units, and buyer names in MARATHI (Devanagari script).",
   };
 
+  // Build learned examples section if we have corrections from this business
+  let learnedSection = "";
+  if (learnedExamples.length > 0) {
+    learnedSection = `
+LEARNED FROM THIS BUSINESS (use these as reference for how this user prefers data):
+${learnedExamples.map((ex, i) => `
+Example ${i + 1}:
+Input: "${ex.original_transcript}"
+Correct output: ${JSON.stringify(ex.user_corrected, null, 2)}
+`).join("\n")}
+---
+`;
+  }
+
   return `You are an expert invoice field extractor for an Indian billing app.
 Extract structured invoice data from the following voice transcript.
 The transcript may be in Hindi, Marathi, English, or a mix (code-switching is common).
 
 OUTPUT LANGUAGE: ${langInstructions[outputLang] || langInstructions.en}
-
+${learnedSection}
 CRITICAL RULES:
 1. Listen carefully to EXACT numbers mentioned. Do NOT round or change them.
 2. "sau" = 100, "hazaar/hazar" = 1000, "lakh" = 100000
@@ -63,7 +83,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = getExtractionPrompt(outputLanguage).replace("{transcript}", transcript);
+    // Fetch learned examples from user's past corrections
+    let learnedExamples: LearnedExample[] = [];
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("business_id")
+          .eq("id", user.id)
+          .single();
+
+        if (userData?.business_id) {
+          const { data: feedback } = await supabase
+            .from("ai_feedback")
+            .select("original_transcript, user_corrected")
+            .eq("business_id", userData.business_id)
+            .order("created_at", { ascending: false })
+            .limit(3);
+
+          if (feedback) {
+            learnedExamples = feedback;
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore errors fetching feedback - table might not exist yet
+    }
+
+    const prompt = getExtractionPrompt(outputLanguage, learnedExamples).replace("{transcript}", transcript);
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",

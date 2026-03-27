@@ -14,6 +14,9 @@ import {
   Sparkles,
   Check,
   X,
+  AlertCircle,
+  Package,
+  User,
 } from "lucide-react";
 
 interface InvoiceItem {
@@ -50,6 +53,14 @@ export default function NewInvoicePage() {
   ]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [autoCreated, setAutoCreated] = useState<{
+    items: string[];
+    customer: string | null;
+  }>({ items: [], customer: null });
+
+  // Track AI parsing for learning
+  const [lastTranscript, setLastTranscript] = useState("");
+  const [aiParsedData, setAiParsedData] = useState<any>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -210,6 +221,10 @@ export default function NewInvoicePage() {
       }
       const { invoice: parsed } = await parseRes.json();
 
+      // Save for learning feedback
+      setLastTranscript(text);
+      setAiParsedData(parsed);
+
       // Update form with parsed data
       if (parsed.buyer_name) setCustomerName(parsed.buyer_name);
       if (parsed.items && parsed.items.length > 0) {
@@ -283,6 +298,7 @@ export default function NewInvoicePage() {
   const handleSubmit = async () => {
     setSaving(true);
     setError(null);
+    const created: { items: string[]; customer: string | null } = { items: [], customer: null };
 
     try {
       const supabase = createClient();
@@ -297,13 +313,82 @@ export default function NewInvoicePage() {
 
       if (!userData?.business_id) throw new Error("No business found");
 
+      const businessId = userData.business_id;
+      let finalCustomerId = customerId;
+
+      // Auto-create customer if name provided but no ID selected
+      if (customerName && !customerId) {
+        // Check if customer with similar name exists
+        const { data: existingCustomers } = await supabase
+          .from("customers")
+          .select("id, name")
+          .eq("business_id", businessId)
+          .ilike("name", `%${customerName}%`);
+
+        if (existingCustomers && existingCustomers.length > 0) {
+          // Use existing customer
+          finalCustomerId = existingCustomers[0].id;
+        } else {
+          // Create new customer
+          const { data: newCustomer, error: customerError } = await supabase
+            .from("customers")
+            .insert({
+              business_id: businessId,
+              name: customerName,
+            })
+            .select()
+            .single();
+
+          if (!customerError && newCustomer) {
+            finalCustomerId = newCustomer.id;
+            created.customer = customerName;
+          }
+        }
+      }
+
+      // Auto-create inventory items that don't exist
+      const { data: existingItems } = await supabase
+        .from("inventory_items")
+        .select("id, name")
+        .eq("business_id", businessId);
+
+      const existingNames = new Set(
+        (existingItems || []).map(i => i.name.toLowerCase())
+      );
+
+      for (const item of items) {
+        if (!item.description) continue;
+
+        const itemNameLower = item.description.toLowerCase();
+        if (!existingNames.has(itemNameLower)) {
+          // Create new inventory item
+          const { error: invItemError } = await supabase
+            .from("inventory_items")
+            .insert({
+              business_id: businessId,
+              name: item.description,
+              unit: item.unit,
+              unit_price: item.rate,
+              current_stock: 0, // Will need manual update
+              reorder_level: 10,
+              gst_rate: item.gst_rate,
+              hsn_code: item.hsn_code || null,
+            });
+
+          if (!invItemError) {
+            created.items.push(item.description);
+            existingNames.add(itemNameLower); // Prevent duplicates
+          }
+        }
+      }
+
       const totals = calculateTotals();
 
       // Generate invoice number
       const { count } = await supabase
         .from("invoices")
         .select("*", { count: "exact", head: true })
-        .eq("business_id", userData.business_id);
+        .eq("business_id", businessId);
 
       const invoiceNumber = `INV-${String((count || 0) + 1).padStart(4, "0")}`;
 
@@ -311,8 +396,8 @@ export default function NewInvoicePage() {
       const { data: invoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
-          business_id: userData.business_id,
-          customer_id: customerId || null,
+          business_id: businessId,
+          customer_id: finalCustomerId || null,
           customer_name: customerName,
           invoice_number: invoiceNumber,
           invoice_date: invoiceDate,
@@ -348,7 +433,49 @@ export default function NewInvoicePage() {
       const { error: itemsError } = await supabase.from("invoice_items").insert(invoiceItems);
       if (itemsError) throw itemsError;
 
-      router.push(`/invoices/${invoice.id}`);
+      // Send AI learning feedback if user made corrections
+      if (lastTranscript && aiParsedData) {
+        const userCorrected = {
+          buyer_name: customerName,
+          items: items.map(item => ({
+            name: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.rate,
+            gst_percent: item.gst_rate,
+            amount: item.quantity * item.rate,
+          })),
+        };
+
+        // Check if there were any changes (simple comparison)
+        const hasChanges =
+          aiParsedData.buyer_name !== customerName ||
+          JSON.stringify(aiParsedData.items) !== JSON.stringify(userCorrected.items);
+
+        if (hasChanges) {
+          // Send feedback for learning (don't await - fire and forget)
+          fetch("/api/feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              originalTranscript: lastTranscript,
+              aiParsed: aiParsedData,
+              userCorrected,
+            }),
+          }).catch(() => {}); // Ignore errors
+        }
+      }
+
+      // Set auto-created info for notification
+      setAutoCreated(created);
+
+      // Navigate with notification params
+      const params = new URLSearchParams();
+      if (created.items.length > 0) params.set("newItems", created.items.join(","));
+      if (created.customer) params.set("newCustomer", created.customer);
+
+      const queryString = params.toString();
+      router.push(`/invoices/${invoice.id}${queryString ? `?${queryString}` : ""}`);
     } catch (err: any) {
       setError(err.message || "Failed to create invoice");
     } finally {
