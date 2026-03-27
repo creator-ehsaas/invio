@@ -114,3 +114,99 @@ export const INDIAN_STATES = [
 ] as const;
 
 export type StateCode = typeof INDIAN_STATES[number]["code"];
+
+// Helper to get state names as a string array
+export const INDIAN_STATE_NAMES = INDIAN_STATES.map(s => s.name);
+
+// Customer types
+export interface Customer {
+  id: string;
+  business_id: string;
+  name: string;
+  business_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  gstin?: string | null;
+  billing_address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  } | null;
+  shipping_address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Inventory types
+export interface InventoryItem {
+  id: string;
+  business_id: string;
+  name: string;
+  sku?: string | null;
+  description?: string | null;
+  hsn_code?: string | null;
+  unit: string;
+  unit_price: number;
+  current_stock: number;
+  reorder_level: number;
+  gst_rate: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Invoice types
+export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
+
+export interface Invoice {
+  id: string;
+  business_id: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  invoice_number: string;
+  invoice_date: string;
+  due_date?: string | null;
+  status: InvoiceStatus;
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  total: number;
+  notes?: string | null;
+  terms?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice_id: string;
+  inventory_item_id?: string | null;
+  description: string;
+  hsn_code?: string | null;
+  quantity: number;
+  unit: string;
+  rate: number;
+  gst_rate: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  amount: number;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  invoice_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  reference_number?: string | null;
+  notes?: string | null;
+  created_at: string;
+}

@@ -3,11 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { ArrowRight, ChevronLeft, CheckCircle, Sparkles } from "lucide-react";
 
 export function SignupForm() {
   const [step, setStep] = useState<"account" | "business">("account");
@@ -94,123 +91,174 @@ export function SignupForm() {
 
   if (step === "account") {
     return (
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create your account</CardTitle>
-          <CardDescription>Step 1 of 2: Account details</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAccountSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Your name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
+      <div className="space-y-6">
+        <header className="text-center md:text-left">
+          {/* Progress indicator */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-1 flex-1 bg-primary rounded-full"></div>
+            <div className="h-1 flex-1 bg-muted rounded-full"></div>
+          </div>
+          <h2 className="text-2xl font-semibold text-foreground mb-2">Create your account</h2>
+          <p className="text-muted-foreground text-sm">Step 1 of 2: Personal details</p>
+        </header>
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+        <form onSubmit={handleAccountSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground" htmlFor="full-name">
+              Full Name
+            </label>
+            <input
+              className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+              id="full-name"
+              type="text"
+              placeholder="John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
 
-            <Button type="submit" className="w-full">
-              Continue
-            </Button>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground" htmlFor="signup-email">
+              Email Address
+            </label>
+            <input
+              className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+              id="signup-email"
+              type="email"
+              placeholder="john@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link href="/login" className="text-primary hover:underline">
-                Sign in
-              </Link>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground" htmlFor="signup-password">
+              Create Password
+            </label>
+            <input
+              className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+              id="signup-password"
+              type="password"
+              placeholder="Min. 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <button
+            className="w-full bg-gradient-to-br from-primary to-blue-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all"
+            type="submit"
+          >
+            <span>Next Step</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </form>
+
+        <footer className="text-center pt-4">
+          <Link
+            href="/login"
+            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            Already have an account? <span className="font-bold">Log In</span>
+          </Link>
+        </footer>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Set up your business</CardTitle>
-        <CardDescription>Step 2 of 2: Business details</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleBusinessSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="businessName">Business name</Label>
-            <Input
-              id="businessName"
-              type="text"
-              placeholder="ABC Traders"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="gstin">GSTIN (optional)</Label>
-            <Input
-              id="gstin"
-              type="text"
-              placeholder="22AAAAA0000A1Z5"
-              value={gstin}
-              onChange={(e) => setGstin(e.target.value.toUpperCase())}
-              maxLength={15}
-              disabled={loading}
-            />
-            <p className="text-xs text-muted-foreground">
-              You can add this later in settings
-            </p>
-          </div>
+    <div className="space-y-6">
+      <header className="text-center md:text-left">
+        {/* Progress indicator - both filled */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-1 flex-1 bg-primary rounded-full"></div>
+          <div className="h-1 flex-1 bg-primary rounded-full"></div>
+        </div>
+        <h2 className="text-2xl font-semibold text-foreground mb-2">Business Information</h2>
+        <p className="text-muted-foreground text-sm">Step 2 of 2: Let&apos;s set up your workspace.</p>
+      </header>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+      <form onSubmit={handleBusinessSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-foreground" htmlFor="business-name">
+            Legal Business Name
+          </label>
+          <input
+            className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none disabled:opacity-50"
+            id="business-name"
+            type="text"
+            placeholder="Acme Corp LLC"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            required
+            disabled={loading}
+          />
+        </div>
 
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setStep("account")}
-              disabled={loading}
-            >
-              Back
-            </Button>
-            <Button type="submit" className="flex-1" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
-            </Button>
+        <div className="space-y-1.5">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium text-foreground" htmlFor="gstin">
+              GSTIN / Tax ID
+            </label>
+            <span className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest pt-1">
+              Optional
+            </span>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+          <input
+            className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none disabled:opacity-50"
+            id="gstin"
+            type="text"
+            placeholder="22AAAAA0000A1Z5"
+            value={gstin}
+            onChange={(e) => setGstin(e.target.value.toUpperCase())}
+            maxLength={15}
+            disabled={loading}
+          />
+        </div>
+
+        {/* AI Feature hint */}
+        <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-xl border border-orange-200/50 dark:border-orange-800/30 flex gap-3">
+          <Sparkles className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-orange-800 dark:text-orange-200 leading-relaxed">
+            Our AI will automatically categorize your transactions and suggest HSN codes based on
+            your business sector.
+          </p>
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="pt-2">
+          <button
+            className="w-full bg-gradient-to-br from-primary to-blue-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+            type="submit"
+            disabled={loading}
+          >
+            <span>{loading ? "Creating account..." : "Complete Setup"}</span>
+            {!loading && <CheckCircle className="w-4 h-4" />}
+          </button>
+        </div>
+      </form>
+
+      <footer className="flex items-center justify-between pt-4">
+        <button
+          type="button"
+          onClick={() => setStep("account")}
+          disabled={loading}
+          className="text-sm font-medium text-muted-foreground flex items-center gap-1 hover:text-foreground disabled:opacity-50"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back
+        </button>
+        <p className="text-[10px] text-muted-foreground text-right max-w-[180px]">
+          By joining, you agree to our Terms of Service and Privacy Policy.
+        </p>
+      </footer>
+    </div>
   );
 }

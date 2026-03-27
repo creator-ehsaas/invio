@@ -23,6 +23,12 @@ CRITICAL RULES:
 5. Parse Hindi numbers: ek=1, do=2, teen=3, char=4, paanch=5, chhe=6, saat=7, aath=8, nau=9, das=10
 6. "rupaye/rupay/rs" indicates price, "percent/pratishat" indicates GST
 
+PRICE INTERPRETATION:
+- For grocery items (wheat, flour, dal, rice, sugar, oil, vegetables), treat the mentioned price as TOTAL for that quantity
+- Example: "4 kg wheat Rs 200" → amount=200, rate=200/4=50
+- Example: "1 kg Toor Dal Rs 300" → amount=300, rate=300/1=300
+- If user says "per kg" or "rate" explicitly, then treat as per-unit rate
+
 Return ONLY a valid JSON object with these fields:
 - buyer_name (string or null)
 - items (array of objects with: name, quantity, unit, rate, gst_percent, amount)
@@ -31,8 +37,9 @@ Return ONLY a valid JSON object with these fields:
 - total (number or null)
 - notes (string or null)
 
-For each item:
-- amount = quantity * rate
+For each item, ALWAYS calculate:
+- amount = the total price mentioned by user for that item
+- rate = amount / quantity (per-unit rate)
 
 Calculate totals:
 - subtotal = sum of all item amounts
