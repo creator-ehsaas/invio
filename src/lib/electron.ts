@@ -1,0 +1,24 @@
+/**
+ * Electron bridge utilities.
+ * Safe to call in both browser and Electron contexts.
+ */
+
+export const isElectron = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return !!(window as any).electron?.isElectron;
+};
+
+export const openExternal = (url: string): void => {
+  if (isElectron()) {
+    (window as any).electron.openExternal(url);
+  } else {
+    window.open(url, "_blank");
+  }
+};
+
+export const getAppVersion = async (): Promise<string> => {
+  if (isElectron()) {
+    return (window as any).electron.getVersion();
+  }
+  return "web";
+};

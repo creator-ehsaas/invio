@@ -4,13 +4,50 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Mic, MicOff, Sparkles } from "lucide-react";
 import { INDIAN_STATES, INDIAN_STATE_NAMES } from "@/types/database";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 export default function NewCustomerPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isParsingVoice, setIsParsingVoice] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+
+  const { isRecording, isTranscribing, toggleRecording } = useVoiceInput({
+    onTranscript: async (text) => {
+      if (!text.trim()) return;
+      setVoiceHint(`Heard: "${text}"`);
+      setIsParsingVoice(true);
+      try {
+        const res = await fetch("/api/parse-customer-voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text }),
+        });
+        if (res.ok) {
+          const { data } = await res.json();
+          if (data?.name) setName(data.name);
+          if (data?.business_name) setBusinessName(data.business_name);
+          if (data?.phone) setPhone(data.phone);
+          if (data?.email) setEmail(data.email);
+          if (data?.gstin) setGstin(data.gstin);
+          if (data?.street || data?.city || data?.state || data?.pincode) {
+            setBillingAddress(prev => ({
+              street: data.street || prev.street,
+              city: data.city || prev.city,
+              state: data.state || prev.state,
+              pincode: data.pincode || prev.pincode,
+            }));
+          }
+          setVoiceHint(null);
+        }
+      } catch { setVoiceHint(null); }
+      finally { setIsParsingVoice(false); }
+    },
+    onError: (err) => setError(err),
+  });
 
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -74,17 +111,31 @@ export default function NewCustomerPage() {
     <div className="space-y-6 max-w-2xl">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link
-          href="/customers"
-          className="p-2 rounded-xl hover:bg-muted transition-colors"
-        >
+        <Link href="/customers" className="p-2 rounded-xl hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Add Customer</h1>
           <p className="text-muted-foreground mt-1">Create a new customer record</p>
         </div>
+        <button
+          onClick={toggleRecording}
+          disabled={isTranscribing || isParsingVoice}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            isRecording ? "bg-red-500 text-white animate-pulse" : "bg-primary/10 text-primary hover:bg-primary/20"
+          }`}
+        >
+          {isRecording ? <MicOff className="w-4 h-4" /> : isTranscribing || isParsingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+          {isRecording ? "Stop" : isTranscribing ? "Transcribing..." : isParsingVoice ? "Filling..." : "Voice"}
+        </button>
       </div>
+
+      {(isRecording || voiceHint) && (
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${isRecording ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 text-red-600" : "bg-primary/5 border border-primary/20 text-primary"}`}>
+          {isRecording ? <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /> : <Sparkles className="w-4 h-4 shrink-0" />}
+          {isRecording ? "Listening... Say customer name, phone, GSTIN and address" : voiceHint}
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">

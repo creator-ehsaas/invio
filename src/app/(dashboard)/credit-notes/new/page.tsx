@@ -11,7 +11,11 @@ import {
   Loader2,
   Search,
   FileText,
+  Mic,
+  MicOff,
+  Sparkles,
 } from "lucide-react";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 interface InvoiceOption {
   id: string;
@@ -47,6 +51,42 @@ export default function NewCreditNotePage() {
   const [saving, setSaving] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [isIntraState, setIsIntraState] = useState(true);
+  const [isParsingVoice, setIsParsingVoice] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+
+  const { isRecording, isTranscribing, toggleRecording } = useVoiceInput({
+    onTranscript: async (text) => {
+      if (!text.trim()) return;
+      setVoiceHint(`Heard: "${text}"`);
+      setIsParsingVoice(true);
+      try {
+        const res = await fetch("/api/parse-note-voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text, noteType: "credit" }),
+        });
+        if (res.ok) {
+          const { data } = await res.json();
+          if (data?.customer_name) setCustomerName(data.customer_name);
+          if (data?.reason) setReason(data.reason);
+          if (data?.notes) setNotes(data.notes);
+          if (data?.items?.length) {
+            setItems(data.items.map((item: { description?: string; hsn_code?: string; quantity?: number; unit?: string; rate?: number; gst_rate?: number }) => ({
+              description: item.description || "",
+              hsn_code: item.hsn_code || "",
+              quantity: item.quantity || 1,
+              unit: item.unit || "nos",
+              rate: item.rate || 0,
+              gst_rate: item.gst_rate ?? 18,
+              amount: (item.quantity || 1) * (item.rate || 0),
+            })));
+          }
+          setVoiceHint(null);
+        }
+      } catch { setVoiceHint(null); }
+      finally { setIsParsingVoice(false); }
+    },
+  });
 
   const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceOption | null>(null);
@@ -271,11 +311,28 @@ export default function NewCreditNotePage() {
         <Link href="/credit-notes" className="p-2 hover:bg-muted rounded-xl transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">New Credit Note</h1>
           <p className="text-muted-foreground text-sm">Issue credit for returns or adjustments</p>
         </div>
+        <button
+          onClick={toggleRecording}
+          disabled={isTranscribing || isParsingVoice}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            isRecording ? "bg-red-500 text-white animate-pulse" : "bg-primary/10 text-primary hover:bg-primary/20"
+          }`}
+        >
+          {isRecording ? <MicOff className="w-4 h-4" /> : isTranscribing || isParsingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+          {isRecording ? "Stop" : isTranscribing ? "Transcribing..." : isParsingVoice ? "Parsing..." : "Voice"}
+        </button>
       </div>
+
+      {(isRecording || voiceHint) && (
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${isRecording ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 text-red-600" : "bg-primary/5 border border-primary/20 text-primary"}`}>
+          {isRecording ? <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /> : <Sparkles className="w-4 h-4 shrink-0" />}
+          {isRecording ? "Listening... Say customer name, reason and items to return" : voiceHint}
+        </div>
+      )}
 
       {/* Form */}
       <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm space-y-6">

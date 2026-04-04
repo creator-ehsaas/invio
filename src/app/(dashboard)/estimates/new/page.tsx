@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Plus, Trash2, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Mic, MicOff, Sparkles } from "lucide-react";
 import { isIntraState } from "@/types/database";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 interface EstimateItem {
   description: string;
@@ -33,6 +34,42 @@ export default function NewEstimatePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isParsingVoice, setIsParsingVoice] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+
+  const { isRecording, isTranscribing, toggleRecording } = useVoiceInput({
+    onTranscript: async (text) => {
+      if (!text.trim()) return;
+      setVoiceHint(`Heard: "${text}"`);
+      setIsParsingVoice(true);
+      try {
+        const res = await fetch("/api/parse-estimate-voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text }),
+        });
+        if (res.ok) {
+          const { data } = await res.json();
+          if (data?.customer_name) setCustomerName(data.customer_name);
+          if (data?.notes) setNotes(data.notes);
+          if (data?.terms) setTerms(data.terms);
+          if (data?.items?.length) {
+            setItems(data.items.map((item: any) => ({
+              description: item.description || "",
+              hsn_code: item.hsn_code || "",
+              quantity: item.quantity || 1,
+              unit: item.unit || "pcs",
+              rate: item.rate || 0,
+              gst_rate: item.gst_rate ?? 18,
+            })));
+          }
+          setVoiceHint(null);
+        }
+      } catch { setVoiceHint(null); }
+      finally { setIsParsingVoice(false); }
+    },
+    onError: (err) => setError(err),
+  });
 
   // Form state
   const [customerId, setCustomerId] = useState("");
@@ -208,11 +245,38 @@ export default function NewEstimatePage() {
         <Link href="/estimates" className="p-2 hover:bg-muted rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-foreground">New Estimate</h1>
           <p className="text-sm text-muted-foreground">Create a quotation / proposal</p>
         </div>
+        <button
+          onClick={toggleRecording}
+          disabled={isTranscribing || isParsingVoice}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            isRecording
+              ? "bg-red-500 text-white animate-pulse"
+              : "bg-primary/10 text-primary hover:bg-primary/20"
+          }`}
+          title="Dictate estimate by voice"
+        >
+          {isRecording ? <MicOff className="w-4 h-4" /> : isTranscribing || isParsingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+          {isRecording ? "Stop" : isTranscribing ? "Transcribing..." : isParsingVoice ? "Parsing..." : "Voice"}
+        </button>
       </div>
+
+      {/* Voice hint */}
+      {voiceHint && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl text-sm text-primary">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          {voiceHint}
+        </div>
+      )}
+      {isRecording && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-xl">
+          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <span className="text-sm text-red-600 font-medium">Listening... Say customer name and items with quantities and rates</span>
+        </div>
+      )}
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-3 text-sm">

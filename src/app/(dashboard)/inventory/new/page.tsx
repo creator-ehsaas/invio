@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Sparkles, Mic, MicOff } from "lucide-react";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 const UNITS = ["pcs", "kg", "g", "ltr", "ml", "m", "cm", "ft", "box", "pack", "dozen", "pair"];
 const GST_RATES = [0, 5, 12, 18, 28];
@@ -13,6 +14,8 @@ export default function NewInventoryPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isParsingVoice, setIsParsingVoice] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -23,6 +26,35 @@ export default function NewInventoryPage() {
   const [currentStock, setCurrentStock] = useState<number>(0);
   const [reorderLevel, setReorderLevel] = useState<number>(10);
   const [gstRate, setGstRate] = useState<number>(18);
+
+  const { isRecording, isTranscribing, toggleRecording } = useVoiceInput({
+    onTranscript: async (text) => {
+      if (!text.trim()) return;
+      setVoiceHint(`Heard: "${text}"`);
+      setIsParsingVoice(true);
+      try {
+        const res = await fetch("/api/parse-inventory-voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text }),
+        });
+        if (res.ok) {
+          const { data } = await res.json();
+          if (data?.name) setName(data.name);
+          if (data?.description) setDescription(data.description);
+          if (data?.hsn_code) setHsnCode(data.hsn_code);
+          if (data?.unit) setUnit(data.unit);
+          if (data?.unit_price) setUnitPrice(data.unit_price);
+          if (data?.current_stock !== undefined) setCurrentStock(data.current_stock);
+          if (data?.reorder_level !== undefined) setReorderLevel(data.reorder_level);
+          if (data?.gst_rate !== undefined) setGstRate(data.gst_rate);
+          setVoiceHint(null);
+        }
+      } catch { setVoiceHint(null); }
+      finally { setIsParsingVoice(false); }
+    },
+    onError: (err) => setError(err),
+  });
 
   const generateSku = () => {
     const prefix = name.slice(0, 3).toUpperCase() || "ITM";
@@ -81,11 +113,28 @@ export default function NewInventoryPage() {
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Add Item</h1>
           <p className="text-muted-foreground mt-1">Add a new inventory item</p>
         </div>
+        <button
+          onClick={toggleRecording}
+          disabled={isTranscribing || isParsingVoice}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            isRecording ? "bg-red-500 text-white animate-pulse" : "bg-primary/10 text-primary hover:bg-primary/20"
+          }`}
+        >
+          {isRecording ? <MicOff className="w-4 h-4" /> : isTranscribing || isParsingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+          {isRecording ? "Stop" : isTranscribing ? "Transcribing..." : isParsingVoice ? "Filling..." : "Voice"}
+        </button>
       </div>
+
+      {(isRecording || voiceHint) && (
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${isRecording ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 text-red-600" : "bg-primary/5 border border-primary/20 text-primary"}`}>
+          {isRecording ? <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /> : <Sparkles className="w-4 h-4 shrink-0" />}
+          {isRecording ? "Listening... Say item name, price, stock and GST rate" : voiceHint}
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
