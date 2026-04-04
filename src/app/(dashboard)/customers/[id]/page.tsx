@@ -17,6 +17,10 @@ import {
   FileText,
   Save,
   X,
+  TrendingUp,
+  TrendingDown,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 
 interface Customer {
@@ -34,6 +38,18 @@ interface Customer {
   };
 }
 
+interface LedgerEntry {
+  date: string;
+  type: "invoice" | "payment";
+  number: string;
+  description: string;
+  debit: number;    // Amount charged (invoice)
+  credit: number;   // Amount received (payment)
+  balance: number;
+  id: string;
+  link: string;
+}
+
 export default function CustomerDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -42,10 +58,110 @@ export default function CustomerDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Customer>>({});
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"details" | "ledger">("details");
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
 
   useEffect(() => {
     fetchCustomer();
   }, [params.id]);
+
+  const fetchLedger = async () => {
+    if (!params.id) return;
+    setLedgerLoading(true);
+    const supabase = createClient();
+
+    const [{ data: invoices }, { data: payments }] = await Promise.all([
+      supabase.from("invoices")
+        .select("id, invoice_number, invoice_date, total, status")
+        .eq("customer_id", params.id)
+        .order("invoice_date", { ascending: true }),
+      supabase.from("payments")
+        .select("id, amount, payment_date, payment_method, reference_number, invoice_id")
+        .in("invoice_id",
+          // We'll get all payment IDs from the customer invoices
+          invoices?.map(i => i.id) || []
+        )
+        .order("payment_date", { ascending: true }),
+    ]);
+
+    const entries: LedgerEntry[] = [];
+    let runningBalance = 0;
+
+    // Merge invoices and payments chronologically
+    type RawInvoice = { id: string; invoice_number: string; invoice_date: string; total: number; status: string };
+    type RawPayment = { id: string; amount: number; payment_date: string; payment_method: string; reference_number: string | null; invoice_id: string };
+
+    const allEvents: ({ type: "invoice" } & RawInvoice | { type: "payment" } & RawPayment)[] = [
+      ...(invoices || []).map(i => ({ type: "invoice" as const, ...i })),
+      ...(payments || []).map(p => ({ type: "payment" as const, ...p })),
+    ].sort((a, b) => {
+      const dateA = a.type === "invoice" ? a.invoice_date : a.payment_date;
+      const dateB = b.type === "invoice" ? b.invoice_date : b.payment_date;
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+
+    for (const event of allEvents) {
+      if (event.type === "invoice") {
+        runningBalance += event.total;
+        entries.push({
+          date: event.invoice_date,
+          type: "invoice",
+          number: event.invoice_number,
+          description: `Invoice ${event.invoice_number}`,
+          debit: event.total,
+          credit: 0,
+          balance: runningBalance,
+          id: event.id,
+          link: `/invoices/${event.id}`,
+        });
+      } else {
+        runningBalance -= event.amount;
+        const invoice = invoices?.find(i => i.id === event.invoice_id);
+        entries.push({
+          date: event.payment_date,
+          type: "payment",
+          number: invoice?.invoice_number || "",
+          description: `Payment received${event.reference_number ? ` (${event.reference_number})` : ""} via ${event.payment_method}`,
+          debit: 0,
+          credit: event.amount,
+          balance: runningBalance,
+          id: event.id,
+          link: `/invoices/${event.invoice_id}`,
+        });
+      }
+    }
+
+    setLedger(entries);
+    setLedgerLoading(false);
+  };
+
+  const getAiInsight = async () => {
+    if (!customer || loadingInsight) return;
+    setLoadingInsight(true);
+    setAiInsight(null);
+    const totalDebit = ledger.reduce((s, e) => s + e.debit, 0);
+    const totalCredit = ledger.reduce((s, e) => s + e.credit, 0);
+    const outstanding = totalDebit - totalCredit;
+    try {
+      const res = await fetch("/api/ai-customer-insight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: { name: customer.name, gstin: customer.gstin },
+          totalInvoiced: totalDebit,
+          totalPaid: totalCredit,
+          outstanding,
+          invoiceCount: ledger.filter(e => e.type === "invoice").length,
+          lastTransactionDate: ledger.at(-1)?.date,
+        }),
+      });
+      if (res.ok) { const { insight } = await res.json(); setAiInsight(insight); }
+    } catch { setAiInsight("Could not load insight."); }
+    finally { setLoadingInsight(false); }
+  };
 
   const fetchCustomer = async () => {
     const supabase = createClient();
@@ -148,6 +264,10 @@ export default function CustomerDetailPage() {
   }
 
   const address = editing ? editForm.billing_address : customer.billing_address;
+
+  const totalDebit = ledger.reduce((s, e) => s + e.debit, 0);
+  const totalCredit = ledger.reduce((s, e) => s + e.credit, 0);
+  const outstanding = totalDebit - totalCredit;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -365,15 +485,222 @@ export default function CustomerDetailPage() {
       {!editing && (
         <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
-          <Link
-            href={`/invoices/new?customer=${customer.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-primary to-blue-500 text-white font-medium rounded-xl hover:opacity-90 transition-all"
-          >
-            <FileText className="w-4 h-4" />
-            Create Invoice for {customer.name}
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/invoices/new?customer=${customer.id}`}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-primary to-blue-500 text-white font-medium rounded-xl hover:opacity-90 transition-all"
+            >
+              <FileText className="w-4 h-4" />
+              Create Invoice
+            </Link>
+            <Link
+              href={`/estimates/new?customer=${customer.id}`}
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-border text-foreground font-medium rounded-xl hover:bg-muted transition-all"
+            >
+              <FileText className="w-4 h-4" />
+              Create Estimate
+            </Link>
+            <button
+              onClick={() => {
+                setActiveTab("ledger");
+                if (ledger.length === 0) fetchLedger();
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-border text-foreground font-medium rounded-xl hover:bg-muted transition-all"
+            >
+              <BookOpen className="w-4 h-4" />
+              View Ledger
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Ledger Tab */}
+      {!editing && (
+        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm overflow-hidden">
+          {/* Tab header */}
+          <div className="flex border-b border-border">
+            <button
+              onClick={() => setActiveTab("details")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === "details" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Invoices
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("ledger");
+                if (ledger.length === 0) fetchLedger();
+              }}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === "ledger" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Ledger {outstanding > 0 && <span className="ml-1 text-xs text-red-500">₹{outstanding.toLocaleString("en-IN", { maximumFractionDigits: 0 })} due</span>}
+            </button>
+          </div>
+
+          {activeTab === "details" ? (
+            /* Recent Invoices */
+            <div className="p-4">
+              <RecentInvoices customerId={customer.id} />
+            </div>
+          ) : (
+            /* Ledger view */
+            <div className="p-4 space-y-4">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-muted rounded-xl p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Billed</p>
+                  <p className="font-bold text-sm mt-0.5">₹{totalDebit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Received</p>
+                  <p className="font-bold text-sm mt-0.5 text-emerald-600">₹{totalCredit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+                </div>
+                <div className={`rounded-xl p-3 text-center ${outstanding > 0 ? "bg-red-50 dark:bg-red-950/30" : "bg-emerald-50 dark:bg-emerald-950/30"}`}>
+                  <p className="text-xs text-muted-foreground">Outstanding</p>
+                  <p className={`font-bold text-sm mt-0.5 ${outstanding > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    ₹{Math.abs(outstanding).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+
+              {/* AI Insight */}
+              {ledger.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-800/50 rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 text-xs text-muted-foreground">
+                      {aiInsight || "AI can analyze this customer's payment behavior and suggest follow-up actions."}
+                    </div>
+                    <button
+                      onClick={getAiInsight}
+                      disabled={loadingInsight}
+                      className="shrink-0 text-xs px-2 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {loadingInsight ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      {loadingInsight ? "..." : "Insight"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Ledger table */}
+              {ledgerLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : ledger.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8 text-sm">No transactions yet</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
+                        <th className="text-left py-2 font-medium text-muted-foreground">Description</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">Debit</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">Credit</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledger.map((entry, idx) => (
+                        <tr key={idx} className="border-b border-border/50 hover:bg-muted/30">
+                          <td className="py-2 text-muted-foreground whitespace-nowrap">
+                            {new Date(entry.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                          </td>
+                          <td className="py-2">
+                            <Link href={entry.link} className="hover:text-primary transition-colors">
+                              {entry.description}
+                            </Link>
+                          </td>
+                          <td className="py-2 text-right text-red-600">
+                            {entry.debit > 0 ? `₹${entry.debit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : ""}
+                          </td>
+                          <td className="py-2 text-right text-emerald-600">
+                            {entry.credit > 0 ? `₹${entry.credit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : ""}
+                          </td>
+                          <td className={`py-2 text-right font-medium ${entry.balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                            ₹{Math.abs(entry.balance).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                            {entry.balance > 0 ? " Dr" : entry.balance < 0 ? " Cr" : ""}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-border font-bold">
+                        <td colSpan={2} className="py-2 text-xs">Closing Balance</td>
+                        <td className="py-2 text-right text-xs">₹{totalDebit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                        <td className="py-2 text-right text-xs">₹{totalCredit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                        <td className={`py-2 text-right text-xs ${outstanding > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                          ₹{Math.abs(outstanding).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                          {outstanding > 0 ? " Dr" : outstanding < 0 ? " Cr" : ""}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Separate component for recent invoices
+function RecentInvoices({ customerId }: { customerId: string }) {
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("invoices")
+        .select("id, invoice_number, invoice_date, total, status")
+        .eq("customer_id", customerId)
+        .order("invoice_date", { ascending: false })
+        .limit(10);
+      if (data) setInvoices(data);
+      setLoading(false);
+    };
+    fetch();
+  }, [customerId]);
+
+  if (loading) return <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>;
+  if (invoices.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>;
+
+  const STATUS_COLORS: Record<string, string> = {
+    paid: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30",
+    sent: "text-blue-600 bg-blue-50 dark:bg-blue-950/30",
+    draft: "text-muted-foreground bg-muted",
+    overdue: "text-red-600 bg-red-50 dark:bg-red-950/30",
+  };
+
+  return (
+    <div className="space-y-2">
+      {invoices.map(inv => (
+        <Link
+          key={inv.id}
+          href={`/invoices/${inv.id}`}
+          className="flex items-center justify-between p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+        >
+          <div>
+            <p className="text-sm font-medium">{inv.invoice_number}</p>
+            <p className="text-xs text-muted-foreground">{new Date(inv.invoice_date).toLocaleDateString("en-IN")}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-bold">₹{inv.total.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[inv.status] || STATUS_COLORS.draft}`}>
+              {inv.status}
+            </span>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }

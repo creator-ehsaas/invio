@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { groq } from "@/lib/groq";
+import { aiVision, aiChat } from "@/lib/ai-client";
 
 // Max file size: 10MB
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -70,40 +70,18 @@ export async function POST(request: NextRequest) {
     let extractedData: any;
 
     if (isImage) {
-      // Convert image to base64 for vision model
       const bytes = await file.arrayBuffer();
       const base64 = Buffer.from(bytes).toString("base64");
-      const dataUrl = `data:${mimeType};base64,${base64}`;
-
-      const completion = await groq.chat.completions.create({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: dataUrl },
-              },
-              {
-                type: "text",
-                text: PURCHASE_EXTRACTION_PROMPT,
-              },
-            ],
-          },
-        ],
+      const raw = await aiVision(base64, mimeType, PURCHASE_EXTRACTION_PROMPT, {
         temperature: 0.1,
-        max_tokens: 4096,
+        maxTokens: 4096,
       });
-
-      const raw = completion.choices[0]?.message?.content || "";
       extractedData = parseJSON(raw);
     } else {
       // PDF: extract text then use LLM
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Dynamic import to avoid module issues
       const pdfParseModule = await import("pdf-parse");
       const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
       const pdfData = await pdfParse(buffer);
@@ -116,19 +94,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "user",
-            content: `${PURCHASE_EXTRACTION_PROMPT}\n\nInvoice text:\n${text.substring(0, 8000)}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 4096,
-      });
+      const raw = await aiChat([{
+        role: "user",
+        content: `${PURCHASE_EXTRACTION_PROMPT}\n\nInvoice text:\n${text.substring(0, 8000)}`,
+      }], { temperature: 0.1, maxTokens: 4096 });
 
-      const raw = completion.choices[0]?.message?.content || "";
       extractedData = parseJSON(raw);
     }
 

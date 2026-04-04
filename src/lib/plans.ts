@@ -5,11 +5,13 @@ export const PLANS = {
     name: "Free",
     price: 0,
     invoicesPerMonth: 50,
+    aiTier: "standard" as const,
     features: [
       "50 invoices/month",
-      "Voice input in 3 languages",
+      "Standard AI (voice + receipt scan)",
       "Basic PDF templates",
       "WhatsApp sharing",
+      "Estimates & expense tracking",
     ],
   },
   PRO_MONTHLY: {
@@ -18,13 +20,14 @@ export const PLANS = {
     name: "Pro Monthly",
     price: 499,
     invoicesPerMonth: -1, // Unlimited
+    aiTier: "enhanced" as const,
     features: [
-      "Unlimited invoices",
+      "Unlimited invoices & estimates",
+      "Enhanced AI — smarter extraction & insights",
+      "AI-powered P&L analysis",
       "All 4 PDF templates",
-      "AI learning from corrections",
-      "Business insights & analytics",
-      "Priority support",
       "Inventory management",
+      "Priority support",
     ],
   },
   PRO_YEARLY: {
@@ -33,10 +36,11 @@ export const PLANS = {
     name: "Pro Yearly",
     price: 4999,
     invoicesPerMonth: -1, // Unlimited
+    aiTier: "enhanced" as const,
     features: [
       "Everything in Pro Monthly",
-      "2 months free (Save Rs 999)",
-      "Early access to new features",
+      "2 months free (Save ₹999)",
+      "Early access to new AI features",
       "Dedicated account manager",
     ],
   },

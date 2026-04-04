@@ -17,8 +17,9 @@ import {
   BarChart3,
   CreditCard,
   ShoppingCart,
-  Plus,
-  ChevronUp,
+  Receipt,
+  Truck,
+  ClipboardList,
 } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 
@@ -30,7 +31,9 @@ interface NavbarProps {
 const navLinks = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/invoices", label: "Sales", icon: FileText },
+  { href: "/estimates", label: "Estimates", icon: ClipboardList },
   { href: "/purchases", label: "Purchases", icon: ShoppingCart },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/reports", label: "Reports", icon: BarChart3 },
@@ -41,7 +44,7 @@ const mobileNavLinks = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/invoices", label: "Sales", icon: FileText },
   { href: "/purchases", label: "Buy", icon: ShoppingCart },
-  { href: "/inventory", label: "Stock", icon: Package },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
 ];
 
 export function Navbar({ user, business }: NavbarProps) {
@@ -216,46 +219,30 @@ export function Navbar({ user, business }: NavbarProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-2 grid grid-cols-3 gap-1">
-              <Link
-                href="/customers"
-                onClick={() => setMoreMenuOpen(false)}
-                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
-                  isActive("/customers") ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                }`}
-              >
-                <Users className="w-6 h-6 mb-1.5" />
-                <span className="text-xs font-medium">Customers</span>
-              </Link>
-              <Link
-                href="/reports"
-                onClick={() => setMoreMenuOpen(false)}
-                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
-                  isActive("/reports") ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                }`}
-              >
-                <BarChart3 className="w-6 h-6 mb-1.5" />
-                <span className="text-xs font-medium">Reports</span>
-              </Link>
-              <Link
-                href="/subscription"
-                onClick={() => setMoreMenuOpen(false)}
-                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
-                  isActive("/subscription") ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                }`}
-              >
-                <CreditCard className="w-6 h-6 mb-1.5" />
-                <span className="text-xs font-medium">Plans</span>
-              </Link>
-              <Link
-                href="/settings"
-                onClick={() => setMoreMenuOpen(false)}
-                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
-                  isActive("/settings") ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                }`}
-              >
-                <Settings className="w-6 h-6 mb-1.5" />
-                <span className="text-xs font-medium">Settings</span>
-              </Link>
+              {[
+                { href: "/estimates", label: "Estimates", icon: ClipboardList },
+                { href: "/customers", label: "Customers", icon: Users },
+                { href: "/suppliers", label: "Suppliers", icon: Truck },
+                { href: "/inventory", label: "Stock", icon: Package },
+                { href: "/reports", label: "Reports", icon: BarChart3 },
+                { href: "/subscription", label: "Plans", icon: CreditCard },
+                { href: "/settings", label: "Settings", icon: Settings },
+              ].map(link => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMoreMenuOpen(false)}
+                    className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
+                      isActive(link.href) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="w-6 h-6 mb-1.5" />
+                    <span className="text-xs font-medium">{link.label}</span>
+                  </Link>
+                );
+              })}
               <button
                 onClick={() => {
                   setMoreMenuOpen(false);

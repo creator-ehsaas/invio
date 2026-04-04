@@ -18,6 +18,9 @@ import {
   ArrowRight,
   ShoppingCart,
   Calculator,
+  Sparkles,
+  Receipt,
+  ClipboardList,
 } from "lucide-react";
 
 type Period = "this_month" | "last_month" | "this_quarter" | "this_year";
@@ -94,6 +97,8 @@ function getDateRange(period: Period): { start: Date; end: Date } {
 export default function ReportsPage() {
   const [activePeriod, setActivePeriod] = useState<Period>("this_month");
   const [loading, setLoading] = useState(true);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
   const [stats, setStats] = useState<ReportStats>({
     totalRevenue: 0,
     gstCollected: 0,
@@ -191,6 +196,26 @@ export default function ReportsPage() {
     });
 
     setLoading(false);
+  };
+
+  const getAiInsight = async (currentStats: ReportStats) => {
+    setLoadingInsight(true);
+    setAiInsight(null);
+    try {
+      const res = await fetch("/api/ai-business-insight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stats: currentStats, period: activePeriod }),
+      });
+      if (res.ok) {
+        const { insight } = await res.json();
+        setAiInsight(insight);
+      }
+    } catch {
+      setAiInsight("Could not load AI insight.");
+    } finally {
+      setLoadingInsight(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -585,6 +610,60 @@ export default function ReportsPage() {
             </button>
           );
         })}
+      </div>
+
+      {/* AI Business Insights */}
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200 dark:border-purple-800/50 rounded-2xl p-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">AI Business Insights</h2>
+              <p className="text-xs text-muted-foreground">Analysis of your {getPeriodLabel().toLowerCase()} performance</p>
+            </div>
+          </div>
+          <button
+            onClick={() => getAiInsight(stats)}
+            disabled={loadingInsight || stats.invoiceCount === 0}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+          >
+            {loadingInsight ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loadingInsight ? "Analyzing..." : "Get Insights"}
+          </button>
+        </div>
+        {aiInsight ? (
+          <p className="text-sm text-foreground leading-relaxed">{aiInsight}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Get AI-powered analysis: top customers, cash flow patterns, ITC optimization opportunities, and actionable recommendations.
+          </p>
+        )}
+      </div>
+
+      {/* Quick Links: Estimates + Expenses */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Link href="/estimates" className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors group">
+          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30">
+            <ClipboardList className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-foreground">Estimates</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Track quotations and conversion rate</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </Link>
+        <Link href="/expenses" className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors group">
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30">
+            <Receipt className="w-5 h-5 text-red-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-foreground">Expenses</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Business expenses for P&L calculation</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </Link>
       </div>
 
       {/* GST Summary Table */}

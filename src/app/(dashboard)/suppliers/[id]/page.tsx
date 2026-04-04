@@ -15,6 +15,8 @@ import {
   Building2,
   FileText,
   ShoppingCart,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import { INDIAN_STATES } from "@/types/database";
 import type { Supplier, PurchaseInvoice } from "@/types/database";
@@ -28,6 +30,9 @@ export default function SupplierDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -147,9 +152,30 @@ export default function SupplierDetailPage() {
   if (!supplier) return null;
 
   const totalPurchases = purchases.reduce((sum, p) => sum + p.total, 0);
-  const pendingAmount = purchases
-    .filter((p) => p.status === "pending" || p.status === "partial")
-    .reduce((sum, p) => sum + (p.total - p.amount_paid), 0);
+  const totalPaid = purchases.reduce((sum, p) => sum + (p.amount_paid || 0), 0);
+  const pendingAmount = totalPurchases - totalPaid;
+
+  const getAiInsight = async () => {
+    if (loadingInsight) return;
+    setLoadingInsight(true);
+    setAiInsight(null);
+    try {
+      const res = await fetch("/api/ai-supplier-insight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplier: { name: supplier?.name, gstin: supplier?.gstin, payment_terms: supplier?.payment_terms },
+          totalPurchases,
+          totalPaid,
+          pendingAmount,
+          purchaseCount: purchases.length,
+          lastPurchaseDate: purchases[0]?.bill_date,
+        }),
+      });
+      if (res.ok) { const { insight } = await res.json(); setAiInsight(insight); }
+    } catch { setAiInsight("Could not load insight."); }
+    finally { setLoadingInsight(false); }
+  };
 
   return (
     <div className="space-y-6">
@@ -452,10 +478,113 @@ export default function SupplierDetailPage() {
                 <ShoppingCart className="w-4 h-4" />
                 Record Purchase
               </Link>
+              <button
+                onClick={() => setLedgerOpen(!ledgerOpen)}
+                className="w-full py-2.5 px-4 border border-border font-medium rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                <BookOpen className="w-4 h-4" />
+                {ledgerOpen ? "Hide Ledger" : "View Ledger"}
+              </button>
             </div>
+          </div>
+
+          {/* AI Insight */}
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-800/50 rounded-2xl p-4">
+            <div className="flex items-start gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-purple-600 mt-0.5" />
+              <p className="text-xs font-medium text-foreground">AI Supplier Insight</p>
+            </div>
+            {aiInsight ? (
+              <p className="text-xs text-muted-foreground">{aiInsight}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground mb-3">Analyze payment behavior and risk.</p>
+            )}
+            <button
+              onClick={getAiInsight}
+              disabled={loadingInsight}
+              className="w-full text-xs py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {loadingInsight ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+              {loadingInsight ? "Analyzing..." : "Get Insight"}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Supplier Ledger */}
+      {ledgerOpen && (
+        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Supplier Ledger</h2>
+
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-muted rounded-xl p-3 text-center">
+              <p className="text-xs text-muted-foreground">Total Purchased</p>
+              <p className="font-bold text-sm mt-0.5">₹{totalPurchases.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-3 text-center">
+              <p className="text-xs text-muted-foreground">Paid</p>
+              <p className="font-bold text-sm mt-0.5 text-emerald-600">₹{totalPaid.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className={`rounded-xl p-3 text-center ${pendingAmount > 0 ? "bg-red-50 dark:bg-red-950/30" : "bg-emerald-50 dark:bg-emerald-950/30"}`}>
+              <p className="text-xs text-muted-foreground">Payable</p>
+              <p className={`font-bold text-sm mt-0.5 ${pendingAmount > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                ₹{Math.abs(pendingAmount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+          </div>
+
+          {purchases.length === 0 ? (
+            <p className="text-center text-muted-foreground py-6 text-sm">No purchases recorded</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left py-2 font-medium text-muted-foreground">Bill #</th>
+                    <th className="text-right py-2 font-medium text-muted-foreground">Amount</th>
+                    <th className="text-right py-2 font-medium text-muted-foreground">Paid</th>
+                    <th className="text-right py-2 font-medium text-muted-foreground">Balance</th>
+                    <th className="text-center py-2 font-medium text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {purchases.map((p) => {
+                    const balance = p.total - (p.amount_paid || 0);
+                    return (
+                      <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
+                        <td className="py-2 text-muted-foreground whitespace-nowrap">
+                          {new Date(p.bill_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                        </td>
+                        <td className="py-2">
+                          <Link href={`/purchases/${p.id}`} className="hover:text-primary transition-colors">
+                            {p.bill_number}
+                          </Link>
+                        </td>
+                        <td className="py-2 text-right">₹{p.total.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                        <td className="py-2 text-right text-emerald-600">₹{(p.amount_paid || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                        <td className={`py-2 text-right font-medium ${balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                          ₹{Math.abs(balance).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        </td>
+                        <td className="py-2 text-center">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            p.status === "paid" ? "bg-emerald-100 text-emerald-700" :
+                            p.status === "partial" ? "bg-amber-100 text-amber-700" :
+                            "bg-red-100 text-red-700"
+                          }`}>
+                            {p.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
