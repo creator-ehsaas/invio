@@ -230,3 +230,125 @@ export interface Payment {
   notes?: string | null;
   created_at: string;
 }
+
+// Supplier/Vendor types
+export interface Supplier {
+  id: string;
+  business_id: string;
+  name: string;
+  business_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  gstin?: string | null;
+  pan?: string | null;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  } | null;
+  bank_details?: {
+    account_number?: string;
+    ifsc?: string;
+    bank_name?: string;
+    branch?: string;
+  } | null;
+  payment_terms: number;
+  notes?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Purchase invoice types
+export type PurchaseInvoiceStatus = "pending" | "partial" | "paid" | "cancelled";
+
+export interface PurchaseInvoice {
+  id: string;
+  business_id: string;
+  supplier_id?: string | null;
+  supplier_name?: string | null;
+  bill_number: string;
+  bill_date: string;
+  due_date?: string | null;
+  received_date?: string | null;
+  status: PurchaseInvoiceStatus;
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  total: number;
+  amount_paid: number;
+  notes?: string | null;
+  attachment_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PurchaseInvoiceItem {
+  id: string;
+  purchase_invoice_id: string;
+  inventory_item_id?: string | null;
+  description: string;
+  hsn_code?: string | null;
+  quantity: number;
+  unit: string;
+  rate: number;
+  gst_rate: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  amount: number;
+  created_at: string;
+}
+
+export interface PurchasePayment {
+  id: string;
+  purchase_invoice_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  reference_number?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+// GSTR-3B Summary type
+export interface GSTR3BSummary {
+  id: string;
+  business_id: string;
+  tax_period: string; // Format: YYYY-MM
+  // Outward supplies (sales)
+  outward_taxable_supplies: number;
+  outward_zero_rated: number;
+  outward_nil_rated: number;
+  outward_exempt: number;
+  outward_non_gst: number;
+  // Output tax
+  output_igst: number;
+  output_cgst: number;
+  output_sgst: number;
+  output_cess: number;
+  // Inward supplies (purchases)
+  inward_taxable_supplies: number;
+  inward_zero_rated: number;
+  inward_exempt: number;
+  // Input tax credit
+  itc_igst: number;
+  itc_cgst: number;
+  itc_sgst: number;
+  itc_cess: number;
+  // Net tax payable
+  net_igst_payable: number;
+  net_cgst_payable: number;
+  net_sgst_payable: number;
+  net_cess_payable: number;
+  total_tax_payable: number;
+  // Filing status
+  is_filed: boolean;
+  filed_at?: string | null;
+  arn_number?: string | null;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+}

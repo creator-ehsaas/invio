@@ -4,6 +4,7 @@ import { BusinessProfileForm } from "./business-profile-form";
 import { BankDetailsForm } from "./bank-details-form";
 import { UserProfileForm } from "./user-profile-form";
 import { SettingsTabs } from "./settings-tabs";
+import { BillingContent } from "./billing-content";
 import type { Business, User } from "@/types/database";
 
 export default async function SettingsPage() {
@@ -61,6 +62,7 @@ export default async function SettingsPage() {
             <p className="text-muted-foreground">No business profile found.</p>
           )
         }
+        billingContent={<BillingContent />}
       />
     </div>
   );

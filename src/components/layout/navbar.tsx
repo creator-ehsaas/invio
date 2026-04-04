@@ -4,7 +4,22 @@ import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Bell, Settings, LogOut, Menu, X, Home, FileText, Users, Package, BarChart3, CreditCard } from "lucide-react";
+import {
+  Bell,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  Home,
+  FileText,
+  Users,
+  Package,
+  BarChart3,
+  CreditCard,
+  ShoppingCart,
+  Plus,
+  ChevronUp,
+} from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 
 interface NavbarProps {
@@ -14,15 +29,25 @@ interface NavbarProps {
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/invoices", label: "Sales", icon: FileText },
+  { href: "/purchases", label: "Purchases", icon: ShoppingCart },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
+// Mobile bottom nav - show most used items
+const mobileNavLinks = [
+  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/invoices", label: "Sales", icon: FileText },
+  { href: "/purchases", label: "Buy", icon: ShoppingCart },
+  { href: "/inventory", label: "Stock", icon: Package },
+];
+
 export function Navbar({ user, business }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -140,28 +165,111 @@ export function Navbar({ user, business }: NavbarProps) {
       </header>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-t-2xl flex justify-around items-center px-4 pb-safe pt-2 h-20">
-        {navLinks.slice(0, 5).map((link) => {
-          const Icon = link.icon;
-          const active = isActive(link.href);
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex flex-col items-center justify-center transition-transform active:scale-90 ${
-                active
-                  ? "text-primary bg-primary/10 rounded-xl px-3 py-1"
-                  : "text-muted-foreground"
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium tracking-wide uppercase mt-1">
-                {link.label}
-              </span>
-            </Link>
-          );
-        })}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <div className="flex justify-around items-center px-2 pb-safe pt-1.5 h-16">
+          {mobileNavLinks.map((link) => {
+            const Icon = link.icon;
+            const active = isActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 ${
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <div className={`p-1.5 rounded-xl transition-colors ${active ? "bg-primary/10" : ""}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-medium mt-0.5">
+                  {link.label}
+                </span>
+              </Link>
+            );
+          })}
+
+          {/* More Menu Button */}
+          <button
+            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+            className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 ${
+              moreMenuOpen ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <div className={`p-1.5 rounded-xl transition-colors ${moreMenuOpen ? "bg-primary/10" : ""}`}>
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-medium mt-0.5">More</span>
+          </button>
+        </div>
       </nav>
+
+      {/* Mobile More Menu Overlay */}
+      {moreMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setMoreMenuOpen(false)}
+        >
+          <div
+            className="absolute bottom-20 left-4 right-4 bg-card rounded-2xl shadow-xl border overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-2 grid grid-cols-3 gap-1">
+              <Link
+                href="/customers"
+                onClick={() => setMoreMenuOpen(false)}
+                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
+                  isActive("/customers") ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                }`}
+              >
+                <Users className="w-6 h-6 mb-1.5" />
+                <span className="text-xs font-medium">Customers</span>
+              </Link>
+              <Link
+                href="/reports"
+                onClick={() => setMoreMenuOpen(false)}
+                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
+                  isActive("/reports") ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                }`}
+              >
+                <BarChart3 className="w-6 h-6 mb-1.5" />
+                <span className="text-xs font-medium">Reports</span>
+              </Link>
+              <Link
+                href="/subscription"
+                onClick={() => setMoreMenuOpen(false)}
+                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
+                  isActive("/subscription") ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                }`}
+              >
+                <CreditCard className="w-6 h-6 mb-1.5" />
+                <span className="text-xs font-medium">Plans</span>
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => setMoreMenuOpen(false)}
+                className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
+                  isActive("/settings") ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                }`}
+              >
+                <Settings className="w-6 h-6 mb-1.5" />
+                <span className="text-xs font-medium">Settings</span>
+              </Link>
+              <button
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="flex flex-col items-center p-4 rounded-xl hover:bg-muted text-destructive"
+              >
+                <LogOut className="w-6 h-6 mb-1.5" />
+                <span className="text-xs font-medium">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile dropdown menu */}
       {dropdownOpen && (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import {
   BarChart3,
   Download,
@@ -11,8 +12,12 @@ import {
   Users,
   Package,
   TrendingUp,
+  TrendingDown,
   FileSpreadsheet,
   Loader2,
+  ArrowRight,
+  ShoppingCart,
+  Calculator,
 } from "lucide-react";
 
 type Period = "this_month" | "last_month" | "this_quarter" | "this_year";
@@ -33,6 +38,11 @@ interface ReportStats {
   sgstTotal: number;
   igstTotal: number;
   subtotalSum: number;
+  // Purchase stats
+  totalPurchases: number;
+  purchaseCount: number;
+  itcAvailable: number;
+  netGstPayable: number;
 }
 
 interface Invoice {
@@ -93,6 +103,10 @@ export default function ReportsPage() {
     sgstTotal: 0,
     igstTotal: 0,
     subtotalSum: 0,
+    totalPurchases: 0,
+    purchaseCount: 0,
+    itcAvailable: 0,
+    netGstPayable: 0,
   });
   const [invoices, setInvoices] = useState<Invoice[]>([]);
 
@@ -126,12 +140,22 @@ export default function ReportsPage() {
       .gte("invoice_date", start.toISOString().split("T")[0])
       .lte("invoice_date", end.toISOString().split("T")[0]);
 
+    // Fetch purchases
+    const { data: purchasesData } = await supabase
+      .from("purchase_invoices")
+      .select("*")
+      .eq("business_id", userData.business_id)
+      .gte("bill_date", start.toISOString().split("T")[0])
+      .lte("bill_date", end.toISOString().split("T")[0]);
+
     const allInvoices = invoicesData || [];
+    const allPurchases = purchasesData || [];
     setInvoices(allInvoices);
 
     // Calculate stats (only for non-cancelled invoices)
     const validInvoices = allInvoices.filter(inv => inv.status !== "cancelled");
     const paidInvoices = validInvoices.filter(inv => inv.status === "paid");
+    const validPurchases = allPurchases.filter(p => p.status !== "cancelled");
 
     const totalRevenue = paidInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
     const cgstTotal = validInvoices.reduce((sum, inv) => sum + (inv.cgst || 0), 0);
@@ -142,6 +166,15 @@ export default function ReportsPage() {
     const invoiceCount = validInvoices.length;
     const avgInvoiceValue = invoiceCount > 0 ? totalRevenue / invoiceCount : 0;
 
+    // Purchase stats
+    const totalPurchases = validPurchases.reduce((sum, p) => sum + (p.total || 0), 0);
+    const purchaseCount = validPurchases.length;
+    const itcCgst = validPurchases.reduce((sum, p) => sum + (p.cgst || 0), 0);
+    const itcSgst = validPurchases.reduce((sum, p) => sum + (p.sgst || 0), 0);
+    const itcIgst = validPurchases.reduce((sum, p) => sum + (p.igst || 0), 0);
+    const itcAvailable = itcCgst + itcSgst + itcIgst;
+    const netGstPayable = Math.max(0, gstCollected - itcAvailable);
+
     setStats({
       totalRevenue,
       gstCollected,
@@ -151,6 +184,10 @@ export default function ReportsPage() {
       sgstTotal,
       igstTotal,
       subtotalSum,
+      totalPurchases,
+      purchaseCount,
+      itcAvailable,
+      netGstPayable,
     });
 
     setLoading(false);
@@ -287,32 +324,36 @@ export default function ReportsPage() {
 
   const statCards = [
     {
-      title: "Total Revenue",
+      title: "Total Sales",
       value: formatCurrency(stats.totalRevenue),
-      icon: IndianRupee,
+      icon: TrendingUp,
       iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
       iconColor: "text-emerald-600 dark:text-emerald-400",
+      subtitle: `${stats.invoiceCount} invoices`,
+    },
+    {
+      title: "Total Purchases",
+      value: formatCurrency(stats.totalPurchases),
+      icon: TrendingDown,
+      iconBg: "bg-blue-100 dark:bg-blue-900/30",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      subtitle: `${stats.purchaseCount} bills`,
     },
     {
       title: "GST Collected",
       value: formatCurrency(stats.gstCollected),
-      icon: TrendingUp,
-      iconBg: "bg-blue-100 dark:bg-blue-900/30",
-      iconColor: "text-blue-600 dark:text-blue-400",
-    },
-    {
-      title: "Invoice Count",
-      value: stats.invoiceCount.toString(),
-      icon: FileText,
+      icon: IndianRupee,
       iconBg: "bg-violet-100 dark:bg-violet-900/30",
       iconColor: "text-violet-600 dark:text-violet-400",
+      subtitle: "Output tax",
     },
     {
-      title: "Avg Invoice Value",
-      value: formatCurrency(stats.avgInvoiceValue),
-      icon: BarChart3,
+      title: "Net GST Payable",
+      value: formatCurrency(stats.netGstPayable),
+      icon: Calculator,
       iconBg: "bg-amber-100 dark:bg-amber-900/30",
       iconColor: "text-amber-600 dark:text-amber-400",
+      subtitle: `ITC: ${formatCurrency(stats.itcAvailable)}`,
     },
   ];
 
@@ -340,6 +381,28 @@ export default function ReportsPage() {
       description: "Sales breakdown by product/service",
       icon: Package,
       onClick: downloadItemReport,
+    },
+  ];
+
+  const gstReports = [
+    {
+      title: "GSTR-3B",
+      description: "Monthly GST return summary with ITC calculation",
+      icon: Calculator,
+      href: "/reports/gstr3b",
+      highlight: true,
+    },
+    {
+      title: "GSTR-1 Summary",
+      description: "Outward supplies summary for filing",
+      icon: TrendingUp,
+      onClick: downloadGSTReport,
+    },
+    {
+      title: "Purchase Register",
+      description: "All purchase invoices for ITC claims",
+      icon: ShoppingCart,
+      href: "/purchases",
     },
   ];
 
@@ -411,18 +474,59 @@ export default function ReportsPage() {
               key={stat.title}
               className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-4 shadow-sm"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
                 <div className={`p-2 rounded-xl ${stat.iconBg}`}>
                   <Icon className={`w-5 h-5 ${stat.iconColor}`} />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground truncate">{stat.value}</p>
                   <p className="text-xs text-muted-foreground">{stat.title}</p>
+                  {stat.subtitle && (
+                    <p className="text-xs text-muted-foreground/70 mt-0.5">{stat.subtitle}</p>
+                  )}
                 </div>
               </div>
             </div>
           );
         })}
+      </div>
+
+      {/* GST Reports Section */}
+      <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl border border-primary/20 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">GST Returns</h2>
+            <p className="text-sm text-muted-foreground">Generate reports for GST filing</p>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-4">
+          {gstReports.map((report) => {
+            const Icon = report.icon;
+            const content = (
+              <div className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                report.highlight
+                  ? "bg-primary/10 border-primary/30 hover:border-primary/50"
+                  : "bg-white/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700"
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${report.highlight ? "bg-primary/20" : "bg-muted"}`}>
+                    <Icon className={`w-5 h-5 ${report.highlight ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{report.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            );
+
+            if (report.href) {
+              return <Link key={report.title} href={report.href}>{content}</Link>;
+            }
+            return <div key={report.title} onClick={report.onClick}>{content}</div>;
+          })}
+        </div>
       </div>
 
       {/* Sales Summary */}

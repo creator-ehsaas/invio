@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/layout/navbar";
-import { MobileNav } from "@/components/layout/MobileNav";
 import { BillingNotifications } from "@/components/billing/BillingNotifications";
 import type { User, Business } from "@/types/database";
 
@@ -42,11 +41,9 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       <Navbar user={user as User} business={business} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 md:pt-24 pb-24 md:pb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-8">
         {children}
       </main>
-      {/* Mobile bottom navigation */}
-      <MobileNav />
       {/* Billing notifications (subscription success, upgrade prompts, etc.) */}
       <Suspense fallback={null}>
         <BillingNotifications />
