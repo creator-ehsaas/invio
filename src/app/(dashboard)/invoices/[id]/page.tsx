@@ -18,6 +18,11 @@ import {
   User,
   X,
   AlertCircle,
+  IndianRupee,
+  Receipt,
+  Plus,
+  Calendar,
+  CreditCard,
 } from "lucide-react";
 import { downloadInvoicePDF, type InvoicePDFData } from "@/components/invoice-pdf";
 
@@ -62,6 +67,17 @@ interface Business {
   default_template: "minimal" | "professional" | "gst_formal" | "export";
 }
 
+interface Payment {
+  id: string;
+  amount: number;
+  payment_date: string;
+  payment_mode: string;
+  reference_number?: string;
+  notes?: string;
+  receipt_number?: string;
+  created_at: string;
+}
+
 type TemplateType = "minimal" | "professional" | "gst_formal" | "export";
 
 const TEMPLATE_OPTIONS: { value: TemplateType; label: string }[] = [
@@ -84,6 +100,16 @@ export default function InvoiceDetailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>("minimal");
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [showNotification, setShowNotification] = useState(true);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [recordingPayment, setRecordingPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    payment_date: new Date().toISOString().split("T")[0],
+    payment_mode: "bank_transfer",
+    reference_number: "",
+    notes: "",
+  });
 
   // Get auto-created items/customer from URL params
   const newItems = searchParams.get("newItems")?.split(",").filter(Boolean) || [];
@@ -134,9 +160,111 @@ export default function InvoiceDetailPage() {
         setBusiness(businessData);
         setSelectedTemplate(businessData.default_template || "minimal");
       }
+
+      // Fetch payments
+      const { data: paymentData } = await supabase
+        .from("payment_receipts")
+        .select("*")
+        .eq("invoice_id", params.id)
+        .order("payment_date", { ascending: false });
+
+      if (paymentData) setPayments(paymentData);
     }
 
     setLoading(false);
+  };
+
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const balanceDue = invoice ? invoice.total - totalPaid : 0;
+
+  const recordPayment = async () => {
+    if (!invoice || !paymentForm.amount || recordingPayment) return;
+    setRecordingPayment(true);
+
+    const supabase = createClient();
+    const amount = parseFloat(paymentForm.amount);
+
+    // Generate receipt number
+    const receiptNumber = `RCP-${invoice.invoice_number.replace("INV-", "")}-${payments.length + 1}`;
+
+    const { data: newPayment, error } = await supabase
+      .from("payment_receipts")
+      .insert({
+        invoice_id: invoice.id,
+        business_id: invoice.business_id,
+        receipt_number: receiptNumber,
+        amount,
+        payment_date: paymentForm.payment_date,
+        payment_mode: paymentForm.payment_mode,
+        reference_number: paymentForm.reference_number || null,
+        notes: paymentForm.notes || null,
+      })
+      .select()
+      .single();
+
+    if (!error && newPayment) {
+      setPayments([newPayment, ...payments]);
+
+      // Auto-update invoice status if fully paid
+      const newTotalPaid = totalPaid + amount;
+      if (newTotalPaid >= invoice.total && invoice.status !== "paid") {
+        await supabase.from("invoices").update({ status: "paid" }).eq("id", invoice.id);
+        setInvoice({ ...invoice, status: "paid" });
+      }
+
+      setShowPaymentModal(false);
+      setPaymentForm({
+        amount: "",
+        payment_date: new Date().toISOString().split("T")[0],
+        payment_mode: "bank_transfer",
+        reference_number: "",
+        notes: "",
+      });
+    }
+
+    setRecordingPayment(false);
+  };
+
+  const downloadReceipt = (payment: Payment) => {
+    if (!invoice || !business) return;
+
+    const receiptContent = `
+PAYMENT RECEIPT
+${"-".repeat(50)}
+
+Receipt No: ${payment.receipt_number || "N/A"}
+Date: ${new Date(payment.payment_date).toLocaleDateString("en-IN")}
+
+FROM:
+${business.name}
+${business.address || ""}
+${business.gstin ? `GSTIN: ${business.gstin}` : ""}
+
+RECEIVED FROM:
+${invoice.customer_name}
+
+AGAINST INVOICE:
+Invoice No: ${invoice.invoice_number}
+Invoice Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}
+Invoice Amount: ₹${invoice.total.toLocaleString("en-IN")}
+
+PAYMENT DETAILS:
+Amount Received: ₹${payment.amount.toLocaleString("en-IN")}
+Payment Mode: ${payment.payment_mode.replace("_", " ").toUpperCase()}
+${payment.reference_number ? `Reference: ${payment.reference_number}` : ""}
+${payment.notes ? `Notes: ${payment.notes}` : ""}
+
+${"-".repeat(50)}
+This is a computer-generated receipt.
+    `.trim();
+
+    const blob = new Blob([receiptContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `receipt-${payment.receipt_number || payment.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const updateStatus = async (status: string) => {
@@ -487,7 +615,19 @@ Status: ${invoice.status.toUpperCase()}`;
           <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-foreground mb-4">Actions</h3>
             <div className="space-y-2">
-              {invoice.status !== "paid" && (
+              {balanceDue > 0 && (
+                <button
+                  onClick={() => {
+                    setPaymentForm(prev => ({ ...prev, amount: balanceDue.toString() }));
+                    setShowPaymentModal(true);
+                  }}
+                  className="w-full py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Record Payment
+                </button>
+              )}
+              {invoice.status !== "paid" && balanceDue <= 0 && (
                 <button
                   onClick={() => updateStatus("paid")}
                   disabled={updating}
@@ -509,8 +649,185 @@ Status: ${invoice.status.toUpperCase()}`;
               )}
             </div>
           </div>
+
+          {/* Payment Status */}
+          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Payment Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Invoice Total</span>
+                <span>₹{invoice.total.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid</span>
+                <span className="text-emerald-600">₹{totalPaid.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="border-t pt-3 flex justify-between">
+                <span className="font-semibold">Balance Due</span>
+                <span className={`font-bold ${balanceDue > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  ₹{balanceDue.toLocaleString("en-IN")}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${Math.min((totalPaid / invoice.total) * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                {((totalPaid / invoice.total) * 100).toFixed(0)}% paid
+              </p>
+            </div>
+          </div>
+
+          {/* Payment History */}
+          {payments.length > 0 && (
+            <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Payment History</h3>
+              <div className="space-y-3">
+                {payments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-xl"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">₹{payment.amount.toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(payment.payment_date).toLocaleDateString("en-IN")} •{" "}
+                        {payment.payment_mode.replace("_", " ")}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => downloadReceipt(payment)}
+                      className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                      title="Download Receipt"
+                    >
+                      <Receipt className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Record Payment</h3>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Amount</label>
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="number"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    placeholder={balanceDue.toString()}
+                    className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Balance due: ₹{balanceDue.toLocaleString("en-IN")}
+                </p>
+              </div>
+
+              {/* Payment Date */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Payment Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="date"
+                    value={paymentForm.payment_date}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Mode */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Payment Mode</label>
+                <div className="relative">
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <select
+                    value={paymentForm.payment_mode}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, payment_mode: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
+                  >
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="cash">Cash</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="card">Card</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Reference Number */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Reference Number (optional)</label>
+                <input
+                  type="text"
+                  value={paymentForm.reference_number}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, reference_number: e.target.value })}
+                  placeholder="Transaction ID, cheque no., etc."
+                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes (optional)</label>
+                <textarea
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                  placeholder="Any additional notes..."
+                  rows={2}
+                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="flex-1 py-2.5 border border-border rounded-xl hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={recordPayment}
+                disabled={recordingPayment || !paymentForm.amount}
+                className="flex-1 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {recordingPayment ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                Record Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

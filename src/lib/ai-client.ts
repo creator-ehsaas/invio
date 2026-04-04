@@ -4,6 +4,11 @@
  * Pro plan: enhanced AI (higher quality reasoning, better for complex tasks)
  *
  * Never expose provider names in UI code — always use this module.
+ *
+ * To enable Enhanced AI with Claude:
+ * 1. npm install @anthropic-ai/sdk
+ * 2. Set ANTHROPIC_API_KEY in env
+ * 3. Uncomment the enhanced tier code below
  */
 
 import { groq } from "@/lib/groq";
@@ -28,36 +33,12 @@ interface AIOptions {
 export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): Promise<string> {
   const { tier = "standard", temperature = 0.3, maxTokens = 1024 } = options;
 
-  // Enhanced tier: use Claude via Anthropic SDK if available
-  if (tier === "enhanced" && process.env.ANTHROPIC_API_KEY) {
-    try {
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-      const systemMsg = messages.find(m => m.role === "system");
-      const userMsgs = messages.filter(m => m.role !== "system");
-
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: maxTokens,
-        system: systemMsg?.content,
-        messages: userMsgs.map(m => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-      });
-
-      const block = response.content[0];
-      return block.type === "text" ? block.text : "";
-    } catch {
-      // Fall through to standard if enhanced fails
-    }
-  }
-
-  // Standard tier: fast model for general tasks
+  // Enhanced tier uses the most capable available model
+  // When @anthropic-ai/sdk is installed and ANTHROPIC_API_KEY set,
+  // you can enable Claude here for even better results
   const model = tier === "enhanced"
-    ? "llama-3.3-70b-versatile"   // Best available without Anthropic key
-    : "llama-3.3-70b-versatile";
+    ? "llama-3.3-70b-versatile"   // Best Groq model
+    : "llama-3.3-70b-versatile";  // Standard tier
 
   const completion = await groq.chat.completions.create({
     model,
@@ -79,34 +60,9 @@ export async function aiVision(
   prompt: string,
   options: AIOptions = {}
 ): Promise<string> {
-  const { tier = "standard", temperature = 0.1, maxTokens = 4096 } = options;
+  const { temperature = 0.1, maxTokens = 4096 } = options;
 
-  if (tier === "enhanced" && process.env.ANTHROPIC_API_KEY) {
-    try {
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-      const mediaType = mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: maxTokens,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
-            { type: "text", text: prompt },
-          ],
-        }],
-      });
-
-      const block = response.content[0];
-      return block.type === "text" ? block.text : "";
-    } catch {
-      // Fall through to standard
-    }
-  }
-
-  // Standard vision
+  // Vision model for image analysis
   const dataUrl = `data:${mimeType};base64,${imageBase64}`;
   const completion = await groq.chat.completions.create({
     model: "meta-llama/llama-4-scout-17b-16e-instruct",

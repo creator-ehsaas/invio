@@ -73,19 +73,20 @@ export default function CustomerDetailPage() {
     setLedgerLoading(true);
     const supabase = createClient();
 
-    const [{ data: invoices }, { data: payments }] = await Promise.all([
-      supabase.from("invoices")
-        .select("id, invoice_number, invoice_date, total, status")
-        .eq("customer_id", params.id)
-        .order("invoice_date", { ascending: true }),
-      supabase.from("payments")
-        .select("id, amount, payment_date, payment_method, reference_number, invoice_id")
-        .in("invoice_id",
-          // We'll get all payment IDs from the customer invoices
-          invoices?.map(i => i.id) || []
-        )
-        .order("payment_date", { ascending: true }),
-    ]);
+    // First fetch invoices
+    const { data: invoices } = await supabase.from("invoices")
+      .select("id, invoice_number, invoice_date, total, status")
+      .eq("customer_id", params.id)
+      .order("invoice_date", { ascending: true });
+
+    // Then fetch payments for those invoices
+    const invoiceIds = (invoices || []).map(i => i.id);
+    const { data: payments } = invoiceIds.length > 0
+      ? await supabase.from("payments")
+          .select("id, amount, payment_date, payment_method, reference_number, invoice_id")
+          .in("invoice_id", invoiceIds)
+          .order("payment_date", { ascending: true })
+      : { data: [] };
 
     const entries: LedgerEntry[] = [];
     let runningBalance = 0;

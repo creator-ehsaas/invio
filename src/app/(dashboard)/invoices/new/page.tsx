@@ -27,6 +27,7 @@ interface InvoiceItem {
   unit: string;
   rate: number;
   gst_rate: number;
+  discount_percent: number;
 }
 
 interface Customer {
@@ -57,9 +58,10 @@ export default function NewInvoicePage() {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([
-    { description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18 },
+    { description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18, discount_percent: 0 },
   ]);
   const [notes, setNotes] = useState("");
+  const [overallDiscount, setOverallDiscount] = useState(0); // Overall discount %
   const [saving, setSaving] = useState(false);
   const [autoCreated, setAutoCreated] = useState<{
     items: string[];
@@ -157,7 +159,7 @@ export default function NewInvoicePage() {
         break;
 
       case "clear_items":
-        setItems([{ description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18 }]);
+        setItems([{ description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18, discount_percent: 0 }]);
         setCustomerName("");
         break;
 
@@ -310,7 +312,7 @@ export default function NewInvoicePage() {
   const addItem = () => {
     setItems([
       ...items,
-      { description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18 },
+      { description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18, discount_percent: 0 },
     ]);
   };
 
@@ -327,36 +329,57 @@ export default function NewInvoicePage() {
   };
 
   const calculateTotals = () => {
-    let subtotal = 0;
+    let subtotalBeforeDiscount = 0;
+    let lineDiscountTotal = 0;
     let totalGst = 0;
 
     items.forEach((item) => {
-      const amount = item.quantity * item.rate;
-      subtotal += amount;
-      totalGst += (amount * item.gst_rate) / 100;
+      const lineAmount = item.quantity * item.rate;
+      const lineDiscount = (lineAmount * (item.discount_percent || 0)) / 100;
+      const taxableAmount = lineAmount - lineDiscount;
+      subtotalBeforeDiscount += lineAmount;
+      lineDiscountTotal += lineDiscount;
+      totalGst += (taxableAmount * item.gst_rate) / 100;
     });
 
-    // Determine if intra-state (CGST+SGST) or inter-state (IGST)
+    const subtotal = subtotalBeforeDiscount - lineDiscountTotal;
+    const overallDiscountAmt = (subtotal * overallDiscount) / 100;
+    const taxableAfterOverall = subtotal - overallDiscountAmt;
+
+    // Recalculate GST on discounted amount if overall discount applied
+    if (overallDiscount > 0) {
+      totalGst = 0;
+      items.forEach((item) => {
+        const lineAmount = item.quantity * item.rate;
+        const lineDiscount = (lineAmount * (item.discount_percent || 0)) / 100;
+        const taxableAmount = (lineAmount - lineDiscount) * (1 - overallDiscount / 100);
+        totalGst += (taxableAmount * item.gst_rate) / 100;
+      });
+    }
+
     const intraState = isIntraState(businessInfo?.gstin, customerGstin);
+    const totalDiscount = lineDiscountTotal + overallDiscountAmt;
 
     if (intraState) {
-      // Same state: split GST into CGST and SGST
       return {
-        subtotal,
+        subtotal: subtotalBeforeDiscount,
+        discount: totalDiscount,
+        taxable: taxableAfterOverall,
         cgst: totalGst / 2,
         sgst: totalGst / 2,
         igst: 0,
-        total: subtotal + totalGst,
+        total: taxableAfterOverall + totalGst,
         isIntraState: true,
       };
     } else {
-      // Different states: use IGST
       return {
-        subtotal,
+        subtotal: subtotalBeforeDiscount,
+        discount: totalDiscount,
+        taxable: taxableAfterOverall,
         cgst: 0,
         sgst: 0,
         igst: totalGst,
-        total: subtotal + totalGst,
+        total: taxableAfterOverall + totalGst,
         isIntraState: false,
       };
     }
@@ -493,7 +516,7 @@ export default function NewInvoicePage() {
 
       const invoiceNumber = `INV-${String((count || 0) + 1).padStart(4, "0")}`;
 
-      // Create invoice
+      // Create invoice with discount fields
       const { data: invoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
@@ -504,6 +527,8 @@ export default function NewInvoicePage() {
           invoice_date: invoiceDate,
           due_date: dueDate,
           subtotal: totals.subtotal,
+          discount_percent: overallDiscount,
+          discount_amount: totals.discount,
           cgst: totals.cgst,
           sgst: totals.sgst,
           igst: totals.igst,
@@ -516,9 +541,12 @@ export default function NewInvoicePage() {
 
       if (invoiceError) throw invoiceError;
 
-      // Create invoice items with correct tax type
+      // Create invoice items with discount
       const invoiceItems = items.map((item) => {
-        const itemGst = (item.quantity * item.rate * item.gst_rate) / 100;
+        const lineAmount = item.quantity * item.rate;
+        const lineDiscount = (lineAmount * (item.discount_percent || 0)) / 100;
+        const taxableAmount = (lineAmount - lineDiscount) * (1 - overallDiscount / 100);
+        const itemGst = (taxableAmount * item.gst_rate) / 100;
         return {
           invoice_id: invoice.id,
           description: item.description,
@@ -526,11 +554,13 @@ export default function NewInvoicePage() {
           quantity: item.quantity,
           unit: item.unit,
           rate: item.rate,
+          discount_percent: item.discount_percent || 0,
+          discount_amount: lineDiscount,
           gst_rate: item.gst_rate,
           cgst: totals.isIntraState ? itemGst / 2 : 0,
           sgst: totals.isIntraState ? itemGst / 2 : 0,
           igst: totals.isIntraState ? 0 : itemGst,
-          amount: item.quantity * item.rate * (1 + item.gst_rate / 100),
+          amount: taxableAmount + itemGst,
         };
       });
 
@@ -737,7 +767,7 @@ export default function NewInvoicePage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
                     <input
                       type="text"
                       placeholder="HSN"
@@ -759,6 +789,15 @@ export default function NewInvoicePage() {
                       onChange={(e) => updateItem(index, "rate", Number(e.target.value))}
                       className="bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
                     />
+                    <input
+                      type="number"
+                      placeholder="Disc %"
+                      value={item.discount_percent || ""}
+                      min={0}
+                      max={100}
+                      onChange={(e) => updateItem(index, "discount_percent", Number(e.target.value) || 0)}
+                      className="bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
                     <select
                       value={item.gst_rate}
                       onChange={(e) => updateItem(index, "gst_rate", Number(e.target.value))}
@@ -771,7 +810,7 @@ export default function NewInvoicePage() {
                       <option value={28}>28% GST</option>
                     </select>
                     <div className="text-right font-medium text-foreground py-2">
-                      ₹{(item.quantity * item.rate).toLocaleString("en-IN")}
+                      ₹{((item.quantity * item.rate) * (1 - (item.discount_percent || 0) / 100)).toLocaleString("en-IN")}
                     </div>
                   </div>
                 </div>
@@ -779,16 +818,33 @@ export default function NewInvoicePage() {
             </div>
           </div>
 
-          {/* Notes */}
-          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Notes</h2>
-            <textarea
-              placeholder="Additional notes for this invoice..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none resize-none"
-            />
+          {/* Discount + Notes */}
+          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-3">Overall Discount</h2>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={overallDiscount || ""}
+                  min={0}
+                  max={100}
+                  onChange={(e) => setOverallDiscount(Number(e.target.value) || 0)}
+                  className="w-24 bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none text-center"
+                />
+                <span className="text-muted-foreground">% off on invoice total</span>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-3">Notes</h2>
+              <textarea
+                placeholder="Additional notes for this invoice..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -801,6 +857,12 @@ export default function NewInvoicePage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="text-foreground">₹{totals.subtotal.toLocaleString("en-IN")}</span>
               </div>
+              {totals.discount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-emerald-600">Discount</span>
+                  <span className="text-emerald-600">-₹{totals.discount.toLocaleString("en-IN")}</span>
+                </div>
+              )}
               {totals.isIntraState ? (
                 <>
                   <div className="flex justify-between text-sm">

@@ -21,6 +21,8 @@ import {
   Sparkles,
   Receipt,
   ClipboardList,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 
 type Period = "this_month" | "last_month" | "this_quarter" | "this_year";
@@ -409,6 +411,34 @@ export default function ReportsPage() {
     },
   ];
 
+  const financialReports = [
+    {
+      title: "P&L Statement",
+      description: "Profit & Loss with expense breakdown",
+      icon: TrendingUp,
+      href: "/reports/pnl",
+      highlight: true,
+    },
+    {
+      title: "Aged Receivables",
+      description: "Unpaid invoices by age bucket (0-30, 31-60, 60+)",
+      icon: Calendar,
+      href: "/reports/receivables",
+    },
+    {
+      title: "Credit Notes",
+      description: "Sales returns and price adjustments",
+      icon: ArrowDownLeft,
+      href: "/credit-notes",
+    },
+    {
+      title: "Debit Notes",
+      description: "Additional charges and corrections",
+      icon: ArrowUpRight,
+      href: "/debit-notes",
+    },
+  ];
+
   const gstReports = [
     {
       title: "GSTR-3B",
@@ -550,6 +580,43 @@ export default function ReportsPage() {
               return <Link key={report.title} href={report.href}>{content}</Link>;
             }
             return <div key={report.title} onClick={report.onClick}>{content}</div>;
+          })}
+        </div>
+      </div>
+
+      {/* Financial Reports */}
+      <div className="bg-gradient-to-br from-emerald-500/5 to-teal-500/5 rounded-2xl border border-emerald-200/30 dark:border-emerald-800/30 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Financial Reports</h2>
+            <p className="text-sm text-muted-foreground">Profit & Loss, Receivables analysis</p>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {financialReports.map((report) => {
+            const Icon = report.icon;
+            return (
+              <Link
+                key={report.title}
+                href={report.href}
+                className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                  report.highlight
+                    ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:border-emerald-400"
+                    : "bg-white/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${report.highlight ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-muted"}`}>
+                    <Icon className={`w-5 h-5 ${report.highlight ? "text-emerald-600" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{report.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </Link>
+            );
           })}
         </div>
       </div>
