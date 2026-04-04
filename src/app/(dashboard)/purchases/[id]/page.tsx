@@ -207,6 +207,47 @@ export default function PurchaseDetailPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Attached Invoice */}
+          {purchase.attachment_url && (
+            <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 overflow-hidden shadow-sm">
+              <div className="p-4 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">Attached Bill</h2>
+                <a
+                  href={purchase.attachment_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary font-medium hover:underline"
+                >
+                  Open full size
+                </a>
+              </div>
+              {purchase.attachment_url.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? (
+                <img
+                  src={purchase.attachment_url}
+                  alt="Purchase bill"
+                  className="w-full max-h-96 object-contain bg-muted"
+                />
+              ) : (
+                <div className="p-6 flex items-center gap-4">
+                  <div className="p-4 bg-red-100 dark:bg-red-950/30 rounded-xl">
+                    <FileText className="w-8 h-8 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">PDF Bill Attached</p>
+                    <a
+                      href={purchase.attachment_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Click to view PDF
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Supplier Info */}
           <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
