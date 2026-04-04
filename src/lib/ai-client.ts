@@ -24,6 +24,7 @@ interface AIOptions {
   tier?: AITier;
   temperature?: number;
   maxTokens?: number;
+  systemPrompt?: string;
 }
 
 /**
@@ -31,7 +32,7 @@ interface AIOptions {
  * Pass tier: "enhanced" for Pro-plan features (complex analysis, better reasoning).
  */
 export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): Promise<string> {
-  const { tier = "standard", temperature = 0.3, maxTokens = 1024 } = options;
+  const { tier = "standard", temperature = 0.3, maxTokens = 1024, systemPrompt } = options;
 
   // Enhanced tier uses the most capable available model
   // When @anthropic-ai/sdk is installed and ANTHROPIC_API_KEY set,
@@ -40,9 +41,13 @@ export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): 
     ? "llama-3.3-70b-versatile"   // Best Groq model
     : "llama-3.3-70b-versatile";  // Standard tier
 
+  const allMessages: ChatMessage[] = systemPrompt
+    ? [{ role: "system", content: systemPrompt }, ...messages]
+    : messages;
+
   const completion = await groq.chat.completions.create({
     model,
-    messages,
+    messages: allMessages,
     temperature,
     max_tokens: maxTokens,
   });

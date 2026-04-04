@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -44,6 +44,7 @@ interface BusinessInfo {
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -81,7 +82,45 @@ export default function NewInvoicePage() {
     const due = new Date();
     due.setDate(due.getDate() + 15);
     setDueDate(due.toISOString().split("T")[0]);
+
+    // Pre-fill from AI assistant params
+    const aiCustomer = searchParams.get("customer");
+    const aiItems = searchParams.get("items");
+    if (aiCustomer) setCustomerName(aiCustomer);
+    if (aiItems) {
+      // Send items text to AI parser to fill the form
+      autoParseItems(aiItems);
+    }
   }, []);
+
+  const autoParseItems = async (text: string) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/parse-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: text }),
+      });
+      if (res.ok) {
+        const { data } = await res.json();
+        if (data?.items?.length) {
+          setItems(data.items.map((item: any) => ({
+            description: item.description || "",
+            hsn_code: item.hsn_code || "",
+            quantity: item.quantity || 1,
+            unit: item.unit || "pcs",
+            rate: item.rate || 0,
+            gst_rate: item.gst_rate ?? 18,
+            discount_percent: 0,
+          })));
+        }
+        if (data?.customer_name && !searchParams.get("customer")) {
+          setCustomerName(data.customer_name);
+        }
+      }
+    } catch { /* silently fail */ }
+    setIsProcessing(false);
+  };
 
   const fetchCustomersAndBusiness = async () => {
     const supabase = createClient();

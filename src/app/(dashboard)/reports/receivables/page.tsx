@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft, Loader2, AlertCircle, Clock, Calendar, Download,
-  ChevronRight, Sparkles, MessageSquare, Phone
+  ChevronRight, Sparkles, MessageSquare, X, Copy, Check
 } from "lucide-react";
 
 interface UnpaidInvoice {
@@ -30,12 +30,21 @@ interface BucketSummary {
   bgColor: string;
 }
 
+interface ReminderModal {
+  invoice: UnpaidInvoice;
+  message: string | null;
+  loading: boolean;
+}
+
 export default function AgedReceivablesPage() {
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<UnpaidInvoice[]>([]);
+  const [businessName, setBusinessName] = useState("");
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
+  const [reminderModal, setReminderModal] = useState<ReminderModal | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchReceivables();
@@ -48,6 +57,9 @@ export default function AgedReceivablesPage() {
 
     const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
     if (!userData?.business_id) { setLoading(false); return; }
+
+    const { data: biz } = await supabase.from("businesses").select("name").eq("id", userData.business_id).single();
+    if (biz) setBusinessName(biz.name);
 
     const { data } = await supabase
       .from("invoices")
@@ -111,6 +123,41 @@ export default function AgedReceivablesPage() {
   ];
 
   const grandTotal = invoices.reduce((s, i) => s + i.total, 0);
+
+  const openReminder = async (inv: UnpaidInvoice) => {
+    setReminderModal({ invoice: inv, message: null, loading: true });
+    try {
+      const res = await fetch("/api/ai-payment-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: inv.customer_name,
+          invoiceNumber: inv.invoice_number,
+          amount: inv.total,
+          daysOverdue: inv.daysOverdue,
+          businessName,
+        }),
+      });
+      if (res.ok) {
+        const { message } = await res.json();
+        setReminderModal(prev => prev ? { ...prev, message, loading: false } : null);
+      }
+    } catch {
+      setReminderModal(prev => prev ? { ...prev, message: "Could not generate reminder.", loading: false } : null);
+    }
+  };
+
+  const copyReminder = async () => {
+    if (!reminderModal?.message) return;
+    await navigator.clipboard.writeText(reminderModal.message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const sendOnWhatsApp = () => {
+    if (!reminderModal?.message) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(reminderModal.message)}`, "_blank");
+  };
 
   const getAiInsight = async () => {
     if (loadingInsight || invoices.length === 0) return;
@@ -268,9 +315,9 @@ export default function AgedReceivablesPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={(e) => { e.preventDefault(); /* TODO: send reminder */ }}
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-                      title="Send reminder"
+                      onClick={(e) => { e.preventDefault(); openReminder(inv); }}
+                      className="p-2 text-muted-foreground hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 rounded-lg transition-colors"
+                      title="AI Payment Reminder"
                     >
                       <MessageSquare className="w-4 h-4" />
                     </button>
@@ -281,6 +328,62 @@ export default function AgedReceivablesPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* AI Reminder Modal */}
+      {reminderModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <div>
+                <h3 className="font-semibold text-foreground">AI Payment Reminder</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {reminderModal.invoice.customer_name} · {reminderModal.invoice.invoice_number}
+                </p>
+              </div>
+              <button
+                onClick={() => setReminderModal(null)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              {reminderModal.loading ? (
+                <div className="flex items-center justify-center py-8 gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">Drafting reminder...</span>
+                </div>
+              ) : (
+                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-xl p-4">
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                    {reminderModal.message}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {!reminderModal.loading && reminderModal.message && (
+              <div className="flex gap-3 px-5 pb-5">
+                <button
+                  onClick={copyReminder}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-border rounded-xl hover:bg-muted transition-colors text-sm"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+                <button
+                  onClick={sendOnWhatsApp}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Send on WhatsApp
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
