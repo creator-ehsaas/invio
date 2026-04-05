@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/layout/navbar";
 import { BillingNotifications } from "@/components/billing/BillingNotifications";
 import { AIAssistant } from "@/components/ai-assistant";
+import { CommandPalette } from "@/components/command-palette";
+import { KeyboardShortcutsModal } from "@/components/keyboard-shortcuts";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 import type { User, Business } from "@/types/database";
 
 export default async function DashboardLayout({
@@ -51,6 +54,12 @@ export default async function DashboardLayout({
       </Suspense>
       {/* Global AI Assistant — available on all pages */}
       <AIAssistant />
+      {/* Command palette — Cmd+K */}
+      <CommandPalette />
+      {/* Keyboard shortcuts modal — ? key */}
+      <KeyboardShortcutsModal />
+      {/* Onboarding wizard — shows on first visit */}
+      <OnboardingWizard />
     </div>
   );
 }

@@ -9,7 +9,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  X,
   Home,
   FileText,
   Users,
@@ -20,8 +19,11 @@ import {
   Receipt,
   Truck,
   ClipboardList,
+  Search,
+  Keyboard,
 } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface NavbarProps {
   user: UserType;
@@ -89,7 +91,29 @@ export function Navbar({ user, business }: NavbarProps) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {/* Command palette trigger */}
+            <button
+              onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-muted/50 hover:bg-muted text-muted-foreground text-xs transition-colors"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden lg:block">Search</span>
+              <kbd className="hidden lg:inline-flex h-4 items-center gap-0.5 rounded border bg-background px-1 font-mono text-[10px] font-medium">
+                ⌘K
+              </kbd>
+            </button>
+
+            <ThemeToggle />
+
+            <button
+              onClick={() => document.dispatchEvent(new CustomEvent("show-shortcuts"))}
+              className="p-2 rounded-full hover:bg-muted transition-colors hidden md:flex"
+              title="Keyboard shortcuts (?)"
+            >
+              <Keyboard className="w-4 h-4 text-muted-foreground" />
+            </button>
+
             <button className="p-2 rounded-full hover:bg-muted transition-colors">
               <Bell className="w-5 h-5 text-muted-foreground" />
             </button>

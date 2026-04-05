@@ -1,15 +1,53 @@
 const { app, BrowserWindow, shell, Menu, Tray, nativeImage, ipcMain } = require("electron");
 const path = require("path");
-const isDev = require("electron-is-dev");
+const isDev = !app.isPackaged;
 const { execFile } = require("child_process");
 const http = require("http");
 
 let mainWindow = null;
+let splashWindow = null;
 let tray = null;
 let nextServer = null;
 
 const NEXT_PORT = 3000;
 const APP_URL = `http://localhost:${NEXT_PORT}`;
+
+function createSplash() {
+  const splashImg = path.join(__dirname, "../public/splash.png").replace(/\\/g, "/");
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:600px;height:400px;overflow:hidden;background:#0d001f;-webkit-app-region:drag;user-select:none}
+    img{width:600px;height:400px;display:block}
+    #s{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(167,139,250,0.6);font-size:11px;font-family:-apple-system,sans-serif;letter-spacing:.05em;white-space:nowrap}
+    .d{display:inline-block;animation:b 1.4s infinite}.d:nth-child(2){animation-delay:.2s}.d:nth-child(3){animation-delay:.4s}
+    @keyframes b{0%,80%,100%{opacity:0}40%{opacity:1}}
+  </style></head><body>
+    <img src="file:///${splashImg}" />
+    <div id="s">Starting<span class="d">.</span><span class="d">.</span><span class="d">.</span></div>
+  </body></html>`;
+
+  splashWindow = new BrowserWindow({
+    width: 600,
+    height: 400,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    center: true,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  splashWindow.once("ready-to-show", () => splashWindow.show());
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -25,11 +63,12 @@ function createWindow() {
       contextIsolation: true,
       spellcheck: true,
     },
-    backgroundColor: "#ffffff",
+    backgroundColor: "#0d001f",
     show: false,
   });
 
   mainWindow.once("ready-to-show", () => {
+    closeSplash();
     mainWindow.show();
     if (isDev) mainWindow.webContents.openDevTools({ mode: "detach" });
   });
@@ -148,6 +187,7 @@ app.whenReady().then(async () => {
   buildNativeMenu();
 
   if (!isDev) {
+    createSplash();
     await startNextServer();
     await waitForServer();
   }

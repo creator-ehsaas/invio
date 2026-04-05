@@ -1,20 +1,84 @@
-# env files - never commit these
+# ─── Secrets & environment ────────────────────────────────────────────────────
 .env
 .env.local
-.env*.local
+.env.*.local
+.env.production
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
 
-# Next.js
-.next/
-out/
-
-# dependencies
+# ─── Dependencies ─────────────────────────────────────────────────────────────
 node_modules/
 
-# build
+# ─── Next.js ──────────────────────────────────────────────────────────────────
+.next/
+out/
+next-env.d.ts
+
+# ─── TypeScript ───────────────────────────────────────────────────────────────
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ─── Electron build output ────────────────────────────────────────────────────
+dist-electron/
 dist/
 build/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.msi
+*.pkg
 
-# misc
+# ─── Capacitor / Android ──────────────────────────────────────────────────────
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/.idea/
+android/*.iml
+android/app/release/
+android/app/debug/
+android/app/src/main/assets/public/
+
+# ─── iOS ──────────────────────────────────────────────────────────────────────
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/.idea/
+DerivedData/
+
+# ─── Supabase ─────────────────────────────────────────────────────────────────
+supabase/.temp/
+supabase/functions/.cache/
+
+# ─── Remotion ─────────────────────────────────────────────────────────────────
+out/
+.remotion/
+
+# ─── Misc tooling ─────────────────────────────────────────────────────────────
 .DS_Store
-*.pem
+Thumbs.db
+.vscode/settings.json
+.idea/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Superpowers / Claude ─────────────────────────────────────────────────────
 .superpowers/
+skills-lock.json
+
+# ─── Installer assets source files (keep) — built binaries (ignore) ───────────
+# installer-assets/ is committed (source BMP/PNG files)
+# but don't commit generated build artifacts inside it
+installer-assets/*.exe
+installer-assets/*.msi

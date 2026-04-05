@@ -26,7 +26,10 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Invio"
+    "shortcutName": "Invio",
+    "installerSidebar": "installer-assets/welcome.bmp",
+    "installerHeader": "installer-assets/header.bmp",
+    "license": null
   },
   "mac": {
     "target": ["dmg", "zip"],
@@ -38,9 +41,11 @@
     "entitlementsInherit": "electron/entitlements.mac.plist"
   },
   "dmg": {
+    "background": "installer-assets/dmg-background.png",
+    "window": { "width": 540, "height": 380 },
     "contents": [
-      { "x": 130, "y": 220 },
-      { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      { "x": 168, "y": 290 },
+      { "x": 372, "y": 290, "type": "link", "path": "/Applications" }
     ]
   },
   "linux": {
