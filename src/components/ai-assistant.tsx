@@ -190,27 +190,61 @@ export function AIAssistant() {
       const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
       if (!userData?.business_id) return null;
       const bId = userData.business_id;
-      const [invRes, custRes, invtRes, bizRes] = await Promise.all([
-        supabase.from("invoices").select("status, total").eq("business_id", bId),
+
+      const now = new Date();
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+
+      const [invRes, custRes, invtRes, bizRes, expRes] = await Promise.all([
+        supabase.from("invoices")
+          .select("id, invoice_number, status, total, invoice_date, customers(name)")
+          .eq("business_id", bId)
+          .order("invoice_date", { ascending: false })
+          .limit(100),
         supabase.from("customers").select("id, name").eq("business_id", bId),
         supabase.from("inventory_items").select("name, current_stock, reorder_level").eq("business_id", bId),
         supabase.from("businesses").select("name, gstin, state_code").eq("id", bId).single(),
+        supabase.from("expenses").select("amount, category, expense_date").eq("business_id", bId),
       ]);
+
       const invoices = invRes.data || [];
-      const revenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
+      const expenses = expRes.data || [];
+
+      const allRevenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
       const pending = invoices.filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((s, i) => s + (i.total || 0), 0);
       const overdue = invoices.filter(i => i.status === "overdue").length;
+
+      const thisMonthInv = invoices.filter(i => i.invoice_date >= thisMonthStart);
+      const lastMonthInv = invoices.filter(i => i.invoice_date >= lastMonthStart && i.invoice_date <= lastMonthEnd);
+      const thisMonthSales = thisMonthInv.filter(i => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
+      const lastMonthSales = lastMonthInv.filter(i => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
+      const thisMonthExpenses = expenses.filter(e => e.expense_date >= thisMonthStart).reduce((s, e) => s + (e.amount || 0), 0);
+
       const lowStock = (invtRes.data || []).filter(i => i.current_stock <= i.reorder_level).map(i => i.name);
+
+      const recentInvoices = invoices.slice(0, 5).map(i => ({
+        number: i.invoice_number,
+        customer: (i.customers as any)?.name,
+        amount: `₹${(i.total || 0).toLocaleString("en-IN")}`,
+        status: i.status,
+        date: i.invoice_date,
+      }));
+
       return {
         businessName: bizRes.data?.name,
         gstin: bizRes.data?.gstin,
         state: bizRes.data?.state_code,
         totalInvoices: invoices.length,
-        revenue: `₹${revenue.toLocaleString("en-IN")}`,
-        pending: `₹${pending.toLocaleString("en-IN")}`,
+        totalRevenue: `₹${allRevenue.toLocaleString("en-IN")}`,
+        pendingAmount: `₹${pending.toLocaleString("en-IN")}`,
         overdueInvoices: overdue,
         totalCustomers: (custRes.data || []).length,
         lowStockItems: lowStock,
+        thisMonthSales: `₹${thisMonthSales.toLocaleString("en-IN")}`,
+        lastMonthSales: `₹${lastMonthSales.toLocaleString("en-IN")}`,
+        thisMonthExpenses: `₹${thisMonthExpenses.toLocaleString("en-IN")}`,
+        recentInvoices,
       };
     } catch { return null; }
   };
@@ -233,7 +267,7 @@ export function AIAssistant() {
       const navRes = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, context }),
+        body: JSON.stringify({ message: msg, businessContext: context }),
       });
 
       if (navRes.ok) {
@@ -256,7 +290,7 @@ export function AIAssistant() {
       const res = await fetch("/api/ai-conversation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, context }),
+        body: JSON.stringify({ message: msg, businessContext: context }),
       });
 
       if (res.ok) {
