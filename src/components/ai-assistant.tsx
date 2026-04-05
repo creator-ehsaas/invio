@@ -7,6 +7,7 @@ import {
   Volume2, VolumeX, Bot, User, Trash2,
 } from "lucide-react";
 import { useVoiceInput } from "@/hooks/use-voice-input";
+import { createClient } from "@/lib/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -84,10 +85,12 @@ export function AIAssistant() {
     setLoadingHistory(false);
   };
 
+  const [confirmClear, setConfirmClear] = useState(false);
+
   const clearHistory = async () => {
-    if (!confirm("Clear all conversation history?")) return;
     await fetch("/api/ai-conversation", { method: "DELETE" });
     setMessages([]);
+    setConfirmClear(false);
   };
 
   // Read settings from localStorage on mount and on settings change
@@ -179,6 +182,39 @@ export function AIAssistant() {
     setIsSpeaking(false);
   };
 
+  const fetchBusinessContext = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
+      if (!userData?.business_id) return null;
+      const bId = userData.business_id;
+      const [invRes, custRes, invtRes, bizRes] = await Promise.all([
+        supabase.from("invoices").select("status, total").eq("business_id", bId),
+        supabase.from("customers").select("id, name").eq("business_id", bId),
+        supabase.from("inventory_items").select("name, current_stock, reorder_level").eq("business_id", bId),
+        supabase.from("businesses").select("name, gstin, state_code").eq("id", bId).single(),
+      ]);
+      const invoices = invRes.data || [];
+      const revenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
+      const pending = invoices.filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((s, i) => s + (i.total || 0), 0);
+      const overdue = invoices.filter(i => i.status === "overdue").length;
+      const lowStock = (invtRes.data || []).filter(i => i.current_stock <= i.reorder_level).map(i => i.name);
+      return {
+        businessName: bizRes.data?.name,
+        gstin: bizRes.data?.gstin,
+        state: bizRes.data?.state_code,
+        totalInvoices: invoices.length,
+        revenue: `₹${revenue.toLocaleString("en-IN")}`,
+        pending: `₹${pending.toLocaleString("en-IN")}`,
+        overdueInvoices: overdue,
+        totalCustomers: (custRes.data || []).length,
+        lowStockItems: lowStock,
+      };
+    } catch { return null; }
+  };
+
   const send = async (text?: string) => {
     const msg = (text || input).trim();
     if (!msg || loading) return;
@@ -189,12 +225,15 @@ export function AIAssistant() {
     setLoading(true);
     setWakeWordActive(false);
 
+    // Fetch live business context to pass to AI
+    const context = await fetchBusinessContext();
+
     try {
       // First: check if it's a navigation command
       const navRes = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, context }),
       });
 
       if (navRes.ok) {
@@ -217,7 +256,7 @@ export function AIAssistant() {
       const res = await fetch("/api/ai-conversation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, context }),
       });
 
       if (res.ok) {
@@ -309,13 +348,21 @@ export function AIAssistant() {
                   <VolumeX className="w-4 h-4" />
                 </button>
               )}
-              <button
-                onClick={clearHistory}
-                className="p-2 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-500 rounded-lg transition-colors text-muted-foreground"
-                title="Clear conversation history"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {confirmClear ? (
+                <div className="flex items-center gap-1 bg-red-50 dark:bg-red-950/30 rounded-lg px-2 py-1">
+                  <span className="text-xs text-red-600 dark:text-red-400">Clear history?</span>
+                  <button onClick={clearHistory} className="text-xs font-semibold text-red-600 hover:text-red-700 px-1">Yes</button>
+                  <button onClick={() => setConfirmClear(false)} className="text-xs text-muted-foreground hover:text-foreground px-1">No</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  className="p-2 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-500 rounded-lg transition-colors text-muted-foreground"
+                  title="Clear conversation history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               <button onClick={() => { setOpen(false); stopSpeaking(); }} className="p-2 hover:bg-muted rounded-lg transition-colors">
                 <X className="w-4 h-4" />
               </button>

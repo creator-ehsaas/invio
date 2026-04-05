@@ -32,16 +32,18 @@ interface Customer {
   phone?: string;
   email?: string;
   gstin?: string;
-  state?: string;
-  city?: string;
-  address?: string;
+  billing_address?: {
+    state?: string;
+    city?: string;
+    address?: string;
+    pincode?: string;
+  };
 }
 
 const FILTER_FIELDS: FilterField[] = [
   { key: "name", label: "Name", type: "text" },
   { key: "business_name", label: "Business", type: "text" },
   { key: "email", label: "Email", type: "text" },
-  { key: "state", label: "State", type: "text" },
   { key: "gstin", label: "GSTIN", type: "text" },
 ];
 
@@ -61,7 +63,7 @@ export default function CustomersPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("customers")
-      .select("id, name, business_name, phone, email, gstin, state, city, address")
+      .select("id, name, business_name, phone, email, gstin, billing_address")
       .order("created_at", { ascending: false });
     if (data) setCustomers(data);
     setLoading(false);
@@ -163,9 +165,9 @@ export default function CustomersPage() {
       ) : <span className="text-muted-foreground text-xs">—</span>,
     },
     {
-      accessorKey: "state",
+      id: "state",
       header: "State",
-      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.state || "—"}</span>,
+      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.billing_address?.state || "—"}</span>,
     },
     {
       id: "actions",
@@ -324,9 +326,9 @@ export default function CustomersPage() {
                 { label: "Phone", value: selected.phone || "—", icon: <Phone className="h-3.5 w-3.5" /> },
                 { label: "Email", value: selected.email || "—", icon: <Mail className="h-3.5 w-3.5" /> },
                 { label: "GSTIN", value: selected.gstin || "—", icon: <Building2 className="h-3.5 w-3.5" /> },
-                { label: "State", value: selected.state || "—" },
-                { label: "City", value: selected.city || "—" },
-                { label: "Address", value: selected.address || "—" },
+                { label: "State", value: selected.billing_address?.state || "—" },
+                { label: "City", value: selected.billing_address?.city || "—" },
+                { label: "Address", value: selected.billing_address?.address || "—" },
               ].map(({ label, value, icon }) => (
                 <div key={label} className="flex items-start justify-between gap-4 py-2 border-b border-border/50 last:border-0">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5 shrink-0 w-20">{icon}{label}</span>

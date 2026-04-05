@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -122,7 +124,9 @@ export function OnboardingWizard() {
 
   return (
     <Dialog open={open} onOpenChange={(o: boolean) => { if (!o) finish(); }}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden gap-0">
+      <DialogContent className="max-w-lg p-0 overflow-hidden gap-0" showCloseButton={false}>
+        <DialogTitle className="sr-only">Getting started with Invio</DialogTitle>
+        <DialogDescription className="sr-only">A guided tour to set up your business profile, customers, invoices, and inventory</DialogDescription>
         {/* Header */}
         <div className="bg-gradient-to-br from-primary/10 to-primary/5 px-6 pt-6 pb-4">
           <div className="flex items-center justify-between mb-4">
