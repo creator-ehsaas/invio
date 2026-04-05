@@ -5,7 +5,6 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
-  Bell,
   Settings,
   LogOut,
   Menu,
@@ -24,6 +23,7 @@ import {
 } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { NotificationPanel } from "@/components/notification-panel";
 
 interface NavbarProps {
   user: UserType;
@@ -114,9 +114,7 @@ export function Navbar({ user, business }: NavbarProps) {
               <Keyboard className="w-4 h-4 text-muted-foreground" />
             </button>
 
-            <button className="p-2 rounded-full hover:bg-muted transition-colors">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-            </button>
+            <NotificationPanel />
 
             <div className="relative">
               <button
