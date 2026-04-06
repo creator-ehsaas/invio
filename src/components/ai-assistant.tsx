@@ -51,6 +51,10 @@ export function AIAssistant() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const wakeWordRef = useRef<any>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  // Refs to avoid stale closures inside recognition callbacks
+  const isListeningRef = useRef(false);
+  const isOpenRef = useRef(false);
+  const toggleRecordingRef = useRef<() => void>(() => {});
 
   // Voice input for chat
   const { isRecording, isTranscribing, toggleRecording } = useVoiceInput({
@@ -110,48 +114,78 @@ export function AIAssistant() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Keep refs in sync so recognition callbacks always see latest values
+  useEffect(() => { isOpenRef.current = open; }, [open]);
+  useEffect(() => { isListeningRef.current = wakeWordListening; }, [wakeWordListening]);
+  useEffect(() => { toggleRecordingRef.current = toggleRecording; }, [toggleRecording]);
+
   // Wake word detection using Web Speech API continuous recognition
   const startWakeWord = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      alert("Wake word not supported in this browser. Use Chrome or Edge.");
+      return;
+    }
+
+    // Stop any existing instance first
+    if (wakeWordRef.current) {
+      try { wakeWordRef.current.stop(); } catch { /* ignore */ }
+    }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "hi-IN"; // Supports both Hindi and English
+    // Use en-US — more reliable cross-platform; wake words still detected in Hinglish
+    recognition.lang = "en-US";
     wakeWordRef.current = recognition;
 
     recognition.onresult = (event: any) => {
-      const last = event.results[event.results.length - 1];
-      const transcript = last[0].transcript.toLowerCase().trim();
-      const triggered = getWakeWords().some(w => transcript.includes(w));
-      if (triggered && !open) {
-        setOpen(true);
-        setWakeWordActive(true);
-        // Start listening immediately after wake word
-        setTimeout(() => toggleRecording(), 300);
+      // Check all new results, not just the last
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript.toLowerCase().trim();
+        const triggered = getWakeWords().some(w => transcript.includes(w));
+        if (triggered && !isOpenRef.current) {
+          setOpen(true);
+          setWakeWordActive(true);
+          setTimeout(() => toggleRecordingRef.current(), 400);
+          break;
+        }
       }
     };
 
-    recognition.onerror = () => setWakeWordListening(false);
+    recognition.onerror = (e: any) => {
+      // "no-speech" and "aborted" are normal — don't stop listening
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setWakeWordListening(false);
+        isListeningRef.current = false;
+      }
+    };
+
     recognition.onend = () => {
-      // Restart to keep listening
-      if (wakeWordListening) {
-        try { recognition.start(); } catch { /* already started */ }
+      // Auto-restart unless explicitly stopped
+      if (isListeningRef.current) {
+        setTimeout(() => {
+          try { recognition.start(); } catch { /* already restarting */ }
+        }, 300);
       }
     };
 
     try {
       recognition.start();
       setWakeWordListening(true);
-    } catch { /* browser not supported */ }
-  }, [open, toggleRecording, wakeWordListening]);
+      isListeningRef.current = true;
+    } catch (e) {
+      console.error("Wake word start failed:", e);
+    }
+  }, []); // no deps — uses refs for all live values
 
-  const stopWakeWord = () => {
-    wakeWordRef.current?.stop();
+  const stopWakeWord = useCallback(() => {
+    isListeningRef.current = false;
+    try { wakeWordRef.current?.stop(); } catch { /* ignore */ }
+    wakeWordRef.current = null;
     setWakeWordListening(false);
     setWakeWordActive(false);
-  };
+  }, []);
 
   // Text-to-speech using browser's Web Speech API
   const speak = (text: string) => {
