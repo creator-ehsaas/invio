@@ -25,6 +25,8 @@ import {
   CreditCard,
 } from "lucide-react";
 import { downloadInvoicePDF, type InvoicePDFData } from "@/components/invoice-pdf";
+import { buildWaUrl, paymentReminderMessage, invoiceShareMessage } from "@/lib/whatsapp";
+import { Button } from "@/components/ui/button";
 
 interface Invoice {
   id: string;
@@ -343,26 +345,26 @@ This is a computer-generated receipt.
 
   const shareWhatsApp = () => {
     if (!invoice) return;
+    const msg = invoiceShareMessage({
+      invoice_number: invoice.invoice_number,
+      customer_name: invoice.customer_name,
+      total: invoice.total,
+      invoice_date: invoice.invoice_date,
+      business_name: business?.name,
+    });
+    window.open(buildWaUrl(null, msg), "_blank");
+  };
 
-    const itemsList = items.map(item =>
-      `• ${item.description}: ${item.quantity} ${item.unit} × ₹${item.rate} = ₹${item.amount}`
-    ).join("\n");
-
-    const message = `*Invoice ${invoice.invoice_number}*
-Customer: ${invoice.customer_name}
-Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}
-
-*Items:*
-${itemsList}
-
-Subtotal: ₹${invoice.subtotal.toLocaleString("en-IN")}
-GST: ₹${(invoice.cgst + invoice.sgst + invoice.igst).toLocaleString("en-IN")}
-*Total: ₹${invoice.total.toLocaleString("en-IN")}*
-
-Status: ${invoice.status.toUpperCase()}`;
-
-    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
+  const sendWaReminder = () => {
+    if (!invoice) return;
+    const msg = paymentReminderMessage({
+      invoice_number: invoice.invoice_number,
+      customer_name: invoice.customer_name,
+      total: invoice.total,
+      due_date: invoice.due_date,
+      business_name: business?.name,
+    });
+    window.open(buildWaUrl(null, msg), "_blank");
   };
 
   const getStatusStyle = (status: string) => {
@@ -511,6 +513,16 @@ Status: ${invoice.status.toUpperCase()}`;
           >
             <MessageCircle className="w-5 h-5" />
           </button>
+          {(invoice.status === "overdue" || invoice.status === "sent") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={sendWaReminder}
+              className="gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900 dark:hover:bg-emerald-950"
+            >
+              <MessageCircle className="h-4 w-4" /> Send Reminder
+            </Button>
+          )}
           <button
             onClick={deleteInvoice}
             className="p-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
