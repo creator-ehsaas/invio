@@ -17,7 +17,12 @@ export function buildWaUrl(phone: string | null | undefined, message: string): s
   const encoded = encodeURIComponent(message);
   if (phone) {
     const digits = phone.replace(/\D/g, "");
-    const normalized = digits.startsWith("91") ? digits : `91${digits}`;
+    const normalized =
+      digits.length === 12 && digits.startsWith("91")
+        ? digits
+        : digits.length === 10
+        ? `91${digits}`
+        : digits; // unknown format — pass through unchanged
     return `https://wa.me/${normalized}?text=${encoded}`;
   }
   return `https://wa.me/?text=${encoded}`;
@@ -26,6 +31,8 @@ export function buildWaUrl(phone: string | null | undefined, message: string): s
 /**
  * Hinglish payment reminder message for overdue invoices.
  */
+// Note: uses invoice.total (not balanceDue after partial payments) since
+// partial payment data isn't available at the call sites. Acceptable for reminders.
 export function paymentReminderMessage(invoice: InvoiceForMessage): string {
   const amount = invoice.total.toLocaleString("en-IN");
   const dueDateStr = invoice.due_date

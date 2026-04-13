@@ -55,7 +55,7 @@ const FILTER_FIELDS: FilterField[] = [
   { key: "status", label: "Status", type: "select", options: [
     { label: "Paid", value: "paid" },
     { label: "Sent", value: "sent" },
-    { key: "draft", label: "Draft", value: "draft" } as any,
+    { label: "Draft", value: "draft" },
     { label: "Overdue", value: "overdue" },
   ]},
   { key: "total", label: "Amount", type: "number" },
@@ -260,7 +260,7 @@ export default function InvoicesPage() {
             >
               <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> Mark as paid
             </DropdownMenuItem>
-            {row.original.status === "overdue" && (
+            {(row.original.status === "overdue" || row.original.status === "sent") && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
