@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { buildWaUrl, paymentReminderMessage } from "@/lib/whatsapp";
 import {
   FileText, Plus, Download, Trash2, Send, CheckCircle,
-  MoreHorizontal, ExternalLink, IndianRupee,
+  MoreHorizontal, ExternalLink, IndianRupee, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { type ColumnDef, type RowSelectionState } from "@tanstack/react-table";
@@ -259,6 +260,25 @@ export default function InvoicesPage() {
             >
               <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> Mark as paid
             </DropdownMenuItem>
+            {row.original.status === "overdue" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const msg = paymentReminderMessage({
+                      invoice_number: row.original.invoice_number,
+                      customer_name: row.original.customer_name,
+                      total: row.original.total,
+                      due_date: row.original.due_date,
+                    });
+                    window.open(buildWaUrl(null, msg), "_blank");
+                  }}
+                >
+                  <MessageCircle className="mr-2 h-4 w-4 text-emerald-500" /> Send WA Reminder
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
