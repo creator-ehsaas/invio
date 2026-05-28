@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Package, Search, Plus, AlertTriangle, XCircle, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type StockFilter = "all" | "low" | "out";
 
@@ -244,24 +245,14 @@ export default function InventoryPage() {
         </div>
       ) : (
         /* Empty State */
-        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-12 shadow-sm">
-          <div className="text-center max-w-sm mx-auto">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Package className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No inventory items</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Start tracking your inventory by adding your first item.
-            </p>
-            <Link
-              href="/inventory/new"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-primary to-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Item</span>
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          icon={<Package className="h-8 w-8" />}
+          title={search ? "No items match your search" : "No stock items yet"}
+          description={search ? "Try adjusting your search query." : "Manage your product catalog with HSN codes, GST rates, and stock levels."}
+          action={{ label: "Add Item", href: "/inventory/new" }}
+          secondaryAction={search ? { label: "Clear search", onClick: () => setSearch("") } : { label: "Import CSV", onClick: () => alert("CSV import feature coming soon!") }}
+          className="bg-white/70 dark:bg-slate-950/70 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl"
+        />
       )}
     </div>
   );

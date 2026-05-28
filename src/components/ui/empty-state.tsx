@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export function EmptyState({
           {action && (
             action.href ? (
               <Button asChild>
-                <a href={action.href}>{action.label}</a>
+                <Link href={action.href}>{action.label}</Link>
               </Button>
             ) : (
               <Button onClick={action.onClick}>{action.label}</Button>
@@ -52,7 +53,7 @@ export function EmptyState({
           {secondaryAction && (
             secondaryAction.href ? (
               <Button variant="outline" asChild>
-                <a href={secondaryAction.href}>{secondaryAction.label}</a>
+                <Link href={secondaryAction.href}>{secondaryAction.label}</Link>
               </Button>
             ) : (
               <Button variant="outline" onClick={secondaryAction.onClick}>{secondaryAction.label}</Button>

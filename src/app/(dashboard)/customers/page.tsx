@@ -287,9 +287,9 @@ export default function CustomersPage() {
           <EmptyState
             icon={<Users className="h-8 w-8" />}
             title={search ? "No customers match your search" : "No customers yet"}
-            description={search ? "Try a different search term." : "Add your first customer to start creating invoices and tracking relationships."}
+            description={search ? "Try a different search term." : "Add your first customer or import contacts to start creating invoices and tracking relationships."}
             action={{ label: "Add Customer", href: "/customers/new" }}
-            secondaryAction={search ? { label: "Clear search", onClick: () => setSearch("") } : undefined}
+            secondaryAction={search ? { label: "Clear search", onClick: () => setSearch("") } : { label: "Import Contacts", onClick: () => toast.info("Contact import feature coming soon!") }}
           />
         }
       />

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   FileText, Users, IndianRupee, Clock, Package, AlertTriangle,
   Sparkles, Check, BarChart3, ChevronRight, Loader2, X,
   Lightbulb, CheckCircle, Zap, GripVertical, Settings2, Eye, EyeOff,
-  TrendingUp, Plus, ExternalLink, Receipt,
+  TrendingUp, Plus, ExternalLink, Receipt, ShoppingCart, Calendar, Key,
 } from "lucide-react";
 import { UpgradeBanner } from "@/components/billing/UpgradeBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,7 @@ interface DashboardStats {
   recentInvoices: RecentInvoice[];
   lowStockList: LowStockItem[];
   totalExpenses: number;
+  totalPayables: number;
 }
 
 interface RecentInvoice {
@@ -62,7 +63,7 @@ interface Insight {
   message: string;
 }
 
-type WidgetId = "stats" | "quick-start" | "revenue" | "recent-invoices" | "low-stock" | "ai-insights";
+type WidgetId = "stats" | "quick-start" | "revenue" | "recent-invoices" | "low-stock" | "ai-insights" | "shortcuts-by-role";
 
 interface Widget {
   id: WidgetId;
@@ -77,10 +78,49 @@ const ALL_WIDGETS: Widget[] = [
   { id: "recent-invoices", label: "Recent Invoices", defaultVisible: true },
   { id: "low-stock", label: "Low Stock Alerts", defaultVisible: true },
   { id: "ai-insights", label: "AI Insights", defaultVisible: true },
+  { id: "shortcuts-by-role", label: "Role-Based Shortcuts", defaultVisible: true },
 ];
 
-const WIDGET_ORDER_KEY = "invio_dashboard_order";
-const WIDGET_VISIBILITY_KEY = "invio_dashboard_visibility";
+const WIDGET_ORDER_KEY = "invio_dashboard_order_v2";
+const WIDGET_VISIBILITY_KEY = "invio_dashboard_visibility_v2";
+
+type PeriodFilter = "all" | "this_month" | "last_month" | "this_quarter" | "this_year";
+
+// Helper to determine if a date falls within a selected period
+function isDateInPeriod(dateStr: string | null | undefined, period: PeriodFilter): boolean {
+  if (!dateStr) return false;
+  if (period === "all") return true;
+
+  const date = new Date(dateStr);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  switch (period) {
+    case "this_month":
+      return date.getMonth() === month && date.getFullYear() === year;
+    case "last_month": {
+      const lastMonth = month === 0 ? 11 : month - 1;
+      const lastMonthYear = month === 0 ? year - 1 : year;
+      return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
+    }
+    case "this_quarter": {
+      const quarterStart = Math.floor(month / 3) * 3;
+      const quarterStartLimit = new Date(year, quarterStart, 1);
+      const quarterEndLimit = new Date(year, quarterStart + 3, 0, 23, 59, 59);
+      return date >= quarterStartLimit && date <= quarterEndLimit;
+    }
+    case "this_year": {
+      // Indian financial year (April 1st to March 31st)
+      const fyStartYear = month >= 3 ? year : year - 1;
+      const fyStart = new Date(fyStartYear, 3, 1);
+      const fyEnd = new Date(fyStartYear + 1, 2, 31, 23, 59, 59);
+      return date >= fyStart && date <= fyEnd;
+    }
+    default:
+      return true;
+  }
+}
 
 // ─── Sortable Widget Wrapper ──────────────────────────────────────────────────
 
@@ -156,11 +196,18 @@ function getGreeting() {
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalInvoices: 0, totalCustomers: 0, totalRevenue: 0,
-    pendingAmount: 0, inventoryItems: 0, lowStockItems: 0,
-    hasBusinessProfile: false, recentInvoices: [], lowStockList: [], totalExpenses: 0,
-  });
+  const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [userRole, setUserRole] = useState<"owner" | "staff">("owner");
+
+  // Raw Database states
+  const [rawInvoices, setRawInvoices] = useState<any[]>([]);
+  const [rawPurchases, setRawPurchases] = useState<any[]>([]);
+  const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+  const [customersCount, setCustomersCount] = useState(0);
+  const [inventoryCount, setInventoryCount] = useState(0);
+  const [lowStockList, setLowStockList] = useState<LowStockItem[]>([]);
+  const [hasBusinessProfile, setHasBusinessProfile] = useState(false);
+
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [customizing, setCustomizing] = useState(false);
@@ -196,12 +243,15 @@ export default function DashboardPage() {
     if (!user) { setLoading(false); return; }
 
     const { data: userData } = await supabase
-      .from("users").select("business_id").eq("id", user.id).single();
+      .from("users").select("business_id, role").eq("id", user.id).single();
+    if (userData) {
+      setUserRole(userData.role || "owner");
+    }
     if (!userData?.business_id) { setLoading(false); return; }
 
     const bId = userData.business_id;
 
-    const [invoicesRes, customersRes, inventoryRes, businessRes, expensesRes] = await Promise.all([
+    const [invoicesRes, customersRes, inventoryRes, businessRes, expensesRes, purchasesRes] = await Promise.all([
       supabase.from("invoices")
         .select("id, invoice_number, status, total, created_at, customers(name)")
         .eq("business_id", bId)
@@ -209,38 +259,52 @@ export default function DashboardPage() {
       supabase.from("customers").select("id").eq("business_id", bId),
       supabase.from("inventory_items").select("id, name, current_stock, reorder_level, unit").eq("business_id", bId),
       supabase.from("businesses").select("name, gstin").eq("id", bId).single(),
-      supabase.from("expenses").select("amount").eq("business_id", bId),
+      supabase.from("expenses").select("amount, expense_date, created_at").eq("business_id", bId),
+      supabase.from("purchase_invoices").select("total, amount_paid, status, bill_date, created_at").eq("business_id", bId),
     ]);
 
-    const invoices = invoicesRes.data || [];
+    setRawInvoices(invoicesRes.data || []);
+    setRawPurchases(purchasesRes.data || []);
+    setRawExpenses(expensesRes.data || []);
+    setCustomersCount((customersRes.data || []).length);
+    setInventoryCount((inventoryRes.data || []).length);
+
     const inventory = inventoryRes.data || [];
+    const lowStock = inventory.filter((item) => item.current_stock <= item.reorder_level);
+    setLowStockList(lowStock);
 
-    const totalRevenue = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
-    const pendingAmount = invoices.filter((i) => i.status !== "paid" && i.status !== "cancelled").reduce((s, i) => s + (i.total || 0), 0);
-    const lowStockList = inventory.filter((item) => item.current_stock <= item.reorder_level);
+    setHasBusinessProfile(!!(businessRes.data?.name && businessRes.data?.gstin));
+    setLoading(false);
+  }, []);
 
-    setStats({
-      totalInvoices: invoices.length,
-      totalCustomers: (customersRes.data || []).length,
+  useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
+
+  // Recalculated values depending on date period filter
+  const stats = useMemo(() => {
+    const filteredInvoices = rawInvoices.filter((i) => isDateInPeriod(i.created_at, period));
+    const filteredExpenses = rawExpenses.filter((e) => isDateInPeriod(e.expense_date || e.created_at, period));
+    const filteredPurchases = rawPurchases.filter((p) => isDateInPeriod(p.bill_date || p.created_at, period));
+
+    const totalRevenue = filteredInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
+    const pendingAmount = filteredInvoices.filter((i) => i.status !== "paid" && i.status !== "cancelled").reduce((s, i) => s + (i.total || 0), 0);
+    const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const totalPayables = filteredPurchases.filter((p) => p.status !== "paid" && p.status !== "cancelled").reduce((s, p) => s + (p.total - p.amount_paid), 0);
+
+    return {
+      totalInvoices: filteredInvoices.length,
       totalRevenue,
       pendingAmount,
-      inventoryItems: inventory.length,
-      lowStockItems: lowStockList.length,
-      hasBusinessProfile: !!(businessRes.data?.name && businessRes.data?.gstin),
-      recentInvoices: invoices.slice(0, 8).map((inv) => ({
+      totalExpenses,
+      totalPayables,
+      recentInvoices: filteredInvoices.slice(0, 8).map((inv) => ({
         id: inv.id,
         invoice_number: inv.invoice_number || `INV-${inv.id.slice(0, 6)}`,
         customer_name: (inv.customers as any)?.name || "Unknown",
         total: inv.total || 0,
         status: inv.status || "draft",
       })),
-      lowStockList,
-      totalExpenses: (expensesRes.data || []).reduce((s, e) => s + (e.amount || 0), 0),
-    });
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
+    };
+  }, [rawInvoices, rawExpenses, rawPurchases, period]);
 
   const fetchInsights = async () => {
     setLoadingInsights(true);
@@ -280,20 +344,20 @@ export default function DashboardPage() {
   };
 
   const quickStartSteps = [
-    { id: 1, label: "Complete business profile", completed: stats.hasBusinessProfile, href: "/settings" },
-    { id: 2, label: "Add your first customer", completed: stats.totalCustomers > 0, href: "/customers/new" },
-    { id: 3, label: "Create your first invoice", completed: stats.totalInvoices > 0, href: "/invoices/new" },
-    { id: 4, label: "Set up inventory items", completed: stats.inventoryItems > 0, href: "/inventory/new" },
+    { id: 1, label: "Complete business profile", completed: hasBusinessProfile, href: "/settings" },
+    { id: 2, label: "Add your first customer", completed: customersCount > 0, href: "/customers/new" },
+    { id: 3, label: "Create your first invoice", completed: rawInvoices.length > 0, href: "/invoices/new" },
+    { id: 4, label: "Set up inventory items", completed: inventoryCount > 0, href: "/inventory/new" },
   ];
   const completedSteps = quickStartSteps.filter((s) => s.completed).length;
 
   const statCards = [
     { title: "Invoices", value: stats.totalInvoices, fmt: "n", icon: FileText, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30", href: "/invoices" },
-    { title: "Customers", value: stats.totalCustomers, fmt: "n", icon: Users, color: "text-violet-600", bg: "bg-violet-100 dark:bg-violet-900/30", href: "/customers" },
-    { title: "Revenue", value: stats.totalRevenue, fmt: "c", icon: IndianRupee, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30", href: "/invoices" },
-    { title: "Pending", value: stats.pendingAmount, fmt: "c", icon: Clock, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30", href: "/invoices" },
+    { title: "Customers", value: customersCount, fmt: "n", icon: Users, color: "text-violet-600", bg: "bg-violet-100 dark:bg-violet-900/30", href: "/customers" },
+    { title: "Revenue Collected", value: stats.totalRevenue, fmt: "c", icon: IndianRupee, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30", href: "/invoices" },
+    { title: "Receivables", value: stats.pendingAmount, fmt: "c", icon: Clock, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30", href: "/invoices" },
+    { title: "Payables", value: stats.totalPayables, fmt: "c", icon: ShoppingCart, color: "text-indigo-600", bg: "bg-indigo-100 dark:bg-indigo-900/30", href: "/purchases" },
     { title: "Expenses", value: stats.totalExpenses, fmt: "c", icon: Receipt, color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30", href: "/expenses" },
-    { title: "Low Stock", value: stats.lowStockItems, fmt: "n", icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100 dark:bg-orange-900/30", href: "/inventory" },
   ];
 
   const renderWidget = (id: WidgetId): React.ReactNode => {
@@ -316,9 +380,6 @@ export default function DashboardPage() {
                           <div className={cn("p-2 rounded-xl", s.bg)}>
                             <Icon className={cn("w-4 h-4", s.color)} />
                           </div>
-                          {s.title === "Low Stock" && stats.lowStockItems > 0 && (
-                            <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600">Alert</Badge>
-                          )}
                         </div>
                         <p className="text-xl font-bold truncate">{val}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{s.title}</p>
@@ -336,7 +397,7 @@ export default function DashboardPage() {
           <SortableWidget key={id} id={id} customizing={customizing}>
             <Card className={cn(pl)}>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">Revenue Overview</CardTitle>
+                <CardTitle className="text-base">Revenue & Liability</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="pt-0">
@@ -347,16 +408,17 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-lg font-semibold text-amber-600">₹{stats.pendingAmount.toLocaleString("en-IN")}</p>
-                    <p className="text-xs text-muted-foreground">Outstanding</p>
+                    <p className="text-xs text-muted-foreground">Outstanding Receivables</p>
                   </div>
                 </div>
                 <div className="space-y-3">
                   {[
                     { label: "Revenue", value: stats.totalRevenue, color: "bg-emerald-500" },
-                    { label: "Pending", value: stats.pendingAmount, color: "bg-amber-400" },
+                    { label: "Receivables", value: stats.pendingAmount, color: "bg-amber-400" },
+                    { label: "Payables (Outstanding purchases)", value: stats.totalPayables, color: "bg-indigo-500" },
                     { label: "Expenses", value: stats.totalExpenses, color: "bg-rose-400" },
                   ].map((bar) => {
-                    const max = stats.totalRevenue + stats.pendingAmount || 1;
+                    const max = Math.max(stats.totalRevenue + stats.pendingAmount, stats.totalPayables, stats.totalExpenses) || 1;
                     return (
                       <div key={bar.label} className="space-y-1">
                         <div className="flex justify-between text-xs">
@@ -370,12 +432,6 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
-                {stats.totalRevenue === 0 && (
-                  <div className="flex flex-col items-center py-6 text-center">
-                    <BarChart3 className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">Start invoicing to see revenue data</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </SortableWidget>
@@ -441,7 +497,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="flex flex-col items-center py-8 text-center">
                     <FileText className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No invoices yet</p>
+                    <p className="text-sm text-muted-foreground">No invoices in this period</p>
                     <Button size="sm" variant="outline" className="mt-3 gap-1.5" asChild>
                       <Link href="/invoices/new"><Plus className="h-3.5 w-3.5" /> Create Invoice</Link>
                     </Button>
@@ -459,8 +515,8 @@ export default function DashboardPage() {
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   Low Stock Alerts
-                  {stats.lowStockItems > 0 && (
-                    <Badge variant="destructive" className="text-[10px] h-4 px-1.5">{stats.lowStockItems}</Badge>
+                  {lowStockList.length > 0 && (
+                    <Badge variant="destructive" className="text-[10px] h-4 px-1.5">{lowStockList.length}</Badge>
                   )}
                 </CardTitle>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" asChild>
@@ -468,9 +524,9 @@ export default function DashboardPage() {
                 </Button>
               </CardHeader>
               <CardContent className="pt-0">
-                {stats.lowStockList.length > 0 ? (
+                {lowStockList.length > 0 ? (
                   <div className="space-y-0.5">
-                    {stats.lowStockList.slice(0, 6).map((item) => (
+                    {lowStockList.slice(0, 6).map((item) => (
                       <div key={item.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50">
                         <div className="h-7 w-7 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
                           <AlertTriangle className="h-3.5 w-3.5 text-orange-600" />
@@ -551,6 +607,57 @@ export default function DashboardPage() {
           </SortableWidget>
         );
 
+      case "shortcuts-by-role":
+        return (
+          <SortableWidget key={id} id={id} customizing={customizing}>
+            <Card className={cn(pl)}>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Key className="h-4 w-4 text-primary" />
+                  Quick Actions ({userRole === "owner" ? "Owner/Admin" : "Staff"})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 gap-2">
+                  <Link href="/invoices/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                    <Plus className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-medium">New Invoice</span>
+                  </Link>
+                  <Link href="/customers/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                    <Plus className="h-4 w-4 text-violet-600" />
+                    <span className="text-xs font-medium">New Customer</span>
+                  </Link>
+                  <Link href="/inventory/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                    <Plus className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-medium">New Item</span>
+                  </Link>
+                  {userRole === "owner" ? (
+                    <>
+                      <Link href="/expenses/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                        <Plus className="h-4 w-4 text-rose-600" />
+                        <span className="text-xs font-medium">Record Expense</span>
+                      </Link>
+                      <Link href="/purchases/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                        <Plus className="h-4 w-4 text-emerald-600" />
+                        <span className="text-xs font-medium">Add Purchase</span>
+                      </Link>
+                      <Link href="/reports" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                        <BarChart3 className="h-4 w-4 text-indigo-600" />
+                        <span className="text-xs font-medium">Business Reports</span>
+                      </Link>
+                    </>
+                  ) : (
+                    <Link href="/invoices" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                      <span className="text-xs font-medium">Sales Directory</span>
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </SortableWidget>
+        );
+
       default:
         return null;
     }
@@ -560,6 +667,48 @@ export default function DashboardPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Unified Dashboard Empty State for new accounts
+  if (rawInvoices.length === 0 && customersCount === 0 && inventoryCount === 0) {
+    return (
+      <div className="space-y-6 pb-8">
+        <UpgradeBanner />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">{getGreeting()} 👋</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Welcome to your billing & accounting dashboard.</p>
+          </div>
+        </div>
+
+        <div className="text-center py-20 bg-card border border-border rounded-2xl max-w-2xl mx-auto mt-8 p-8 shadow-sm">
+          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">No activity yet</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-8">
+            Get started by setting up your business profile, adding your first customer, or creating a GST-compliant sales invoice.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/invoices/new">
+                <Plus className="w-4 h-4 mr-2" /> Create First Invoice
+              </Link>
+            </Button>
+            <Button variant="outline" asChild className="w-full sm:w-auto">
+              <Link href="/customers/new">
+                <Users className="w-4 h-4 mr-2" /> Add Customer
+              </Link>
+            </Button>
+            <Button variant="outline" asChild className="w-full sm:w-auto">
+              <Link href="/inventory/new">
+                <Package className="w-4 h-4 mr-2" /> Add Stock Item
+              </Link>
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -578,6 +727,22 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground mt-0.5">Here&apos;s what&apos;s happening with your business.</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Period selector */}
+          <div className="flex items-center gap-2 bg-card border rounded-lg px-2.5 py-1.5 text-xs font-medium">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
+              className="bg-transparent border-none focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="all">All Time</option>
+              <option value="this_month">This Month</option>
+              <option value="last_month">Last Month</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="this_year">This Year (FY)</option>
+            </select>
+          </div>
+
           {customizing && (
             <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={resetLayout}>
               Reset layout

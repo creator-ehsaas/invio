@@ -328,6 +328,7 @@ This is a computer-generated receipt.
           gstin: business.gstin,
           phone: business.phone,
           email: business.email,
+          logo_url: business.logo_url,
           bank_name: business.bank_name,
           bank_account_number: business.bank_account_number,
           bank_ifsc: business.bank_ifsc,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   BarChart3,
   Download,
@@ -520,285 +521,298 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.title}
-              className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-4 shadow-sm"
-            >
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-xl ${stat.iconBg}`}>
-                  <Icon className={`w-5 h-5 ${stat.iconColor}`} />
+      {!(stats.invoiceCount > 0 || stats.purchaseCount > 0) ? (
+        <EmptyState
+          icon={<BarChart3 className="h-8 w-8" />}
+          title="Reports appear once transactions exist"
+          description="Create sales invoices, record purchase bills, and track expenses to see real-time tax summaries, business trends, and profit margins."
+          action={{ label: "New Invoice", href: "/invoices/new" }}
+          secondaryAction={{ label: "Record Purchase", href: "/purchases/new" }}
+          className="bg-white/70 dark:bg-slate-950/70 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl"
+        />
+      ) : (
+        <>
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {statCards.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={stat.title}
+                  className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-4 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-xl ${stat.iconBg}`}>
+                      <Icon className={`w-5 h-5 ${stat.iconColor}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xl sm:text-2xl font-bold text-foreground truncate">{stat.value}</p>
+                      <p className="text-xs text-muted-foreground">{stat.title}</p>
+                      {stat.subtitle && (
+                        <p className="text-xs text-muted-foreground/70 mt-0.5">{stat.subtitle}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xl sm:text-2xl font-bold text-foreground truncate">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.title}</p>
-                  {stat.subtitle && (
-                    <p className="text-xs text-muted-foreground/70 mt-0.5">{stat.subtitle}</p>
-                  )}
-                </div>
+              );
+            })}
+          </div>
+
+          {/* GST Reports Section */}
+          <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl border border-primary/20 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">GST Returns</h2>
+                <p className="text-sm text-muted-foreground">Generate reports for GST filing</p>
               </div>
             </div>
-          );
-        })}
-      </div>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {gstReports.map((report) => {
+                const Icon = report.icon;
+                const content = (
+                  <div className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                    report.highlight
+                      ? "bg-primary/10 border-primary/30 hover:border-primary/50"
+                      : "bg-white/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700"
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${report.highlight ? "bg-primary/20" : "bg-muted"}`}>
+                        <Icon className={`w-5 h-5 ${report.highlight ? "text-primary" : "text-muted-foreground"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{report.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                );
 
-      {/* GST Reports Section */}
-      <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl border border-primary/20 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">GST Returns</h2>
-            <p className="text-sm text-muted-foreground">Generate reports for GST filing</p>
+                if (report.href) {
+                  return <Link key={report.title} href={report.href}>{content}</Link>;
+                }
+                return <div key={report.title} onClick={report.onClick}>{content}</div>;
+              })}
+            </div>
           </div>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {gstReports.map((report) => {
-            const Icon = report.icon;
-            const content = (
-              <div className={`p-4 rounded-xl border transition-all cursor-pointer group ${
-                report.highlight
-                  ? "bg-primary/10 border-primary/30 hover:border-primary/50"
-                  : "bg-white/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700"
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${report.highlight ? "bg-primary/20" : "bg-muted"}`}>
-                    <Icon className={`w-5 h-5 ${report.highlight ? "text-primary" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground">{report.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+
+          {/* Financial Reports */}
+          <div className="bg-gradient-to-br from-emerald-500/5 to-teal-500/5 rounded-2xl border border-emerald-200/30 dark:border-emerald-800/30 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Financial Reports</h2>
+                <p className="text-sm text-muted-foreground">Profit & Loss, Receivables analysis</p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {financialReports.map((report) => {
+                const Icon = report.icon;
+                return (
+                  <Link
+                    key={report.title}
+                    href={report.href}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                      report.highlight
+                        ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:border-emerald-400"
+                        : "bg-white/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${report.highlight ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-muted"}`}>
+                        <Icon className={`w-5 h-5 ${report.highlight ? "text-emerald-600" : "text-muted-foreground"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{report.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sales Summary */}
+          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Sales Summary</h2>
+            </div>
+            {stats.invoiceCount > 0 ? (
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="text-center p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                  <p className="text-3xl font-bold text-emerald-600">{formatCurrency(stats.totalRevenue)}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total Revenue (Paid)</p>
+                </div>
+                <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency(stats.gstCollected)}</p>
+                  <p className="text-sm text-muted-foreground mt-1">GST Collected</p>
+                </div>
+                <div className="text-center p-6 bg-violet-50 dark:bg-violet-900/20 rounded-xl">
+                  <p className="text-3xl font-bold text-violet-600">{stats.invoiceCount}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total Invoices</p>
                 </div>
               </div>
-            );
-
-            if (report.href) {
-              return <Link key={report.title} href={report.href}>{content}</Link>;
-            }
-            return <div key={report.title} onClick={report.onClick}>{content}</div>;
-          })}
-        </div>
-      </div>
-
-      {/* Financial Reports */}
-      <div className="bg-gradient-to-br from-emerald-500/5 to-teal-500/5 rounded-2xl border border-emerald-200/30 dark:border-emerald-800/30 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Financial Reports</h2>
-            <p className="text-sm text-muted-foreground">Profit & Loss, Receivables analysis</p>
+            ) : (
+              <div className="h-48 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No sales data for this period</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Create invoices to see sales data
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {financialReports.map((report) => {
-            const Icon = report.icon;
-            return (
-              <Link
-                key={report.title}
-                href={report.href}
-                className={`p-4 rounded-xl border transition-all cursor-pointer group ${
-                  report.highlight
-                    ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:border-emerald-400"
-                    : "bg-white/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700"
-                }`}
+
+          {/* Report Types Grid */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {reportTypes.map((report) => {
+              const Icon = report.icon;
+              return (
+                <button
+                  key={report.title}
+                  onClick={report.onClick}
+                  className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group text-left"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <Icon className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground mb-1">{report.title}</h3>
+                      <p className="text-sm text-muted-foreground">{report.description}</p>
+                    </div>
+                    <Download className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* AI Business Insights */}
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200 dark:border-purple-800/50 rounded-2xl p-6">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">AI Business Insights</h2>
+                  <p className="text-xs text-muted-foreground">Analysis of your {getPeriodLabel().toLowerCase()} performance</p>
+                </div>
+              </div>
+              <button
+                onClick={() => getAiInsight(stats)}
+                disabled={loadingInsight || stats.invoiceCount === 0}
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
               >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${report.highlight ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-muted"}`}>
-                    <Icon className={`w-5 h-5 ${report.highlight ? "text-emerald-600" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground">{report.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Sales Summary */}
-      <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Sales Summary</h2>
-        </div>
-        {stats.invoiceCount > 0 ? (
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-              <p className="text-3xl font-bold text-emerald-600">{formatCurrency(stats.totalRevenue)}</p>
-              <p className="text-sm text-muted-foreground mt-1">Total Revenue (Paid)</p>
+                {loadingInsight ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {loadingInsight ? "Analyzing..." : "Get Insights"}
+              </button>
             </div>
-            <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-              <p className="text-3xl font-bold text-blue-600">{formatCurrency(stats.gstCollected)}</p>
-              <p className="text-sm text-muted-foreground mt-1">GST Collected</p>
-            </div>
-            <div className="text-center p-6 bg-violet-50 dark:bg-violet-900/20 rounded-xl">
-              <p className="text-3xl font-bold text-violet-600">{stats.invoiceCount}</p>
-              <p className="text-sm text-muted-foreground mt-1">Total Invoices</p>
-            </div>
-          </div>
-        ) : (
-          <div className="h-48 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-            <div className="text-center">
-              <BarChart3 className="w-12 h-12 text-muted-foreground/50 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No sales data for this period</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                Create invoices to see sales data
+            {aiInsight ? (
+              <p className="text-sm text-foreground leading-relaxed">{aiInsight}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Get AI-powered analysis: top customers, cash flow patterns, ITC optimization opportunities, and actionable recommendations.
               </p>
-            </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Report Types Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {reportTypes.map((report) => {
-          const Icon = report.icon;
-          return (
-            <button
-              key={report.title}
-              onClick={report.onClick}
-              className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group text-left"
-            >
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                  <Icon className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-foreground mb-1">{report.title}</h3>
-                  <p className="text-sm text-muted-foreground">{report.description}</p>
-                </div>
-                <Download className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          {/* Quick Links: Estimates + Expenses */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Link href="/estimates" className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors group">
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30">
+                <ClipboardList className="w-5 h-5 text-blue-600" />
               </div>
-            </button>
-          );
-        })}
-      </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">Estimates</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Track quotations and conversion rate</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+            <Link href="/expenses" className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors group">
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30">
+                <Receipt className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">Expenses</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Business expenses for P&L calculation</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+          </div>
 
-      {/* AI Business Insights */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200 dark:border-purple-800/50 rounded-2xl p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-xl">
-              <Sparkles className="w-5 h-5 text-purple-600" />
+          {/* GST Summary Table */}
+          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-foreground mb-4">GST Summary (GSTR-1)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800">
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Category</th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">
+                      Taxable Value
+                    </th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">CGST</th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">SGST</th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">IGST</th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Tax</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-slate-100 dark:border-slate-800/50">
+                    <td className="py-3 px-4 text-foreground">B2B Invoices</td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.subtotal || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.cgst || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.sgst || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.igst || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium text-foreground">
+                      {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.cgst || 0) + (i.sgst || 0) + (i.igst || 0), 0))}
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-100 dark:border-slate-800/50">
+                    <td className="py-3 px-4 text-foreground">B2C Invoices</td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.subtotal || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.cgst || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.sgst || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right text-muted-foreground">
+                      {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.igst || 0), 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium text-foreground">
+                      {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.cgst || 0) + (i.sgst || 0) + (i.igst || 0), 0))}
+                    </td>
+                  </tr>
+                  <tr className="bg-muted/30">
+                    <td className="py-3 px-4 font-semibold text-foreground">Total</td>
+                    <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.subtotalSum)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.cgstTotal)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.sgstTotal)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.igstTotal)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.gstCollected)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">AI Business Insights</h2>
-              <p className="text-xs text-muted-foreground">Analysis of your {getPeriodLabel().toLowerCase()} performance</p>
-            </div>
           </div>
-          <button
-            onClick={() => getAiInsight(stats)}
-            disabled={loadingInsight || stats.invoiceCount === 0}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
-          >
-            {loadingInsight ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loadingInsight ? "Analyzing..." : "Get Insights"}
-          </button>
-        </div>
-        {aiInsight ? (
-          <p className="text-sm text-foreground leading-relaxed">{aiInsight}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Get AI-powered analysis: top customers, cash flow patterns, ITC optimization opportunities, and actionable recommendations.
-          </p>
-        )}
-      </div>
-
-      {/* Quick Links: Estimates + Expenses */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Link href="/estimates" className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors group">
-          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30">
-            <ClipboardList className="w-5 h-5 text-blue-600" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-foreground">Estimates</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Track quotations and conversion rate</p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-        </Link>
-        <Link href="/expenses" className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 transition-colors group">
-          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30">
-            <Receipt className="w-5 h-5 text-red-600" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-foreground">Expenses</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Business expenses for P&L calculation</p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-        </Link>
-      </div>
-
-      {/* GST Summary Table */}
-      <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground mb-4">GST Summary (GSTR-1)</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Category</th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">
-                  Taxable Value
-                </th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">CGST</th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">SGST</th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">IGST</th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Tax</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100 dark:border-slate-800/50">
-                <td className="py-3 px-4 text-foreground">B2B Invoices</td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.subtotal || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.cgst || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.sgst || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.igst || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right font-medium text-foreground">
-                  {formatCurrency(invoices.filter(i => i.customer_id).reduce((sum, i) => sum + (i.cgst || 0) + (i.sgst || 0) + (i.igst || 0), 0))}
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 dark:border-slate-800/50">
-                <td className="py-3 px-4 text-foreground">B2C Invoices</td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.subtotal || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.cgst || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.sgst || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right text-muted-foreground">
-                  {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.igst || 0), 0))}
-                </td>
-                <td className="py-3 px-4 text-right font-medium text-foreground">
-                  {formatCurrency(invoices.filter(i => !i.customer_id).reduce((sum, i) => sum + (i.cgst || 0) + (i.sgst || 0) + (i.igst || 0), 0))}
-                </td>
-              </tr>
-              <tr className="bg-muted/30">
-                <td className="py-3 px-4 font-semibold text-foreground">Total</td>
-                <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.subtotalSum)}</td>
-                <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.cgstTotal)}</td>
-                <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.sgstTotal)}</td>
-                <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.igstTotal)}</td>
-                <td className="py-3 px-4 text-right font-semibold text-foreground">{formatCurrency(stats.gstCollected)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

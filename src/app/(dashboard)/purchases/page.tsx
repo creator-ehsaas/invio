@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -14,9 +15,10 @@ import {
   XCircle,
   Loader2,
   Building2,
-  Filter,
 } from "lucide-react";
 import type { PurchaseInvoice } from "@/types/database";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 const statusConfig = {
   pending: { label: "Pending", icon: Clock, color: "text-amber-600 bg-amber-100 dark:bg-amber-900/30" },
@@ -28,37 +30,43 @@ const statusConfig = {
 type StatusFilter = "all" | "pending" | "partial" | "paid" | "cancelled";
 
 export default function PurchasesPage() {
+  const router = useRouter();
   const [purchases, setPurchases] = useState<PurchaseInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-  useEffect(() => {
-    fetchPurchases();
+  const fetchPurchases = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from("users")
+        .select("business_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!userData?.business_id) return;
+
+      const { data } = await supabase
+        .from("purchase_invoices")
+        .select("*")
+        .eq("business_id", userData.business_id)
+        .order("bill_date", { ascending: false });
+
+      if (data) setPurchases(data);
+    } catch (err) {
+      console.error("Error fetching purchases:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchPurchases = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: userData } = await supabase
-      .from("users")
-      .select("business_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!userData?.business_id) return;
-
-    const { data } = await supabase
-      .from("purchase_invoices")
-      .select("*")
-      .eq("business_id", userData.business_id)
-      .order("bill_date", { ascending: false });
-
-    if (data) setPurchases(data);
-    setLoading(false);
-  };
+  useEffect(() => {
+    fetchPurchases();
+  }, [fetchPurchases]);
 
   const filteredPurchases = purchases.filter((purchase) => {
     const matchesSearch =
@@ -91,6 +99,8 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "Purchases" }]} />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -162,26 +172,16 @@ export default function PurchasesPage() {
 
       {/* Purchases List */}
       {filteredPurchases.length === 0 ? (
-        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-12 text-center">
-          <ShoppingCart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            {searchQuery || statusFilter !== "all" ? "No purchases found" : "No purchases yet"}
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            {searchQuery || statusFilter !== "all"
-              ? "Try a different search or filter"
-              : "Record your first purchase bill to track expenses"}
-          </p>
-          {!searchQuery && statusFilter === "all" && (
-            <Link
-              href="/purchases/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Purchase
-            </Link>
-          )}
-        </div>
+        <EmptyState
+          icon={<ShoppingCart className="w-8 h-8" />}
+          title={searchQuery || statusFilter !== "all" ? "No purchases found" : "No purchase bills yet"}
+          description={searchQuery || statusFilter !== "all"
+            ? "Try adjusting your search query or status filter."
+            : "Record your purchase bills from suppliers to track liabilities and claim input tax credit."}
+          action={(!searchQuery && statusFilter === "all") ? { label: "Add Purchase", href: "/purchases/new" } : undefined}
+          secondaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery("") } : undefined}
+          className="bg-white/70 dark:bg-slate-950/70 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl"
+        />
       ) : (
         <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 overflow-hidden">
           {/* Desktop Table */}
@@ -219,7 +219,7 @@ export default function PurchasesPage() {
                     <tr
                       key={purchase.id}
                       className="hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => window.location.href = `/purchases/${purchase.id}`}
+                      onClick={() => router.push(`/purchases/${purchase.id}`)}
                     >
                       <td className="px-6 py-4">
                         <span className="font-medium text-foreground">{purchase.bill_number}</span>
