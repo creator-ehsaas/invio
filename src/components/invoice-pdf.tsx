@@ -36,6 +36,7 @@ export interface InvoicePDFData {
   };
   items: Array<{
     description: string;
+    long_description?: string;
     hsn_code?: string;
     quantity: number;
     unit: string;
@@ -316,7 +317,12 @@ const MinimalTemplate = ({ data }: { data: InvoicePDFData }) => (
         </View>
         {data.items.map((item, i) => (
           <View key={i} style={minimalStyles.tableRow}>
-            <Text style={minimalStyles.colItem}>{item.description}</Text>
+            <View style={minimalStyles.colItem}>
+              <Text>{item.description}</Text>
+              {item.long_description && (
+                <Text style={{ fontSize: 8, color: "#666", marginTop: 2 }}>{item.long_description}</Text>
+              )}
+            </View>
             <Text style={minimalStyles.colHsn}>{item.hsn_code || "-"}</Text>
             <Text style={minimalStyles.colQty}>{item.quantity} {item.unit}</Text>
             <Text style={minimalStyles.colRate}>{formatCurrency(item.rate)}</Text>
@@ -424,7 +430,12 @@ const ProfessionalTemplate = ({ data }: { data: InvoicePDFData }) => (
           </View>
           {data.items.map((item, i) => (
             <View key={i} style={professionalStyles.tableRow}>
-              <Text style={professionalStyles.colItem}>{item.description}</Text>
+              <View style={professionalStyles.colItem}>
+                <Text>{item.description}</Text>
+                {item.long_description && (
+                  <Text style={{ fontSize: 8, color: "#666", marginTop: 2 }}>{item.long_description}</Text>
+                )}
+              </View>
               <Text style={professionalStyles.colHsn}>{item.hsn_code || "-"}</Text>
               <Text style={professionalStyles.colQty}>{item.quantity} {item.unit}</Text>
               <Text style={professionalStyles.colRate}>{formatCurrency(item.rate)}</Text>
@@ -551,7 +562,12 @@ const GSTFormalTemplate = ({ data }: { data: InvoicePDFData }) => (
         {data.items.map((item, i) => (
           <View key={i} style={gstFormalStyles.tableRow}>
             <Text style={[gstFormalStyles.cell, gstFormalStyles.colSno]}>{i + 1}</Text>
-            <Text style={[gstFormalStyles.cell, gstFormalStyles.colItem]}>{item.description}</Text>
+            <View style={[gstFormalStyles.cell, gstFormalStyles.colItem]}>
+              <Text>{item.description}</Text>
+              {item.long_description && (
+                <Text style={{ fontSize: 7, color: "#666", marginTop: 2 }}>{item.long_description}</Text>
+              )}
+            </View>
             <Text style={[gstFormalStyles.cell, gstFormalStyles.colHsn]}>{item.hsn_code || "-"}</Text>
             <Text style={[gstFormalStyles.cell, gstFormalStyles.colQty]}>{item.quantity}</Text>
             <Text style={[gstFormalStyles.cell, gstFormalStyles.colUnit]}>{item.unit}</Text>
@@ -691,7 +707,12 @@ const ExportTemplate = ({ data }: { data: InvoicePDFData }) => (
         </View>
         {data.items.map((item, i) => (
           <View key={i} style={i % 2 === 0 ? exportStyles.tableRow : exportStyles.tableRowAlt}>
-            <Text style={exportStyles.bodyColItem}>{item.description}</Text>
+            <View style={exportStyles.bodyColItem}>
+              <Text>{item.description}</Text>
+              {item.long_description && (
+                <Text style={{ fontSize: 8, color: "#666", marginTop: 2 }}>{item.long_description}</Text>
+              )}
+            </View>
             <Text style={exportStyles.bodyColHsn}>{item.hsn_code || "-"}</Text>
             <Text style={exportStyles.bodyColQty}>{item.quantity} {item.unit}</Text>
             <Text style={exportStyles.bodyColRate}>{formatCurrency(item.rate)}</Text>

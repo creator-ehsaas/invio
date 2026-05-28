@@ -1,0 +1,208 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.w{padding:1.5rem 0;max-width:760px;margin:auto;font-family:var(--font-sans)}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.card h2{font-size:15px;font-weight:500;color:var(--color-text-primary);margin-bottom:1rem}
+.phase-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.phase-pill{font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px}
+.ph-red{background:#E24B4A;color:#FCEBEB}
+.ph-amber{background:#EF9F27;color:#412402}
+.ph-blue{background:#378ADD;color:#E6F1FB}
+.ph-purple{background:#7F77DD;color:#EEEDFE}
+.phase-title{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.phase-sub{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.feat-list{display:flex;flex-direction:column;gap:6px}
+.feat{border-radius:var(--border-radius-md);padding:12px 14px;background:var(--color-background-secondary)}
+.feat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px}
+.feat-name{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.feat-tag{font-size:10px;padding:2px 7px;border-radius:var(--border-radius-md);white-space:nowrap;flex-shrink:0}
+.tag-trader{background:#E1F5EE;color:#085041}
+.tag-growth{background:#EEEDFE;color:#3C3489}
+.tag-trust{background:#E6F1FB;color:#0C447C}
+.tag-moat{background:#FAEEDA;color:#633806}
+.tag-revenue{background:#FCEBEB;color:#791F1F}
+.feat-desc{font-size:12px;color:var(--color-text-secondary);line-height:1.45}
+.feat-why{font-size:11px;color:var(--color-text-secondary);margin-top:5px;font-style:italic}
+.platform-row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.plat{font-size:10px;padding:2px 7px;border-radius:var(--border-radius-md);background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:4px 0 10px}
+.skip-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px}
+.skip-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px}
+.skip-list{display:flex;flex-direction:column;gap:5px}
+.skip-item{display:flex;gap:8px;font-size:12px;color:var(--color-text-secondary);line-height:1.4}
+.skip-x{color:#E24B4A;font-size:12px;flex-shrink:0}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+button{cursor:pointer;font-family:var(--font-sans)}
+</style>
+<h2 class="sr-only">Invio feature implementation plan — prioritized by what gets first paying user fastest</h2>
+<div class="w">
+
+<div class="card">
+  <div class="phase-header">
+    <span class="phase-pill ph-red">Phase 1</span>
+    <div>
+      <div class="phase-title">Ship to first real user</div>
+      <div class="phase-sub">Woh trader — Android APK + core polish. Nothing else matters.</div>
+    </div>
+  </div>
+  <div class="feat-list">
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Android APK build & deliver</span><span class="feat-tag tag-trader">Trader demand</span></div>
+      <div class="feat-desc">Capacitor build fix karo, APK generate karo, WhatsApp pe bhejo directly. Play Store nahi — APK seedha. Woh install kare, test kare, feedback de. Yeh tera MVP delivery hai.</div>
+      <div class="platform-row"><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Voice invoicing — mobile mic fix</span><span class="feat-tag tag-trader">Trader demand</span></div>
+      <div class="feat-desc">Web Speech API mobile pe unreliable hai — Capacitor ka native microphone plugin use karo (@capacitor/microphone). Groq already connected hai, sirf input source change karo. Voice = tera #1 USP, yeh kaam karna chahiye.</div>
+      <div class="platform-row"><span class="plat">Android only</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Payment flow — end to end test</span><span class="feat-tag tag-revenue">Revenue blocker</span></div>
+      <div class="feat-desc">Dodo Payments sandbox mein poora flow karo — plan select → pay → account upgraded. Agar kuch toot raha hai toh pehla user ayega aur free mein use karta rahega. Yeh fix nahi hua toh baaki sab pointless hai.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">"Invio se bana" invoice footer</span><span class="feat-tag tag-growth">Viral loop</span></div>
+      <div class="feat-desc">PDF invoice ke neeche ek line: "Made with Invio · invio-delta.vercel.app" + WhatsApp share button. Har invoice ek ad hai. Zero cost, 1 din ka kaam, permanent compounding.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Onboarding wizard — 3 min to first invoice</span><span class="feat-tag tag-trust">Activation</span></div>
+      <div class="feat-desc">New user aaye toh seedha: Business name → GST number (optional) → first invoice. No friction, no tutorials, no videos. Agar 3 minute mein pehla invoice nahi bana toh user bounce karega. Vyapar ka onboarding bhi aise hi hai.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="phase-header">
+    <span class="phase-pill ph-amber">Phase 2</span>
+    <div>
+      <div class="phase-title">First 10 paying users tak</div>
+      <div class="phase-sub">Polish, trust, aur referral loop. Vyapar se better dikhna shuru karo.</div>
+    </div>
+  </div>
+  <div class="feat-list">
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">GSTR-1 report</span><span class="feat-tag tag-trust">Trust builder</span></div>
+      <div class="feat-desc">GSTR-3B already hai. GSTR-1 (outward supplies) ke bina "GST-ready" claim hollow hai. Yeh ek calculation + JSON export hai — GSTR-3B jaisi hi architecture. Users isko expect karte hain before paying.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Play Store publish</span><span class="feat-tag tag-trust">Credibility</span></div>
+      <div class="feat-desc">APK se trader ko diya, feedback liya, bugs fix kiye — ab Play Store pe daal do. ₹1,750 one-time fee. "Play Store pe hai" = instant trust for new users. Vyapar ko Play Store ne hi scale diya tha.</div>
+      <div class="platform-row"><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">WhatsApp payment reminders</span><span class="feat-tag tag-moat">Sticky feature</span></div>
+      <div class="feat-desc">Overdue invoice pe auto-reminder WhatsApp pe bhejo customer ko. Vyapar mein yeh hai — tera competitive parity feature. WhatsApp Business API ya simple wa.me link generation. Users isko love karte hain kyunki awkward follow-up calls nahi karni padti.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Annual plan push</span><span class="feat-tag tag-revenue">Cash flow</span></div>
+      <div class="feat-desc">₹4,999/yr option prominently dikhao — "2 months free" angle se. Bootstrap mein upfront annual cash = survival. Monthly users churn karte hain, annual users stick karte hain. Conversion prompt add karo after first invoice created.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Barcode scanner — inventory</span><span class="feat-tag tag-trader">Trader demand</span></div>
+      <div class="feat-desc">Hardware traders ke paas barcode hota hai products pe. Mobile camera se scan karo, item auto-fill ho. Capacitor Camera plugin already available hai. Vyapar mein yeh hai — tera trader specifically isko use karega daily.</div>
+      <div class="platform-row"><span class="plat">Android</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="phase-header">
+    <span class="phase-pill ph-blue">Phase 3</span>
+    <div>
+      <div class="phase-title">10 → 100 users</div>
+      <div class="phase-sub">Moat banana shuru karo. Vyapar se genuinely alag dikhna shuru karo.</div>
+    </div>
+  </div>
+  <div class="feat-list">
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Wake word "Hey Invio" — properly</span><span class="feat-tag tag-moat">AI moat</span></div>
+      <div class="feat-desc">Browser-dependent hack nahi — native Android background service. Hands-free invoice banao counter pe khade hokar. Koi Indian accounting app mein yeh nahi hai. Yeh tera viral demo moment hai.</div>
+      <div class="platform-row"><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Vocabulary learning per business</span><span class="feat-tag tag-moat">Switching cost</span></div>
+      <div class="feat-desc">Jab user "sariya 12mm" boleta hai aur AI ne isko pehle bhi suna hai — toh next time faster aur accurate. Business-specific item names, customer names, amounts — sab learn karo. Jitna zyada use karo, utna better. Yeh tera #1 lock-in feature hai.</div>
+      <div class="platform-row"><span class="plat">Android</span><span class="plat">Web</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Receipt OCR — photo to expense</span><span class="feat-tag tag-moat">AI moat</span></div>
+      <div class="feat-desc">Bill ki photo khicho → expense auto-fill. Vyapar mein nahi hai, Zoho mein basic hai. Hardware traders ke paas supplier bills hoti hain — yeh unke liye daily use feature ban sakta hai. Groq Vision ya Tesseract use karo.</div>
+      <div class="platform-row"><span class="plat">Android</span><span class="plat">Web</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Electron desktop app — distribute</span><span class="feat-tag tag-trust">Distribution</span></div>
+      <div class="feat-desc">Build already tha — polish karo, installer banao, website pe download link daal do. Desktop pe voice mat daalo (mic issue). Desktop = billing + reports + inventory. Simple .exe installer, no code signing initially — users manually allow kar sakte hain.</div>
+      <div class="platform-row"><span class="plat">Desktop (Windows)</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Multi-user + role based access</span><span class="feat-tag tag-revenue">Business tier</span></div>
+      <div class="feat-desc">Owner + staff logins. Staff sirf invoice bana sake, owner reports dekhe. Yeh ₹999/mo Business tier ka core justification hai. Supabase RLS already hai tere paas — implementation aasaan hai. Jab trader ka ek employee bhi use karne lage — churn almost zero ho jaata hai.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">AI cash flow forecast</span><span class="feat-tag tag-moat">CFO feature</span></div>
+      <div class="feat-desc">Past invoice data se next 30/60/90 din ka cash flow predict karo. "Agle mahine ₹45,000 receivables expected hain — 3 customers se." Koi Indian SME app mein yeh nahi hai. Groq + existing data = powerful differentiator.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="phase-header">
+    <span class="phase-pill ph-purple">Phase 4</span>
+    <div>
+      <div class="phase-title">100+ users — Vyapar ko genuinely threaten karo</div>
+      <div class="phase-sub">Tab yeh features build karo. Pehle nahi.</div>
+    </div>
+  </div>
+  <div class="feat-list">
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">Embedded lending (NBFC partner)</span><span class="feat-tag tag-revenue">Revenue 2.0</span></div>
+      <div class="feat-desc">Invoice data se working capital loan pre-approve karo. "Aapke ₹2L receivables hain — ₹80K loan chahiye?" FinBox jaisa partnership. Subscription se 10x revenue potential. Tab tak invoice data ka volume chahiye.</div>
+      <div class="platform-row"><span class="plat">Web</span><span class="plat">Android</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">CA Marketplace</span><span class="feat-tag tag-growth">Network effect</span></div>
+      <div class="feat-desc">SME ko CA dhundhne mein help karo, CA ko clients milein. Referral fee model. Suvit ko Vyapar ne acquire kiya — tu organically yeh build kar.</div>
+      <div class="platform-row"><span class="plat">Web</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">E-invoicing IRP integration</span><span class="feat-tag tag-trust">Compliance</span></div>
+      <div class="feat-desc">₹5Cr+ turnover businesses ke liye mandatory e-invoicing directly from Invio. Yeh ek premium enterprise feature hai — tab build karo jab tumhare paas woh size ke customers hon.</div>
+      <div class="platform-row"><span class="plat">Web</span></div>
+    </div>
+    <div class="feat">
+      <div class="feat-top"><span class="feat-name">iOS App</span><span class="feat-tag tag-growth">Market expand</span></div>
+      <div class="feat-desc">Android pe product-market fit prove karo pehle. iOS users ka profile alag hai — freelancers, consultants. Tab build karo jab Android stable ho aur revenue aa raha ho. Capacitor hai tere paas — port easy hoga.</div>
+      <div class="platform-row"><span class="plat">iOS</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="skip-card">
+    <div class="skip-title">Kabhi mat banao — jab tak user specifically maange</div>
+    <div class="skip-list">
+      <div class="skip-item"><span class="skip-x">✕</span>Payroll module — too complex, different compliance, different buyer</div>
+      <div class="skip-item"><span class="skip-x">✕</span>Online store / D2C — product scope creep, different market entirely</div>
+      <div class="skip-item"><span class="skip-x">✕</span>Multi-currency — phase 4+ problem, not an Indian SME pain point now</div>
+      <div class="skip-item"><span class="skip-x">✕</span>AI contract review — fun feature, zero demand from kirana/hardware traders</div>
+      <div class="skip-item"><span class="skip-x">✕</span>Bank account sync (AA framework) — regulatory complexity, RBI approvals needed</div>
+    </div>
+  </div>
+</div>
+
+<div class="btns">
+  <button onclick="sendPrompt('Help me fix the Capacitor Android build for Invio — what are the exact steps to generate a working APK from a Next.js + Capacitor project?')">Fix Capacitor APK build ↗</button>
+  <button onclick="sendPrompt('How do I implement native microphone access in Capacitor for voice invoicing in Invio instead of Web Speech API?')">Fix voice on Android ↗</button>
+  <button onclick="sendPrompt('Write the code to add an Invio footer watermark and WhatsApp share button to invoice PDFs in Next.js')">Invoice footer + WA share code ↗</button>
+</div>
+
+</div>

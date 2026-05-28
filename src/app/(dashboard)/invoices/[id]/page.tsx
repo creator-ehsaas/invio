@@ -47,6 +47,7 @@ interface Invoice {
 interface InvoiceItem {
   id: string;
   description: string;
+  long_description?: string;
   hsn_code?: string;
   quantity: number;
   unit: string;
@@ -313,6 +314,7 @@ This is a computer-generated receipt.
         },
         items: items.map(item => ({
           description: item.description,
+          long_description: item.long_description || undefined,
           hsn_code: item.hsn_code,
           quantity: item.quantity,
           unit: item.unit,
@@ -567,7 +569,12 @@ This is a computer-generated receipt.
                 <tbody>
                   {items.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800/50">
-                      <td className="py-3 text-foreground">{item.description}</td>
+                      <td className="py-3 text-foreground">
+                        <div>{item.description}</div>
+                        {item.long_description && (
+                          <div className="text-xs text-muted-foreground mt-1">{item.long_description}</div>
+                        )}
+                      </td>
                       <td className="py-3 text-center text-muted-foreground">{item.hsn_code || "-"}</td>
                       <td className="py-3 text-center">{item.quantity} {item.unit}</td>
                       <td className="py-3 text-right">₹{item.rate.toLocaleString("en-IN")}</td>

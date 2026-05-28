@@ -1,0 +1,138 @@
+import { NextRequest, NextResponse } from "next/server";
+import { aiVision, aiChat } from "@/lib/ai-client";
+
+// Max file size: 10MB
+const MAX_SIZE = 10 * 1024 * 1024;
+
+const INVOICE_EXTRACTION_PROMPT = `You are an expert at reading Indian sales invoices, tax invoices, bills, and receipts.
+Extract all information from this invoice image/document.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "customer_name": "Customer/Buyer/Recipient name",
+  "customer_gstin": "Customer GSTIN if visible (15 char)",
+  "invoice_number": "Invoice number (serial/unique)",
+  "invoice_date": "YYYY-MM-DD format",
+  "due_date": "YYYY-MM-DD format or null",
+  "items": [
+    {
+      "description": "Full item name with all specs (size, grade, material)",
+      "hsn_code": "HSN/SAC code if visible or null",
+      "quantity": number,
+      "unit": "kg/pcs/ton/mtr/box/etc",
+      "rate": number (per unit price EXCLUDING GST),
+      "gst_rate": 0/5/12/18/28 (GST percentage)
+    }
+  ],
+  "subtotal": number (taxable value, before GST),
+  "cgst": number or 0,
+  "sgst": number or 0,
+  "igst": number or 0,
+  "total": number (final amount),
+  "notes": "any important notes, payment terms, bank details, etc or null"
+}
+
+RULES:
+- Extract ALL line items, even if many
+- rate = price per unit EXCLUDING GST
+- If only total with GST is shown, back-calculate: subtotal = total / (1 + gst%/100)
+- HSN/SAC codes: steel/metal = 72xx-73xx, electrical = 85xx, hardware = 82xx-83xx
+- Common Indian GST rates: 5%, 12%, 18%, 28% - pick the closest
+- For items without clear GST, default to 18%
+- invoice_date and due_date must be YYYY-MM-DD format
+- If a field is not visible, use null
+- NEVER make up data - only extract what is clearly visible`;
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 });
+    }
+
+    const mimeType = file.type;
+    const isPDF = mimeType === "application/pdf";
+    const isImage = mimeType.startsWith("image/");
+
+    if (!isPDF && !isImage) {
+      return NextResponse.json(
+        { error: "Unsupported file type. Please upload an image or PDF." },
+        { status: 400 }
+      );
+    }
+
+    let extractedData: any;
+
+    if (isImage) {
+      const bytes = await file.arrayBuffer();
+      const base64 = Buffer.from(bytes).toString("base64");
+      const raw = await aiVision(base64, mimeType, INVOICE_EXTRACTION_PROMPT, {
+        temperature: 0.1,
+        maxTokens: 4096,
+      });
+      extractedData = parseJSON(raw);
+    } else {
+      // PDF: extract text then use LLM
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      const pdfParseModule = await import("pdf-parse");
+      const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
+      const pdfData = await pdfParse(buffer);
+      const text = pdfData.text;
+
+      if (!text || text.trim().length < 20) {
+        return NextResponse.json(
+          { error: "Could not extract text from PDF. Try uploading a clearer scan." },
+          { status: 400 }
+        );
+      }
+
+      const raw = await aiChat([{
+        role: "user",
+        content: `${INVOICE_EXTRACTION_PROMPT}\n\nInvoice text:\n${text.substring(0, 8000)}`,
+      }], { temperature: 0.1, maxTokens: 4096 });
+
+      extractedData = parseJSON(raw);
+    }
+
+    if (!extractedData) {
+      return NextResponse.json(
+        { error: "Could not parse invoice data. Please fill in manually." },
+        { status: 422 }
+      );
+    }
+
+    return NextResponse.json({ data: extractedData });
+  } catch (error: any) {
+    console.error("Parse sales invoice image error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to parse invoice" },
+      { status: 500 }
+    );
+  }
+}
+
+function parseJSON(raw: string): any {
+  try {
+    // Strip markdown code fences
+    let text = raw
+      .replace(/^```json?\s*\n?/im, "")
+      .replace(/\n?```\s*$/im, "")
+      .trim();
+
+    // Extract JSON object if embedded in text
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) text = match[0];
+
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}

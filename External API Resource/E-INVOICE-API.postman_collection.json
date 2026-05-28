@@ -1,0 +1,2666 @@
+{
+	"info": {
+		"_postman_id": "acab68e9-c063-4b52-82f8-0efb0d5857e2",
+		"name": "E-INVOICE-API",
+		"description": "E-INVOICE-API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "10403063"
+	},
+	"item": [
+		{
+			"name": "einvoice",
+			"item": [
+				{
+					"name": "type",
+					"item": [
+						{
+							"name": "Get GSTN Details",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": ""
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": ""
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": ""
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/GSTNDETAILS/version/V1_03?param1=dolor elit consectetur non&email=",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"GSTNDETAILS",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "param1",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) GSTN Number"
+										},
+										{
+											"key": "email",
+											"value": "",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Get GSTN Details for a given GST Number"
+							},
+							"response": [
+								{
+									"name": "Successful, Get GSTN Details.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GSTNDETAILS/version/V1_03?param1=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GSTNDETAILS",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GSTNDETAILS/version/V1_03?param1=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GSTNDETAILS",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GSTNDETAILS/version/V1_03?param1=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GSTNDETAILS",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Get Sync GSTIN From CP",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": ""
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": ""
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": ""
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/SYNC_GSTIN_FROMCP/version/V1_03?param1=dolor elit consectetur non&email=",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"SYNC_GSTIN_FROMCP",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "param1",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) GSTN Number"
+										},
+										{
+											"key": "email",
+											"value": "",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Get Sync GSTIN From CP Details for a given GST Number"
+							},
+							"response": [
+								{
+									"name": "Successful, Get Sync GSTIN From CP Details.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/SYNC_GSTIN_FROMCP/version/V1_03?param1=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"SYNC_GSTIN_FROMCP",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/SYNC_GSTIN_FROMCP/version/V1_03?param1=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"SYNC_GSTIN_FROMCP",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/SYNC_GSTIN_FROMCP/version/V1_03?param1=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"SYNC_GSTIN_FROMCP",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Get EInvoice Details",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/GETIRN/version/V1_03?param1=dolor elit consectetur non&email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"GETIRN",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "param1",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) IRN"
+										},
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Get e-Invoice details for a given IRN. You can fetch only past 48 hours of invoices from the time of IRN generation"
+							},
+							"response": [
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETIRN/version/V1_03?param1=dolor elit consectetur non&email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETIRN",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETIRN/version/V1_03?param1=dolor elit consectetur non&email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETIRN",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Get IRN details by Doc Details",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) Document number",
+										"key": "docnum",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Document date (dd/MM/YYYY)",
+										"key": "docdate",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/GETIRNBYDOCDETAILS/version/V1_03?param1=dolor elit consectetur non&email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"GETIRNBYDOCDETAILS",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "param1",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) Document type"
+										},
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Get IRN details by Doc Details .you can fetch only past 48 hours of invoices from the time of IRN generation"
+							},
+							"response": [
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) Document number",
+												"key": "docnum",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Document date (dd/MM/YYYY)",
+												"key": "docdate",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETIRNBYDOCDETAILS/version/V1_03?param1=dolor elit consectetur non&email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETIRNBYDOCDETAILS",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) Document number",
+												"key": "docnum",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Document date (dd/MM/YYYY)",
+												"key": "docdate",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETIRNBYDOCDETAILS/version/V1_03?param1=dolor elit consectetur non&email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETIRNBYDOCDETAILS",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Cancel IRN",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"Irn\": \"a5c12dca80e743321740b001fd70953e8738d109865d28ba4013750f2046f229\",\n  \"CnlRsn\": \"1\",\n  \"CnlRem\": \"Wrong entry\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/CANCEL/version/V1_03?email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"CANCEL",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Cancel Invoice Reference Number. You can cancel only past 48 hours of invoices from the time of IRN generation"
+							},
+							"response": [
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"Irn\": \"a5c12dca80e743321740b001fd70953e8738d109865d28ba4013750f2046f229\",\n  \"CnlRsn\": \"1\",\n  \"CnlRem\": \"Wrong entry\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/CANCEL/version/V1_03?email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"CANCEL",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"Irn\": \"a5c12dca80e743321740b001fd70953e8738d109865d28ba4013750f2046f229\",\n  \"CnlRsn\": \"1\",\n  \"CnlRem\": \"Wrong entry\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/CANCEL/version/V1_03?email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"CANCEL",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Generate Ewaybill",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"Irn\": \"47d7ba1814b6ca6123c780ad289b0a24e30c1baed59a7417d29a54e7b00a6bdf\",\n  \"Distance\": 120,\n  \"TransMode\": \"1\",\n  \"TransId\": \"29DPZPS4403C1ZF\",\n  \"TransName\": \"trans name\",\n  \"TransDocDt\": \"01/08/2020\",\n  \"TransDocNo\": \"MAHIE/10\",\n  \"VehNo\": \"KA12ER1234\",\n  \"VehType\": \"R\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/GENERATE_EWAYBILL/version/V1_03?email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"GENERATE_EWAYBILL",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Generate the e-waybill using Invoice Reference Number (IRN)."
+							},
+							"response": [
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"Irn\": \"47d7ba1814b6ca6123c780ad289b0a24e30c1baed59a7417d29a54e7b00a6bdf\",\n  \"Distance\": 120,\n  \"TransMode\": \"1\",\n  \"TransId\": \"29DPZPS4403C1ZF\",\n  \"TransName\": \"trans name\",\n  \"TransDocDt\": \"01/08/2020\",\n  \"TransDocNo\": \"MAHIE/10\",\n  \"VehNo\": \"KA12ER1234\",\n  \"VehType\": \"R\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GENERATE_EWAYBILL/version/V1_03?email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GENERATE_EWAYBILL",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"Irn\": \"47d7ba1814b6ca6123c780ad289b0a24e30c1baed59a7417d29a54e7b00a6bdf\",\n  \"Distance\": 120,\n  \"TransMode\": \"1\",\n  \"TransId\": \"29DPZPS4403C1ZF\",\n  \"TransName\": \"trans name\",\n  \"TransDocDt\": \"01/08/2020\",\n  \"TransDocNo\": \"MAHIE/10\",\n  \"VehNo\": \"KA12ER1234\",\n  \"VehType\": \"R\"\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GENERATE_EWAYBILL/version/V1_03?email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GENERATE_EWAYBILL",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Get Ewaybill Details by IRN",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": ""
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": ""
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": ""
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/GETEWAYBILLIRN/version/V1_03?param1=dolor elit consectetur non&supplier_gstn=dolor elit consectetur non&email=",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"GETEWAYBILLIRN",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "param1",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) IRN"
+										},
+										{
+											"key": "supplier_gstn",
+											"value": "dolor elit consectetur non",
+											"description": "Supplier GSTN"
+										},
+										{
+											"key": "email",
+											"value": "",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Get Ewaybill Details by IRN"
+							},
+							"response": [
+								{
+									"name": "Successful, Get Sync GSTIN From CP Details.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETEWAYBILLIRN/version/V1_03?param1=dolor elit consectetur non&supplier_gstn=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETEWAYBILLIRN",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "supplier_gstn",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETEWAYBILLIRN/version/V1_03?param1=dolor elit consectetur non&supplier_gstn=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETEWAYBILLIRN",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "supplier_gstn",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": ""
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": ""
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": ""
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": ""
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": ""
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GETEWAYBILLIRN/version/V1_03?param1=dolor elit consectetur non&supplier_gstn=dolor elit consectetur non&email=",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GETEWAYBILLIRN",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "param1",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "supplier_gstn",
+													"value": "dolor elit consectetur non"
+												},
+												{
+													"key": "email",
+													"value": ""
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Generate IRN",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Token",
+										"key": "auth-token",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"Version\": \"1.1\",\n  \"TranDtls\": {\n    \"TaxSch\": \"GST\",\n    \"SupTyp\": \"B2B\",\n    \"RegRev\": \"Y\",\n    \"EcmGstin\": null,\n    \"IgstOnIntra\": \"N\"\n  },\n  \"DocDtls\": {\n    \"Typ\": \"INV\",\n    \"No\": \"MAHI/10\",\n    \"Dt\": \"08/08/2020\"\n  },\n  \"SellerDtls\": {\n    \"Gstin\": \"29AAGCB1286Q000\",\n    \"LglNm\": \"ABC company pvt ltd\",\n    \"TrdNm\": \"NIC Industries\",\n    \"Addr1\": \"5th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"GANDHINAGAR\",\n    \"Pin\": 560001,\n    \"Stcd\": \"29\",\n    \"Ph\": \"9000000000\",\n    \"Em\": \"abc@gmail.com\"\n  },\n  \"BuyerDtls\": {\n    \"Gstin\": \"29AWGPV7107B1Z1\",\n    \"LglNm\": \"XYZ company pvt ltd\",\n    \"TrdNm\": \"XYZ Industries\",\n    \"Pos\": \"37\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"GANDHINAGAR\",\n    \"Pin\": 560004,\n    \"Stcd\": \"29\",\n    \"Ph\": \"9000000000\",\n    \"Em\": \"abc@gmail.com\"\n  },\n  \"DispDtls\": {\n    \"Nm\": \"ABC company pvt ltd\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"Banagalore\",\n    \"Pin\": 518360,\n    \"Stcd\": \"37\"\n  },\n  \"ShipDtls\": {\n    \"Gstin\": \"29AWGPV7107B1Z1\",\n    \"LglNm\": \"CBE company pvt ltd\",\n    \"TrdNm\": \"kuvempu layout\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"Banagalore\",\n    \"Pin\": 518360,\n    \"Stcd\": \"37\"\n  },\n  \"ItemList\": [\n    {\n      \"SlNo\": \"1\",\n      \"IsServc\": \"N\",\n      \"PrdDesc\": \"Rice\",\n      \"HsnCd\": \"1001\",\n      \"Barcde\": \"123456\",\n      \"BchDtls\": {\n        \"Nm\": \"123456\",\n        \"Expdt\": \"01/08/2020\",\n        \"wrDt\": \"01/09/2020\"\n      },\n      \"Qty\": 100.345,\n      \"FreeQty\": 10,\n      \"Unit\": \"NOS\",\n      \"UnitPrice\": 99.545,\n      \"TotAmt\": 9988.84,\n      \"Discount\": 10,\n      \"PreTaxVal\": 1,\n      \"AssAmt\": 9978.84,\n      \"GstRt\": 12,\n      \"SgstAmt\": 0,\n      \"IgstAmt\": 1197.46,\n      \"CgstAmt\": 0,\n      \"CesRt\": 5,\n      \"CesAmt\": 498.94,\n      \"CesNonAdvlAmt\": 10,\n      \"StateCesRt\": 12,\n      \"StateCesAmt\": 1197.46,\n      \"StateCesNonAdvlAmt\": 5,\n      \"OthChrg\": 10,\n      \"TotItemVal\": 12897.7,\n      \"OrdLineRef\": \"3256\",\n      \"OrgCntry\": \"AG\",\n      \"PrdSlNo\": \"12345\",\n      \"AttribDtls\": [\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        },\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        }\n      ]\n    },\n    {\n      \"SlNo\": \"1\",\n      \"IsServc\": \"N\",\n      \"PrdDesc\": \"Rice\",\n      \"HsnCd\": \"1001\",\n      \"Barcde\": \"123456\",\n      \"BchDtls\": {\n        \"Nm\": \"123456\",\n        \"Expdt\": \"01/08/2020\",\n        \"wrDt\": \"01/09/2020\"\n      },\n      \"Qty\": 100.345,\n      \"FreeQty\": 10,\n      \"Unit\": \"NOS\",\n      \"UnitPrice\": 99.545,\n      \"TotAmt\": 9988.84,\n      \"Discount\": 10,\n      \"PreTaxVal\": 1,\n      \"AssAmt\": 9978.84,\n      \"GstRt\": 12,\n      \"SgstAmt\": 0,\n      \"IgstAmt\": 1197.46,\n      \"CgstAmt\": 0,\n      \"CesRt\": 5,\n      \"CesAmt\": 498.94,\n      \"CesNonAdvlAmt\": 10,\n      \"StateCesRt\": 12,\n      \"StateCesAmt\": 1197.46,\n      \"StateCesNonAdvlAmt\": 5,\n      \"OthChrg\": 10,\n      \"TotItemVal\": 12897.7,\n      \"OrdLineRef\": \"3256\",\n      \"OrgCntry\": \"AG\",\n      \"PrdSlNo\": \"12345\",\n      \"AttribDtls\": [\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        },\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        }\n      ]\n    }\n  ],\n  \"ValDtls\": {\n    \"AssVal\": 9978.84,\n    \"CgstVal\": 0,\n    \"SgstVal\": 0,\n    \"IgstVal\": 1197.46,\n    \"CesVal\": 508.94,\n    \"StCesVal\": 1202.46,\n    \"Discount\": 10,\n    \"OthChrg\": 20,\n    \"RndOffAmt\": 0.3,\n    \"TotInvVal\": 12908,\n    \"TotInvValFc\": 12897.7\n  },\n  \"PayDtls\": {\n    \"Nm\": \"ABCDE\",\n    \"Accdet\": \"5697389713210\",\n    \"Mode\": \"Cash\",\n    \"Fininsbr\": \"SBIN11000\",\n    \"Payterm\": \"100\",\n    \"Payinstr\": \"Gift\",\n    \"Crtrn\": \"test\",\n    \"Dirdr\": \"test\",\n    \"Crday\": 100,\n    \"Paidamt\": 10000,\n    \"Paymtdue\": 5000\n  },\n  \"RefDtls\": {\n    \"InvRm\": \"TEST\",\n    \"DocPerdDtls\": {\n      \"InvStDt\": \"01/08/2020\",\n      \"InvEndDt\": \"01/09/2020\"\n    },\n    \"PrecDocDtls\": [\n      {\n        \"InvNo\": \"DOC/002\",\n        \"InvDt\": \"01/08/2020\",\n        \"OthRefNo\": \"123456\"\n      },\n      {\n        \"InvNo\": \"DOC/002\",\n        \"InvDt\": \"01/08/2020\",\n        \"OthRefNo\": \"123456\"\n      }\n    ],\n    \"ContrDtls\": [\n      {\n        \"RecAdvRefr\": \"DOC/002\",\n        \"RecAdvDt\": \"01/08/2020\",\n        \"Tendrefr\": \"Abc001\",\n        \"Contrrefr\": \"Co123\",\n        \"Extrefr\": \"Yo456\",\n        \"Projrefr\": \"Doc-456\",\n        \"Porefr\": \"Doc-789\",\n        \"PoRefDt\": \"01/08/2020\"\n      },\n      {\n        \"RecAdvRefr\": \"DOC/002\",\n        \"RecAdvDt\": \"01/08/2020\",\n        \"Tendrefr\": \"Abc001\",\n        \"Contrrefr\": \"Co123\",\n        \"Extrefr\": \"Yo456\",\n        \"Projrefr\": \"Doc-456\",\n        \"Porefr\": \"Doc-789\",\n        \"PoRefDt\": \"01/08/2020\"\n      }\n    ]\n  },\n  \"AddlDocDtls\": [\n    {\n      \"Url\": \"https://einv-apisandbox.nic.in\",\n      \"Docs\": \"Test Doc\",\n      \"Info\": \"Document Test\"\n    },\n    {\n      \"Url\": \"https://einv-apisandbox.nic.in\",\n      \"Docs\": \"Test Doc\",\n      \"Info\": \"Document Test\"\n    }\n  ],\n  \"ExpDtls\": {\n    \"ShipBNo\": \"A-248\",\n    \"ShipBDt\": \"01/08/2020\",\n    \"Port\": \"INABG1\",\n    \"RefClm\": \"N\",\n    \"ForCur\": \"AED\",\n    \"CntCode\": \"AE\"\n  },\n  \"EwbDtls\": {\n    \"Transid\": \"12AWGPV7107B1Z1\",\n    \"Transname\": \"XYZ EXPORTS\",\n    \"Distance\": 100,\n    \"Transdocno\": \"DOC01\",\n    \"TransdocDt\": \"01/08/2020\",\n    \"Vehno\": \"ka123456\",\n    \"Vehtype\": \"R\",\n    \"TransMode\": \"1\"\n  }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/type/GENERATE/version/V1_03?email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"type",
+										"GENERATE",
+										"version",
+										"V1_03"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non",
+											"description": "(Required) User Email"
+										}
+									]
+								},
+								"description": "Generate Invoice Reference Number"
+							},
+							"response": [
+								{
+									"name": "Not Found. If requested entity is not found or if requested API is not found.",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"Version\": \"1.1\",\n  \"TranDtls\": {\n    \"TaxSch\": \"GST\",\n    \"SupTyp\": \"B2B\",\n    \"RegRev\": \"Y\",\n    \"EcmGstin\": null,\n    \"IgstOnIntra\": \"N\"\n  },\n  \"DocDtls\": {\n    \"Typ\": \"INV\",\n    \"No\": \"MAHI/10\",\n    \"Dt\": \"08/08/2020\"\n  },\n  \"SellerDtls\": {\n    \"Gstin\": \"29AAGCB1286Q000\",\n    \"LglNm\": \"ABC company pvt ltd\",\n    \"TrdNm\": \"NIC Industries\",\n    \"Addr1\": \"5th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"GANDHINAGAR\",\n    \"Pin\": 560001,\n    \"Stcd\": \"29\",\n    \"Ph\": \"9000000000\",\n    \"Em\": \"abc@gmail.com\"\n  },\n  \"BuyerDtls\": {\n    \"Gstin\": \"29AWGPV7107B1Z1\",\n    \"LglNm\": \"XYZ company pvt ltd\",\n    \"TrdNm\": \"XYZ Industries\",\n    \"Pos\": \"37\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"GANDHINAGAR\",\n    \"Pin\": 560004,\n    \"Stcd\": \"29\",\n    \"Ph\": \"9000000000\",\n    \"Em\": \"abc@gmail.com\"\n  },\n  \"DispDtls\": {\n    \"Nm\": \"ABC company pvt ltd\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"Banagalore\",\n    \"Pin\": 518360,\n    \"Stcd\": \"37\"\n  },\n  \"ShipDtls\": {\n    \"Gstin\": \"29AWGPV7107B1Z1\",\n    \"LglNm\": \"CBE company pvt ltd\",\n    \"TrdNm\": \"kuvempu layout\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"Banagalore\",\n    \"Pin\": 518360,\n    \"Stcd\": \"37\"\n  },\n  \"ItemList\": [\n    {\n      \"SlNo\": \"1\",\n      \"IsServc\": \"N\",\n      \"PrdDesc\": \"Rice\",\n      \"HsnCd\": \"1001\",\n      \"Barcde\": \"123456\",\n      \"BchDtls\": {\n        \"Nm\": \"123456\",\n        \"Expdt\": \"01/08/2020\",\n        \"wrDt\": \"01/09/2020\"\n      },\n      \"Qty\": 100.345,\n      \"FreeQty\": 10,\n      \"Unit\": \"NOS\",\n      \"UnitPrice\": 99.545,\n      \"TotAmt\": 9988.84,\n      \"Discount\": 10,\n      \"PreTaxVal\": 1,\n      \"AssAmt\": 9978.84,\n      \"GstRt\": 12,\n      \"SgstAmt\": 0,\n      \"IgstAmt\": 1197.46,\n      \"CgstAmt\": 0,\n      \"CesRt\": 5,\n      \"CesAmt\": 498.94,\n      \"CesNonAdvlAmt\": 10,\n      \"StateCesRt\": 12,\n      \"StateCesAmt\": 1197.46,\n      \"StateCesNonAdvlAmt\": 5,\n      \"OthChrg\": 10,\n      \"TotItemVal\": 12897.7,\n      \"OrdLineRef\": \"3256\",\n      \"OrgCntry\": \"AG\",\n      \"PrdSlNo\": \"12345\",\n      \"AttribDtls\": [\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        },\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        }\n      ]\n    },\n    {\n      \"SlNo\": \"1\",\n      \"IsServc\": \"N\",\n      \"PrdDesc\": \"Rice\",\n      \"HsnCd\": \"1001\",\n      \"Barcde\": \"123456\",\n      \"BchDtls\": {\n        \"Nm\": \"123456\",\n        \"Expdt\": \"01/08/2020\",\n        \"wrDt\": \"01/09/2020\"\n      },\n      \"Qty\": 100.345,\n      \"FreeQty\": 10,\n      \"Unit\": \"NOS\",\n      \"UnitPrice\": 99.545,\n      \"TotAmt\": 9988.84,\n      \"Discount\": 10,\n      \"PreTaxVal\": 1,\n      \"AssAmt\": 9978.84,\n      \"GstRt\": 12,\n      \"SgstAmt\": 0,\n      \"IgstAmt\": 1197.46,\n      \"CgstAmt\": 0,\n      \"CesRt\": 5,\n      \"CesAmt\": 498.94,\n      \"CesNonAdvlAmt\": 10,\n      \"StateCesRt\": 12,\n      \"StateCesAmt\": 1197.46,\n      \"StateCesNonAdvlAmt\": 5,\n      \"OthChrg\": 10,\n      \"TotItemVal\": 12897.7,\n      \"OrdLineRef\": \"3256\",\n      \"OrgCntry\": \"AG\",\n      \"PrdSlNo\": \"12345\",\n      \"AttribDtls\": [\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        },\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        }\n      ]\n    }\n  ],\n  \"ValDtls\": {\n    \"AssVal\": 9978.84,\n    \"CgstVal\": 0,\n    \"SgstVal\": 0,\n    \"IgstVal\": 1197.46,\n    \"CesVal\": 508.94,\n    \"StCesVal\": 1202.46,\n    \"Discount\": 10,\n    \"OthChrg\": 20,\n    \"RndOffAmt\": 0.3,\n    \"TotInvVal\": 12908,\n    \"TotInvValFc\": 12897.7\n  },\n  \"PayDtls\": {\n    \"Nm\": \"ABCDE\",\n    \"Accdet\": \"5697389713210\",\n    \"Mode\": \"Cash\",\n    \"Fininsbr\": \"SBIN11000\",\n    \"Payterm\": \"100\",\n    \"Payinstr\": \"Gift\",\n    \"Crtrn\": \"test\",\n    \"Dirdr\": \"test\",\n    \"Crday\": 100,\n    \"Paidamt\": 10000,\n    \"Paymtdue\": 5000\n  },\n  \"RefDtls\": {\n    \"InvRm\": \"TEST\",\n    \"DocPerdDtls\": {\n      \"InvStDt\": \"01/08/2020\",\n      \"InvEndDt\": \"01/09/2020\"\n    },\n    \"PrecDocDtls\": [\n      {\n        \"InvNo\": \"DOC/002\",\n        \"InvDt\": \"01/08/2020\",\n        \"OthRefNo\": \"123456\"\n      },\n      {\n        \"InvNo\": \"DOC/002\",\n        \"InvDt\": \"01/08/2020\",\n        \"OthRefNo\": \"123456\"\n      }\n    ],\n    \"ContrDtls\": [\n      {\n        \"RecAdvRefr\": \"DOC/002\",\n        \"RecAdvDt\": \"01/08/2020\",\n        \"Tendrefr\": \"Abc001\",\n        \"Contrrefr\": \"Co123\",\n        \"Extrefr\": \"Yo456\",\n        \"Projrefr\": \"Doc-456\",\n        \"Porefr\": \"Doc-789\",\n        \"PoRefDt\": \"01/08/2020\"\n      },\n      {\n        \"RecAdvRefr\": \"DOC/002\",\n        \"RecAdvDt\": \"01/08/2020\",\n        \"Tendrefr\": \"Abc001\",\n        \"Contrrefr\": \"Co123\",\n        \"Extrefr\": \"Yo456\",\n        \"Projrefr\": \"Doc-456\",\n        \"Porefr\": \"Doc-789\",\n        \"PoRefDt\": \"01/08/2020\"\n      }\n    ]\n  },\n  \"AddlDocDtls\": [\n    {\n      \"Url\": \"https://einv-apisandbox.nic.in\",\n      \"Docs\": \"Test Doc\",\n      \"Info\": \"Document Test\"\n    },\n    {\n      \"Url\": \"https://einv-apisandbox.nic.in\",\n      \"Docs\": \"Test Doc\",\n      \"Info\": \"Document Test\"\n    }\n  ],\n  \"ExpDtls\": {\n    \"ShipBNo\": \"A-248\",\n    \"ShipBDt\": \"01/08/2020\",\n    \"Port\": \"INABG1\",\n    \"RefClm\": \"N\",\n    \"ForCur\": \"AED\",\n    \"CntCode\": \"AE\"\n  },\n  \"EwbDtls\": {\n    \"Transid\": \"12AWGPV7107B1Z1\",\n    \"Transname\": \"XYZ EXPORTS\",\n    \"Distance\": 100,\n    \"Transdocno\": \"DOC01\",\n    \"TransdocDt\": \"01/08/2020\",\n    \"Vehno\": \"ka123456\",\n    \"Vehtype\": \"R\",\n    \"TransMode\": \"1\"\n  }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GENERATE/version/V1_03?email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GENERATE",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Internal server error",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"description": "(Required) IP Address",
+												"key": "ip_address",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client ID",
+												"key": "client_id",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Client Secret",
+												"key": "client_secret",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) User name",
+												"key": "username",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) Token",
+												"key": "auth-token",
+												"value": "dolor elit consectetur non"
+											},
+											{
+												"description": "(Required) GSTIN number",
+												"key": "gstin",
+												"value": "dolor elit consectetur non"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"Version\": \"1.1\",\n  \"TranDtls\": {\n    \"TaxSch\": \"GST\",\n    \"SupTyp\": \"B2B\",\n    \"RegRev\": \"Y\",\n    \"EcmGstin\": null,\n    \"IgstOnIntra\": \"N\"\n  },\n  \"DocDtls\": {\n    \"Typ\": \"INV\",\n    \"No\": \"MAHI/10\",\n    \"Dt\": \"08/08/2020\"\n  },\n  \"SellerDtls\": {\n    \"Gstin\": \"29AAGCB1286Q000\",\n    \"LglNm\": \"ABC company pvt ltd\",\n    \"TrdNm\": \"NIC Industries\",\n    \"Addr1\": \"5th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"GANDHINAGAR\",\n    \"Pin\": 560001,\n    \"Stcd\": \"29\",\n    \"Ph\": \"9000000000\",\n    \"Em\": \"abc@gmail.com\"\n  },\n  \"BuyerDtls\": {\n    \"Gstin\": \"29AWGPV7107B1Z1\",\n    \"LglNm\": \"XYZ company pvt ltd\",\n    \"TrdNm\": \"XYZ Industries\",\n    \"Pos\": \"37\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"GANDHINAGAR\",\n    \"Pin\": 560004,\n    \"Stcd\": \"29\",\n    \"Ph\": \"9000000000\",\n    \"Em\": \"abc@gmail.com\"\n  },\n  \"DispDtls\": {\n    \"Nm\": \"ABC company pvt ltd\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"Banagalore\",\n    \"Pin\": 518360,\n    \"Stcd\": \"37\"\n  },\n  \"ShipDtls\": {\n    \"Gstin\": \"29AWGPV7107B1Z1\",\n    \"LglNm\": \"CBE company pvt ltd\",\n    \"TrdNm\": \"kuvempu layout\",\n    \"Addr1\": \"7th block, kuvempu layout\",\n    \"Addr2\": \"kuvempu layout\",\n    \"Loc\": \"Banagalore\",\n    \"Pin\": 518360,\n    \"Stcd\": \"37\"\n  },\n  \"ItemList\": [\n    {\n      \"SlNo\": \"1\",\n      \"IsServc\": \"N\",\n      \"PrdDesc\": \"Rice\",\n      \"HsnCd\": \"1001\",\n      \"Barcde\": \"123456\",\n      \"BchDtls\": {\n        \"Nm\": \"123456\",\n        \"Expdt\": \"01/08/2020\",\n        \"wrDt\": \"01/09/2020\"\n      },\n      \"Qty\": 100.345,\n      \"FreeQty\": 10,\n      \"Unit\": \"NOS\",\n      \"UnitPrice\": 99.545,\n      \"TotAmt\": 9988.84,\n      \"Discount\": 10,\n      \"PreTaxVal\": 1,\n      \"AssAmt\": 9978.84,\n      \"GstRt\": 12,\n      \"SgstAmt\": 0,\n      \"IgstAmt\": 1197.46,\n      \"CgstAmt\": 0,\n      \"CesRt\": 5,\n      \"CesAmt\": 498.94,\n      \"CesNonAdvlAmt\": 10,\n      \"StateCesRt\": 12,\n      \"StateCesAmt\": 1197.46,\n      \"StateCesNonAdvlAmt\": 5,\n      \"OthChrg\": 10,\n      \"TotItemVal\": 12897.7,\n      \"OrdLineRef\": \"3256\",\n      \"OrgCntry\": \"AG\",\n      \"PrdSlNo\": \"12345\",\n      \"AttribDtls\": [\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        },\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        }\n      ]\n    },\n    {\n      \"SlNo\": \"1\",\n      \"IsServc\": \"N\",\n      \"PrdDesc\": \"Rice\",\n      \"HsnCd\": \"1001\",\n      \"Barcde\": \"123456\",\n      \"BchDtls\": {\n        \"Nm\": \"123456\",\n        \"Expdt\": \"01/08/2020\",\n        \"wrDt\": \"01/09/2020\"\n      },\n      \"Qty\": 100.345,\n      \"FreeQty\": 10,\n      \"Unit\": \"NOS\",\n      \"UnitPrice\": 99.545,\n      \"TotAmt\": 9988.84,\n      \"Discount\": 10,\n      \"PreTaxVal\": 1,\n      \"AssAmt\": 9978.84,\n      \"GstRt\": 12,\n      \"SgstAmt\": 0,\n      \"IgstAmt\": 1197.46,\n      \"CgstAmt\": 0,\n      \"CesRt\": 5,\n      \"CesAmt\": 498.94,\n      \"CesNonAdvlAmt\": 10,\n      \"StateCesRt\": 12,\n      \"StateCesAmt\": 1197.46,\n      \"StateCesNonAdvlAmt\": 5,\n      \"OthChrg\": 10,\n      \"TotItemVal\": 12897.7,\n      \"OrdLineRef\": \"3256\",\n      \"OrgCntry\": \"AG\",\n      \"PrdSlNo\": \"12345\",\n      \"AttribDtls\": [\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        },\n        {\n          \"Nm\": \"Rice\",\n          \"Val\": \"10000\"\n        }\n      ]\n    }\n  ],\n  \"ValDtls\": {\n    \"AssVal\": 9978.84,\n    \"CgstVal\": 0,\n    \"SgstVal\": 0,\n    \"IgstVal\": 1197.46,\n    \"CesVal\": 508.94,\n    \"StCesVal\": 1202.46,\n    \"Discount\": 10,\n    \"OthChrg\": 20,\n    \"RndOffAmt\": 0.3,\n    \"TotInvVal\": 12908,\n    \"TotInvValFc\": 12897.7\n  },\n  \"PayDtls\": {\n    \"Nm\": \"ABCDE\",\n    \"Accdet\": \"5697389713210\",\n    \"Mode\": \"Cash\",\n    \"Fininsbr\": \"SBIN11000\",\n    \"Payterm\": \"100\",\n    \"Payinstr\": \"Gift\",\n    \"Crtrn\": \"test\",\n    \"Dirdr\": \"test\",\n    \"Crday\": 100,\n    \"Paidamt\": 10000,\n    \"Paymtdue\": 5000\n  },\n  \"RefDtls\": {\n    \"InvRm\": \"TEST\",\n    \"DocPerdDtls\": {\n      \"InvStDt\": \"01/08/2020\",\n      \"InvEndDt\": \"01/09/2020\"\n    },\n    \"PrecDocDtls\": [\n      {\n        \"InvNo\": \"DOC/002\",\n        \"InvDt\": \"01/08/2020\",\n        \"OthRefNo\": \"123456\"\n      },\n      {\n        \"InvNo\": \"DOC/002\",\n        \"InvDt\": \"01/08/2020\",\n        \"OthRefNo\": \"123456\"\n      }\n    ],\n    \"ContrDtls\": [\n      {\n        \"RecAdvRefr\": \"DOC/002\",\n        \"RecAdvDt\": \"01/08/2020\",\n        \"Tendrefr\": \"Abc001\",\n        \"Contrrefr\": \"Co123\",\n        \"Extrefr\": \"Yo456\",\n        \"Projrefr\": \"Doc-456\",\n        \"Porefr\": \"Doc-789\",\n        \"PoRefDt\": \"01/08/2020\"\n      },\n      {\n        \"RecAdvRefr\": \"DOC/002\",\n        \"RecAdvDt\": \"01/08/2020\",\n        \"Tendrefr\": \"Abc001\",\n        \"Contrrefr\": \"Co123\",\n        \"Extrefr\": \"Yo456\",\n        \"Projrefr\": \"Doc-456\",\n        \"Porefr\": \"Doc-789\",\n        \"PoRefDt\": \"01/08/2020\"\n      }\n    ]\n  },\n  \"AddlDocDtls\": [\n    {\n      \"Url\": \"https://einv-apisandbox.nic.in\",\n      \"Docs\": \"Test Doc\",\n      \"Info\": \"Document Test\"\n    },\n    {\n      \"Url\": \"https://einv-apisandbox.nic.in\",\n      \"Docs\": \"Test Doc\",\n      \"Info\": \"Document Test\"\n    }\n  ],\n  \"ExpDtls\": {\n    \"ShipBNo\": \"A-248\",\n    \"ShipBDt\": \"01/08/2020\",\n    \"Port\": \"INABG1\",\n    \"RefClm\": \"N\",\n    \"ForCur\": \"AED\",\n    \"CntCode\": \"AE\"\n  },\n  \"EwbDtls\": {\n    \"Transid\": \"12AWGPV7107B1Z1\",\n    \"Transname\": \"XYZ EXPORTS\",\n    \"Distance\": 100,\n    \"Transdocno\": \"DOC01\",\n    \"TransdocDt\": \"01/08/2020\",\n    \"Vehno\": \"ka123456\",\n    \"Vehtype\": \"R\",\n    \"TransMode\": \"1\"\n  }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/einvoice/type/GENERATE/version/V1_03?email=dolor elit consectetur non",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"einvoice",
+												"type",
+												"GENERATE",
+												"version",
+												"V1_03"
+											],
+											"query": [
+												{
+													"key": "email",
+													"value": "dolor elit consectetur non"
+												}
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "Authentication Request",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"description": "(Required) User Name",
+								"key": "username",
+								"value": "dolor elit consectetur non"
+							},
+							{
+								"description": "(Required) Password",
+								"key": "password",
+								"value": "dolor elit consectetur non"
+							},
+							{
+								"description": "(Required) IP Address",
+								"key": "ip_address",
+								"value": "dolor elit consectetur non"
+							},
+							{
+								"description": "(Required) Client ID",
+								"key": "client_id",
+								"value": "dolor elit consectetur non"
+							},
+							{
+								"description": "(Required) Client Secret",
+								"key": "client_secret",
+								"value": "dolor elit consectetur non"
+							},
+							{
+								"description": "(Required) GSTIN number",
+								"key": "gstin",
+								"value": "dolor elit consectetur non"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/einvoice/authenticate?email=dolor elit consectetur non",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"einvoice",
+								"authenticate"
+							],
+							"query": [
+								{
+									"key": "email",
+									"value": "dolor elit consectetur non",
+									"description": "(Required) User Email"
+								}
+							]
+						},
+						"description": "Authentication Request"
+					},
+					"response": [
+						{
+							"name": "Not Found. If requested entity is not found or if requested API is not found.",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) User Name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Password",
+										"key": "password",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/authenticate?email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"authenticate"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non"
+										}
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "Internal server error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) User Name",
+										"key": "username",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Password",
+										"key": "password",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": "dolor elit consectetur non"
+									},
+									{
+										"description": "(Required) GSTIN number",
+										"key": "gstin",
+										"value": "dolor elit consectetur non"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/authenticate?email=dolor elit consectetur non",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"authenticate"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": "dolor elit consectetur non"
+										}
+									]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "Get B2C QR Code Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"description": "(Required) IP Address",
+								"key": "ip_address",
+								"value": ""
+							},
+							{
+								"description": "(Required) Client ID",
+								"key": "client_id",
+								"value": ""
+							},
+							{
+								"description": "(Required) Client Secret",
+								"key": "client_secret",
+								"value": ""
+							},
+							{
+								"description": "(Required) User name",
+								"key": "username",
+								"value": ""
+							},
+							{
+								"description": "(Required) Seller GSTIN Number",
+								"key": "sgstin",
+								"value": ""
+							},
+							{
+								"description": "(Required) Invoice Number",
+								"key": "docno",
+								"value": ""
+							},
+							{
+								"description": "(Required) Invoice Date (dd-MM-yyyy)",
+								"key": "docdate",
+								"value": ""
+							},
+							{
+								"description": "(Required) Total Invoice Value",
+								"key": "totinvval",
+								"value": ""
+							},
+							{
+								"description": "UPI Id",
+								"key": "upiid",
+								"value": ""
+							},
+							{
+								"description": "(Required) Seller Account Number",
+								"key": "bankaccno",
+								"value": ""
+							},
+							{
+								"description": "(Required) Bank IFSC Code",
+								"key": "bankifsccode",
+								"value": ""
+							},
+							{
+								"description": "(Required) Account Holder Name",
+								"key": "accountholdername",
+								"value": ""
+							},
+							{
+								"description": "(Required) IGST Amount",
+								"key": "igstamount",
+								"value": ""
+							},
+							{
+								"description": "(Required) CGST Amount",
+								"key": "cgstamount",
+								"value": ""
+							},
+							{
+								"description": "(Required) SGST Amount",
+								"key": "sgstamount",
+								"value": ""
+							},
+							{
+								"description": "(Required) CESS Amount",
+								"key": "cessamount",
+								"value": ""
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/einvoice/qrcode?email=",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"einvoice",
+								"qrcode"
+							],
+							"query": [
+								{
+									"key": "email",
+									"value": "",
+									"description": "(Required) User Email"
+								}
+							]
+						},
+						"description": "Get B2C QR Code Details"
+					},
+					"response": [
+						{
+							"name": "Successful, Get B2C Qr Code Details.",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": ""
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": ""
+									},
+									{
+										"description": "(Required) Seller GSTIN Number",
+										"key": "sgstin",
+										"value": ""
+									},
+									{
+										"description": "(Required) Invoice Number",
+										"key": "docno",
+										"value": ""
+									},
+									{
+										"description": "(Required) Invoice Date (dd-MM-yyyy)",
+										"key": "docdate",
+										"value": ""
+									},
+									{
+										"description": "(Required) Total Invoice Value",
+										"key": "totinvval",
+										"value": ""
+									},
+									{
+										"description": "UPI Id",
+										"key": "upiid",
+										"value": ""
+									},
+									{
+										"description": "(Required) Seller Account Number",
+										"key": "bankaccno",
+										"value": ""
+									},
+									{
+										"description": "(Required) Bank IFSC Code",
+										"key": "bankifsccode",
+										"value": ""
+									},
+									{
+										"description": "(Required) Account Holder Name",
+										"key": "accountholdername",
+										"value": ""
+									},
+									{
+										"description": "(Required) IGST Amount",
+										"key": "igstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) CGST Amount",
+										"key": "cgstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) SGST Amount",
+										"key": "sgstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) CESS Amount",
+										"key": "cessamount",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/qrcode?email=",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"qrcode"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": ""
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "Not Found. If requested entity is not found or if requested API is not found.",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": ""
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": ""
+									},
+									{
+										"description": "(Required) Seller GSTIN Number",
+										"key": "sgstin",
+										"value": ""
+									},
+									{
+										"description": "(Required) Invoice Number",
+										"key": "docno",
+										"value": ""
+									},
+									{
+										"description": "(Required) Invoice Date (dd-MM-yyyy)",
+										"key": "docdate",
+										"value": ""
+									},
+									{
+										"description": "(Required) Total Invoice Value",
+										"key": "totinvval",
+										"value": ""
+									},
+									{
+										"description": "UPI Id",
+										"key": "upiid",
+										"value": ""
+									},
+									{
+										"description": "(Required) Seller Account Number",
+										"key": "bankaccno",
+										"value": ""
+									},
+									{
+										"description": "(Required) Bank IFSC Code",
+										"key": "bankifsccode",
+										"value": ""
+									},
+									{
+										"description": "(Required) Account Holder Name",
+										"key": "accountholdername",
+										"value": ""
+									},
+									{
+										"description": "(Required) IGST Amount",
+										"key": "igstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) CGST Amount",
+										"key": "cgstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) SGST Amount",
+										"key": "sgstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) CESS Amount",
+										"key": "cessamount",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/qrcode?email=",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"qrcode"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": ""
+										}
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "Internal server error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"description": "(Required) IP Address",
+										"key": "ip_address",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client ID",
+										"key": "client_id",
+										"value": ""
+									},
+									{
+										"description": "(Required) Client Secret",
+										"key": "client_secret",
+										"value": ""
+									},
+									{
+										"description": "(Required) User name",
+										"key": "username",
+										"value": ""
+									},
+									{
+										"description": "(Required) Seller GSTIN Number",
+										"key": "sgstin",
+										"value": ""
+									},
+									{
+										"description": "(Required) Invoice Number",
+										"key": "docno",
+										"value": ""
+									},
+									{
+										"description": "(Required) Invoice Date (dd-MM-yyyy)",
+										"key": "docdate",
+										"value": ""
+									},
+									{
+										"description": "(Required) Total Invoice Value",
+										"key": "totinvval",
+										"value": ""
+									},
+									{
+										"description": "UPI Id",
+										"key": "upiid",
+										"value": ""
+									},
+									{
+										"description": "(Required) Seller Account Number",
+										"key": "bankaccno",
+										"value": ""
+									},
+									{
+										"description": "(Required) Bank IFSC Code",
+										"key": "bankifsccode",
+										"value": ""
+									},
+									{
+										"description": "(Required) Account Holder Name",
+										"key": "accountholdername",
+										"value": ""
+									},
+									{
+										"description": "(Required) IGST Amount",
+										"key": "igstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) CGST Amount",
+										"key": "cgstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) SGST Amount",
+										"key": "sgstamount",
+										"value": ""
+									},
+									{
+										"description": "(Required) CESS Amount",
+										"key": "cessamount",
+										"value": ""
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/einvoice/qrcode?email=",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"einvoice",
+										"qrcode"
+									],
+									"query": [
+										{
+											"key": "email",
+											"value": ""
+										}
+									]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://apisandbox.whitebooks.in",
+			"type": "string"
+		}
+	]
+}

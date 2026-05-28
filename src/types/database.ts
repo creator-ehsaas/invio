@@ -208,6 +208,7 @@ export interface InvoiceItem {
   invoice_id: string;
   inventory_item_id?: string | null;
   description: string;
+  long_description?: string | null;
   hsn_code?: string | null;
   quantity: number;
   unit: string;

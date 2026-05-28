@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invio — External API Integration & WhatsApp Plan</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f11;color:#e4e4e7;line-height:1.6;padding:2rem 1rem}
+.wrap{max-width:820px;margin:auto}
+h1{font-size:22px;font-weight:600;color:#fff;margin-bottom:4px}
+.sub{font-size:13px;color:#71717a;margin-bottom:2rem}
+.section{margin-bottom:2rem}
+.section-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#52525b;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #27272a}
+.card{background:#18181b;border:1px solid #27272a;border-radius:12px;padding:18px;margin-bottom:10px}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.card-title{font-size:14px;font-weight:600;color:#fff}
+.card-desc{font-size:12.5px;color:#a1a1aa;line-height:1.55}
+.badge{font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.b-green{background:#14532d;color:#86efac}
+.b-amber{background:#451a03;color:#fcd34d}
+.b-blue{background:#1e3a5f;color:#93c5fd}
+.b-red{background:#450a0a;color:#fca5a5}
+.b-purple{background:#2e1065;color:#c4b5fd}
+.b-gray{background:#27272a;color:#a1a1aa}
+.b-teal{background:#134e4a;color:#5eead4}
+.divider{height:1px;background:#27272a;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.pill{font-size:10px;padding:2px 8px;border-radius:6px;background:#27272a;color:#71717a;border:1px solid #3f3f46}
+.pill-green{background:#052e16;color:#4ade80;border-color:#166534}
+.pill-amber{background:#1c1002;color:#fbbf24;border-color:#92400e}
+.pill-red{background:#1c0a0a;color:#f87171;border-color:#7f1d1d}
+.code{font-family:'Consolas','Monaco',monospace;font-size:11.5px;background:#09090b;border:1px solid #27272a;border-radius:8px;padding:12px 14px;color:#a3e635;line-height:1.7;overflow-x:auto;margin-top:8px;white-space:pre-wrap;word-break:break-all}
+.code .comment{color:#52525b}
+.code .key{color:#67e8f9}
+.code .val{color:#a3e635}
+.code .str{color:#f9a8d4}
+.code .url{color:#fbbf24}
+.alert{border-radius:8px;padding:10px 14px;font-size:12px;margin-top:8px}
+.alert-green{background:#052e16;border:1px solid #166534;color:#4ade80}
+.alert-amber{background:#1c1002;border:1px solid #92400e;color:#fbbf24}
+.alert-red{background:#1c0a0a;border:1px solid #7f1d1d;color:#f87171}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.phase-strip{display:flex;align-items:center;gap:10px;background:#09090b;border:1px solid #27272a;border-radius:8px;padding:10px 14px;margin-bottom:8px}
+.phase-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.phase-label{font-size:11px;font-weight:500;color:#a1a1aa}
+.phase-title{font-size:13px;font-weight:600;color:#e4e4e7}
+.steps{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.step{display:flex;gap:12px;padding:10px 12px;background:#09090b;border-radius:8px;border:1px solid #27272a}
+.step-num{font-size:11px;font-weight:700;color:#71717a;flex-shrink:0;width:18px;text-align:right;margin-top:1px}
+.step-body{}
+.step-name{font-size:13px;font-weight:500;color:#e4e4e7}
+.step-note{font-size:11.5px;color:#71717a;margin-top:2px}
+.big-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:5px 12px;border-radius:20px;margin-right:6px;margin-bottom:6px}
+.wa-msg{background:#052e16;border:1px solid #166534;border-radius:8px;padding:12px 14px;font-size:12px;color:#e4e4e7;margin-top:8px;font-family:'Consolas',monospace;line-height:1.7}
+.wa-label{font-size:10px;color:#4ade80;font-weight:600;letter-spacing:.06em;margin-bottom:4px}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th{font-size:10px;font-weight:600;color:#52525b;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid #27272a;text-align:left}
+td{font-size:12px;color:#a1a1aa;padding:8px 10px;border-bottom:1px solid #1c1c1e}
+td:first-child{color:#e4e4e7;font-weight:500}
+.tick{color:#4ade80}
+.cross{color:#f87171}
+@media(max-width:600px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Invio — External API Integration & WhatsApp Plan</h1>
+<p class="sub">Whitebooks GST API &nbsp;·&nbsp; E-Invoice IRP &nbsp;·&nbsp; E-Waybill &nbsp;·&nbsp; WhatsApp (wa.me → BSP)</p>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">APIs in Hand — What You Have</div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Whitebooks GST API</div>
+        <div class="card-desc">Full GSTR suite — GSTR-1, 2A, 2B, 3B, 9 + ITC ledger + Payment challan. Auth token based. Sandbox + Production.</div>
+      </div>
+      <span class="badge b-green">OpenAPI Spec ✓</span>
+    </div>
+    <div class="row">
+      <span class="pill pill-green">GSTR-1 filing</span>
+      <span class="pill pill-green">GSTR-3B filing</span>
+      <span class="pill pill-green">GSTR-2A/2B ITC auto-fetch</span>
+      <span class="pill pill-green">Cash/ITC Ledger</span>
+      <span class="pill pill-green">Payment Challan generate</span>
+      <span class="pill pill-amber">GSTR-9 Annual</span>
+      <span class="pill pill-amber">ITC-04 Job Work</span>
+    </div>
+    <div class="alert alert-amber" style="margin-top:10px">Credential file: <code>e-Invioce-ewaybill-Sandbox-Credentials.pdf</code> — extract sandbox client_id + secret before starting.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">E-Invoice IRP API</div>
+        <div class="card-desc">Generate IRN (Invoice Reference Number), cancel IRN, generate e-waybill directly from invoice, B2C QR code. Mandatory for ₹5Cr+ turnover businesses.</div>
+      </div>
+      <span class="badge b-blue">Postman ✓</span>
+    </div>
+    <div class="row">
+      <span class="pill pill-green">Generate IRN</span>
+      <span class="pill pill-green">Cancel IRN</span>
+      <span class="pill pill-green">Generate E-Waybill from IRN</span>
+      <span class="pill pill-green">B2C QR Code</span>
+      <span class="pill">GSTN Details lookup</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">E-Waybill API</div>
+        <div class="card-desc">Generate, cancel, extend, update vehicle number for e-waybills. For goods movement above ₹50,000. Hardware/FMCG traders need this daily.</div>
+      </div>
+      <span class="badge b-purple">Postman ✓</span>
+    </div>
+    <div class="row">
+      <span class="pill pill-green">Generate Eway Bill</span>
+      <span class="pill pill-green">Cancel Eway Bill</span>
+      <span class="pill pill-green">Update Vehicle No</span>
+      <span class="pill pill-green">Extend Validity</span>
+      <span class="pill">Consolidated EWB</span>
+      <span class="pill">GSTIN lookup</span>
+      <span class="pill">HSN lookup</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Integration Roadmap — Phase Mapping</div>
+
+  <div class="phase-strip">
+    <div class="phase-dot" style="background:#ef4444"></div>
+    <div>
+      <div class="phase-label">Phase 1 — First Trader</div>
+      <div class="phase-title">GSTR-1 report (view only, no direct filing)</div>
+    </div>
+    <span class="badge b-gray" style="margin-left:auto">Build now</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">GSTR-1 — Outward Supply Report</div>
+    <div class="card-desc" style="margin-top:6px">GSTR-3B already hai. GSTR-1 ke bina "GST compliant" claim hollow hai. Architecture bilkul GSTR-3B jaisi — same data sources (invoices table), different format.</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-name">B2B invoices bucket karo — GSTIN wale customers</div><div class="step-note">Invoice items → taxable_value, igst, cgst, sgst per customer per month</div></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-name">B2CS bucket — ₹2.5L+ B2C invoices</div><div class="step-note">Unregistered customers, state-wise grouped</div></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-name">HSN Summary — same data as invoice items</div><div class="step-note">HSN code grouping already in inventory</div></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-name">JSON export (same as GSTR-3B pattern)</div><div class="step-note">Portal pe manual upload — filing nahi, export karo. Users already jaante hain yeh kaise karna hai.</div></div></div>
+    </div>
+    <div class="alert alert-green">No Whitebooks API needed for Phase 1 — sirf local calculation + JSON export. Whitebooks = Phase 2 direct filing ke liye.</div>
+  </div>
+
+  <div class="phase-strip" style="margin-top:14px">
+    <div class="phase-dot" style="background:#f59e0b"></div>
+    <div>
+      <div class="phase-label">Phase 2 — 10 Paying Users</div>
+      <div class="phase-title">Direct GSTR filing via Whitebooks + GSTIN Verification</div>
+    </div>
+    <span class="badge b-gray" style="margin-left:auto">After Phase 1</span>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">GSTIN Lookup on Customer Add</div>
+      <div class="card-desc" style="margin-top:6px">Customer ka GSTIN daalo → API se business name, address, state auto-fill. Traders ko manually type nahi karna padega.</div>
+      <div class="code"><span class="comment">// GET /public/search?action=TP&gstin={gstin}</span>
+<span class="key">GET</span> <span class="url">/api/gstin-lookup?gstin=27AABCU9603R1ZX</span>
+
+<span class="comment">// Response → auto-fill form:</span>
+<span class="key">legalName</span>: <span class="str">"ABC Trading Co."</span>
+<span class="key">principalAddress</span>: <span class="str">"Mumbai, Maharashtra"</span>
+<span class="key">status</span>: <span class="str">"Active"</span></div>
+      <div class="row"><span class="pill pill-green">High UX impact</span><span class="pill">1 day build</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Direct GSTR-3B Filing</div>
+      <div class="card-desc" style="margin-top:6px">Whitebooks auth → map our data to their format → PUT /gstr3b/retsave → POST /gstr3b/retfile. User ko portal pe jaane ki zaroorat nahi.</div>
+      <div class="code"><span class="comment">// Step 1: Auth</span>
+<span class="key">GET</span> /authentication/authtoken
+
+<span class="comment">// Step 2: Save draft</span>
+<span class="key">PUT</span> /gstr3b/retsave
+  { ret_period, gstin, inward_sup, ... }
+
+<span class="comment">// Step 3: Offset liability</span>
+<span class="key">PUT</span> /gstr3b/retoffset
+
+<span class="comment">// Step 4: File</span>
+<span class="key">POST</span> /gstr3b/retfile</div>
+      <div class="row"><span class="pill pill-amber">Premium feature</span><span class="pill">3-4 days</span></div>
+    </div>
+  </div>
+
+  <div class="phase-strip" style="margin-top:14px">
+    <div class="phase-dot" style="background:#3b82f6"></div>
+    <div>
+      <div class="phase-label">Phase 3 — 10→100 Users</div>
+      <div class="phase-title">E-Waybill + E-Invoice — premium tier features</div>
+    </div>
+    <span class="badge b-gray" style="margin-left:auto">Phase 3+</span>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">E-Waybill Generation</div>
+      <div class="card-desc" style="margin-top:6px">Invoice save hote hi E-Waybill generate karo (agar value > ₹50K). Hardware traders ke liye daily need. Print EWB directly.</div>
+      <div class="row"><span class="pill pill-amber">Hardware traders</span><span class="pill">FMCG traders</span><span class="pill">₹5K/mo tier</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">E-Invoice IRN</div>
+      <div class="card-desc" style="margin-top:6px">₹5Cr+ turnover wale businesses ke liye mandatory. IRN generate, QR code embed in PDF, cancel if needed. Enterprise tier feature.</div>
+      <div class="row"><span class="pill pill-amber">₹5Cr+ turnover only</span><span class="pill">Enterprise tier</span><span class="pill">Phase 4</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">WhatsApp Strategy — wa.me first, BSP second</div>
+
+  <div class="alert alert-red" style="margin-bottom:12px">
+    <strong>Hard Rule:</strong> Headless browser se WhatsApp automate karna = WhatsApp ToS violation = account ban. Kabhi nahi karna. wa.me = official, legal, free.
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Phase 1 — wa.me Deep Links (Free, Instant, ToS-Safe)</div>
+        <div class="card-desc">User ek button click kare → WhatsApp khule with pre-filled message → user Send press kare. Zero cost. Zero API. Zero approval. Works today.</div>
+      </div>
+      <span class="badge b-green">Build Now</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="font-size:12px;font-weight:600;color:#e4e4e7;margin-bottom:8px">wa.me URL Format</div>
+    <div class="code"><span class="comment">// Base format</span>
+https://wa.me/<span class="key">{countrycode}{phone}</span>?text=<span class="str">{urlEncoded message}</span>
+
+<span class="comment">// Example — Payment Reminder</span>
+https://wa.me/<span class="key">919876543210</span>?text=<span class="str">नमस्ते%20Rahul%20ji%2C%0A%0AInvoice%20%23INV-042%20...</span>
+
+<span class="comment">// Behavior:</span>
+<span class="comment">// Mobile → Opens WhatsApp app directly</span>
+<span class="comment">// Desktop → Opens WhatsApp Web / Desktop app</span>
+<span class="comment">// No phone saved needed — works with any number</span></div>
+
+    <div class="divider"></div>
+    <div style="font-size:12px;font-weight:600;color:#e4e4e7;margin:10px 0 8px">5 Smart Touch-points</div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">①</div>
+        <div class="step-body">
+          <div class="step-name">Overdue Invoice → Payment Reminder Button</div>
+          <div class="step-note">Invoice list mein overdue row pe "Send WA Reminder" button. Click → WhatsApp opens with ready message. Trader awkward call nahi karna chahta — yeh uska solution hai.</div>
+          <div class="wa-label">MESSAGE TEMPLATE</div>
+          <div class="wa-msg">नमस्ते [Customer Name] ji,
+
+आपका Invoice #[INV-042] ₹[40,000] dated [05 Apr 2025] अभी pending है।
+
+कृपया जल्दी payment करें।
+
+Payment करने के लिए reply करें।
+
+धन्यवाद,
+[Business Name]</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">②</div>
+        <div class="step-body">
+          <div class="step-name">Invoice Share — "Share on WhatsApp" button in PDF view</div>
+          <div class="step-note">PDF generate hone ke baad share button. Message mein invoice summary + Vercel link (PDF URL if hosted, ya just summary). Customer WhatsApp pe receive kare.</div>
+          <div class="wa-label">MESSAGE TEMPLATE</div>
+          <div class="wa-msg">Invoice #[INV-042] — ₹40,000
+Date: 05 Apr 2025
+Items: MS Pipes × 50, Sariya × 100
+GST: ₹7,200
+
+[Sharma Hardware]
+View invoice: https://invio-delta.vercel.app/...</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">③</div>
+        <div class="step-body">
+          <div class="step-name">Customer Profile → Quick Contact Button</div>
+          <div class="step-note">Customer card pe phone number ke saath WhatsApp icon. Click → blank wa.me opens. Seedha conversation start karo bina number save kiye.</div>
+          <div class="code">const waUrl = `https://wa.me/91${phone.replace(/\D/g,'')}`;
+// Opens blank WhatsApp chat with that number</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">④</div>
+        <div class="step-body">
+          <div class="step-name">Estimate Share — "Send Quotation via WhatsApp"</div>
+          <div class="step-note">Estimate/quotation banao → share on WhatsApp. "Quotation ready hai — approve karo toh invoice bana denge." Sales conversion tool ban jaata hai.</div>
+          <div class="wa-label">MESSAGE TEMPLATE</div>
+          <div class="wa-msg">Quotation #[EST-015] — ₹85,000
+Valid till: 20 Apr 2025
+
+Items quoted:
+• MS Angles 50×50 × 200 pcs — ₹42,000
+• GI Pipes 1" × 50 pcs — ₹28,000
+
+Reply "Confirm" to proceed.
+[Sharma Hardware]</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">⑤</div>
+        <div class="step-body">
+          <div class="step-name">Bulk Reminders — "Remind All Overdue" (Smart Queue)</div>
+          <div class="step-note">Select multiple overdue invoices → "Send WA Reminders" → open wa.me one-by-one with 3-second delay (setTimeout). User reviews each before sending. Not automated — but feels like it.</div>
+          <div class="code"><span class="comment">// Open WA links one by one with delay</span>
+<span class="key">const</span> openReminders = <span class="key">async</span> (invoices) => {
+  <span class="key">for</span> (<span class="key">const</span> inv <span class="key">of</span> invoices) {
+    <span class="key">const</span> msg = buildReminderMessage(inv);
+    <span class="key">const</span> url = buildWaUrl(inv.customer.phone, msg);
+    window.open(url, <span class="str">'_blank'</span>);
+    <span class="key">await</span> sleep(2500); <span class="comment">// small gap</span>
+  }
+};</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 2 BSP -->
+  <div class="card" style="margin-top:10px">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Phase 2 — WhatsApp Business API via Indian BSP</div>
+        <div class="card-desc">Fully automated server-side sending. User ka koi action nahi. Scheduled reminders, delivery receipts, read receipts. Requires Meta Business verification + template approval.</div>
+      </div>
+      <span class="badge b-amber">Phase 2+</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>BSP</th>
+          <th>Price/msg</th>
+          <th>Setup</th>
+          <th>Best For</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>MSG91</td>
+          <td>₹0.80–1.20</td>
+          <td>Easy, Indian support</td>
+          <td>Startups, quick setup</td>
+        </tr>
+        <tr>
+          <td>Gupshup</td>
+          <td>₹0.75–1.10</td>
+          <td>Medium, good docs</td>
+          <td>Volume, India-focused</td>
+        </tr>
+        <tr>
+          <td>Interakt</td>
+          <td>₹1.00–1.50</td>
+          <td>Easy, UI dashboard</td>
+          <td>SMBs, non-dev friendly</td>
+        </tr>
+        <tr>
+          <td>Twilio</td>
+          <td>$0.005 + WA fee</td>
+          <td>Best docs</td>
+          <td>Enterprise, global</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+    <div style="font-size:12px;font-weight:600;color:#e4e4e7;margin-bottom:8px">Automation Flows (Phase 2)</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">A</div>
+        <div class="step-body">
+          <div class="step-name">Auto Payment Reminder — D+1, D+7, D+15 overdue</div>
+          <div class="step-note">Cron job daily chalega. Overdue invoices check karo. Day 1 soft reminder, Day 7 firm, Day 15 urgent. Templates pre-approved by Meta.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">B</div>
+        <div class="step-body">
+          <div class="step-name">Invoice Delivery Confirmation</div>
+          <div class="step-note">Invoice create hote hi customer ko WA pe bhejo. "Invoice received" reply track karo. Delivery proof.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">C</div>
+        <div class="step-body">
+          <div class="step-name">Low Stock Alert to Supplier</div>
+          <div class="step-note">Item stock critical level pe aaye → supplier ka WA number → reorder message bhejo automatically.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-amber">
+      <strong>Meta Template Approval:</strong> BSP mein template submit karo → 24-48 hr mein approve/reject. Approved templates hi automate ho sakte hain. wa.me ke saath koi approval nahi chahiye — isliye Phase 1 mein wa.me hi best hai.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Implementation Priority Table</div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Feature</th><th>Phase</th><th>Effort</th><th>Revenue Impact</th><th>API Used</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>wa.me payment reminder button</td><td><span class="badge b-red" style="font-size:10px">1</span></td><td>0.5 days</td><td>🔥 High — retention</td><td>None (URL only)</td></tr>
+        <tr><td>wa.me invoice share button</td><td><span class="badge b-red" style="font-size:10px">1</span></td><td>0.5 days</td><td>🔥 High — viral</td><td>None (URL only)</td></tr>
+        <tr><td>GSTIN auto-fill on customer add</td><td><span class="badge b-red" style="font-size:10px">1</span></td><td>1 day</td><td>🟡 Medium — UX</td><td>Whitebooks /public/search</td></tr>
+        <tr><td>GSTR-1 JSON export</td><td><span class="badge b-amber" style="font-size:10px">2</span></td><td>2 days</td><td>🔥 High — trust</td><td>None (local calc)</td></tr>
+        <tr><td>wa.me estimate share</td><td><span class="badge b-amber" style="font-size:10px">2</span></td><td>0.5 days</td><td>🟡 Medium — sales</td><td>None (URL only)</td></tr>
+        <tr><td>Direct GSTR-3B filing</td><td><span class="badge b-amber" style="font-size:10px">2</span></td><td>3 days</td><td>🔥 Premium tier</td><td>Whitebooks full auth</td></tr>
+        <tr><td>WA BSP auto-reminders</td><td><span class="badge b-blue" style="font-size:10px">3</span></td><td>2 days</td><td>🔥 High — stickiness</td><td>MSG91 / Gupshup</td></tr>
+        <tr><td>E-Waybill generation</td><td><span class="badge b-blue" style="font-size:10px">3</span></td><td>3 days</td><td>🟡 Hardware traders</td><td>E-Waybill API</td></tr>
+        <tr><td>E-Invoice IRN</td><td><span class="badge b-purple" style="font-size:10px">4</span></td><td>4 days</td><td>🟡 Enterprise only</td><td>E-Invoice IRP API</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Build Order — Start Karo Yahan Se</div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:12px">Next 3 things to build (in this order):</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-name">wa.me reminder button — Invoices page + Notification panel</div>
+          <div class="step-note">Overdue invoice row pe green WhatsApp button. buildWaUrl(phone, reminderTemplate(invoice)) — done. 4 hours max.</div>
+          <div class="code"><span class="comment">// src/lib/whatsapp.ts</span>
+<span class="key">export function</span> buildWaUrl(phone: string, message: string): string {
+  <span class="key">const</span> clean = phone.replace(/\D/g, <span class="str">''</span>);
+  <span class="key">const</span> num = clean.startsWith(<span class="str">'91'</span>) ? clean : <span class="str">`91${clean}`</span>;
+  <span class="key">return</span> <span class="str">`https://wa.me/${num}?text=${encodeURIComponent(message)}`</span>;
+}
+
+<span class="key">export function</span> paymentReminderMsg(inv: Invoice): string {
+  <span class="key">return</span> <span class="str">`नमस्ते ${inv.customer_name} ji,\n\nInvoice #${inv.invoice_number} ₹${inv.total.toLocaleString('en-IN')} due ${formatDate(inv.due_date)} pending है।\n\nकृपया जल्दी payment करें।\n\n- ${inv.business_name}`</span>;
+}</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-name">wa.me share button — Invoice PDF view</div>
+          <div class="step-note">Invoice PDF page pe "Share on WhatsApp" button. Invoice summary message + Vercel URL (public invoice link). 2 hours.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-name">GSTIN auto-fill — Customer creation form</div>
+          <div class="step-note">GSTIN field ke saath "Verify" button → /api/gstin-lookup → name + address auto-fill. Whitebooks sandbox credentials use karo. 1 day.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="font-size:11px;color:#3f3f46;text-align:center;padding-top:1rem">Invio Internal Plan — Updated April 2025</div>
+</div>
+</body>
+</html>

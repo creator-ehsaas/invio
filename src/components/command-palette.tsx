@@ -36,7 +36,13 @@ export function CommandPalette() {
   // Open on Cmd+K / Ctrl+K
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || e.key === "/") {
+      if (
+        (e.key === "k" && (e.metaKey || e.ctrlKey)) ||
+        (e.key === "/" &&
+          !(e.target instanceof HTMLInputElement) &&
+          !(e.target instanceof HTMLTextAreaElement) &&
+          !(e.target instanceof HTMLElement && e.target.isContentEditable))
+      ) {
         e.preventDefault();
         setOpen((o) => !o);
       }
