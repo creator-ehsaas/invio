@@ -636,6 +636,13 @@ const GSTFormalTemplate = ({ data }: { data: InvoicePDFData }) => (
         </View>
       )}
 
+      <View style={gstFormalStyles.terms}>
+        <Text style={gstFormalStyles.termsLabel}>Terms & Conditions:</Text>
+        <Text>1. Goods once sold will not be taken back.</Text>
+        <Text>2. Interest @ 18% p.a. will be charged if payment is not made within due date.</Text>
+        <Text>3. Subject to local jurisdiction.</Text>
+      </View>
+
       <View style={gstFormalStyles.signatureSection}>
         <View style={gstFormalStyles.signatureBox}>
           <View style={gstFormalStyles.signatureLine} />
@@ -645,13 +652,6 @@ const GSTFormalTemplate = ({ data }: { data: InvoicePDFData }) => (
           <View style={gstFormalStyles.signatureLine} />
           <Text style={gstFormalStyles.signatureLabel}>Authorized Signatory</Text>
         </View>
-      </View>
-
-      <View style={gstFormalStyles.terms}>
-        <Text style={gstFormalStyles.termsLabel}>Terms & Conditions:</Text>
-        <Text>1. Goods once sold will not be taken back.</Text>
-        <Text>2. Interest @ 18% p.a. will be charged if payment is not made within due date.</Text>
-        <Text>3. Subject to local jurisdiction.</Text>
       </View>
     </Page>
   </Document>
