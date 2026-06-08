@@ -25,6 +25,7 @@ import {
   Percent,
   Coins,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 import { isIntraState, INDIAN_STATES, getStateFromGSTIN } from "@/types/database";
 
@@ -509,6 +510,36 @@ export default function NewInvoicePage() {
 
     if (unconfirmedFields.items) {
       confirmField("items");
+    }
+  };
+
+  const [suggestingHsn, setSuggestingHsn] = useState<Record<number, boolean>>({});
+
+  const handleSuggestHsn = async (index: number) => {
+    const item = items[index];
+    if (!item.description || !item.description.trim()) return;
+
+    setSuggestingHsn((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch("/api/suggest-hsn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: item.description }),
+      });
+      const data = await res.json();
+      if (data.data) {
+        const { hsn_code, gst_rate } = data.data;
+        if (hsn_code) {
+          updateItem(index, "hsn_code", hsn_code);
+        }
+        if (gst_rate !== undefined) {
+          updateItem(index, "gst_rate", gst_rate);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to suggest HSN:", err);
+    } finally {
+      setSuggestingHsn((prev) => ({ ...prev, [index]: false }));
     }
   };
 
@@ -1613,6 +1644,11 @@ export default function NewInvoicePage() {
                           placeholder="Item description"
                           value={item.description}
                           onChange={(e) => updateItem(index, "description", e.target.value)}
+                          onBlur={() => {
+                            if (!item.hsn_code && item.description.trim()) {
+                              handleSuggestHsn(index);
+                            }
+                          }}
                           className={`w-full bg-secondary border rounded-lg px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/20 outline-none ${
                             itemValidationErrors[index]?.description ? "border-red-500 bg-red-500/5" : "border-transparent"
                           }`}
@@ -1632,13 +1668,30 @@ export default function NewInvoicePage() {
                       {/* HSN/SAC */}
                       <div className="md:col-span-1.5 space-y-1.5">
                         <span className="md:hidden text-[9px] font-bold text-muted-foreground uppercase">HSN/SAC</span>
-                        <input
-                          type="text"
-                          placeholder="HSN/SAC"
-                          value={item.hsn_code}
-                          onChange={(e) => updateItem(index, "hsn_code", e.target.value)}
-                          className="w-full bg-secondary border border-transparent rounded-lg px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/20 outline-none"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="HSN/SAC"
+                            value={item.hsn_code}
+                            onChange={(e) => updateItem(index, "hsn_code", e.target.value)}
+                            className="w-full bg-secondary border border-transparent rounded-lg pl-2 pr-7 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/20 outline-none"
+                          />
+                          {item.description.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => handleSuggestHsn(index)}
+                              disabled={suggestingHsn[index]}
+                              title="Suggest HSN with AI"
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 hover:text-primary transition-all disabled:opacity-50"
+                            >
+                              {suggestingHsn[index] ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                              ) : (
+                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Qty */}

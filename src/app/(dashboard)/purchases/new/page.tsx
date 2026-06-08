@@ -342,6 +342,36 @@ export default function NewPurchasePage() {
     setItems(updated);
   };
 
+  const [suggestingHsn, setSuggestingHsn] = useState<Record<number, boolean>>({});
+
+  const handleSuggestHsn = async (index: number) => {
+    const item = items[index];
+    if (!item.description || !item.description.trim()) return;
+
+    setSuggestingHsn((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch("/api/suggest-hsn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: item.description }),
+      });
+      const data = await res.json();
+      if (data.data) {
+        const { hsn_code, gst_rate } = data.data;
+        if (hsn_code) {
+          updateItem(index, "hsn_code", hsn_code);
+        }
+        if (gst_rate !== undefined) {
+          updateItem(index, "gst_rate", gst_rate);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to suggest HSN:", err);
+    } finally {
+      setSuggestingHsn((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
   const calculateTotals = () => {
     let subtotal = 0;
     let totalGst = 0;
@@ -798,6 +828,11 @@ export default function NewPurchasePage() {
                       placeholder="Item description"
                       value={item.description}
                       onChange={(e) => updateItem(index, "description", e.target.value)}
+                      onBlur={() => {
+                        if (!item.hsn_code && item.description.trim()) {
+                          handleSuggestHsn(index);
+                        }
+                      }}
                       className="flex-1 bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
                     />
                     <button
@@ -808,13 +843,30 @@ export default function NewPurchasePage() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <input
-                      type="text"
-                      placeholder="HSN"
-                      value={item.hsn_code}
-                      onChange={(e) => updateItem(index, "hsn_code", e.target.value)}
-                      className="bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="HSN"
+                        value={item.hsn_code}
+                        onChange={(e) => updateItem(index, "hsn_code", e.target.value)}
+                        className="w-full bg-white dark:bg-slate-900 border-none rounded-lg pl-3 pr-7 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                      {item.description.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => handleSuggestHsn(index)}
+                          disabled={suggestingHsn[index]}
+                          title="Suggest HSN with AI"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 hover:text-primary transition-all disabled:opacity-50"
+                        >
+                          {suggestingHsn[index] ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <div className="flex gap-1">
                       <input
                         type="number"

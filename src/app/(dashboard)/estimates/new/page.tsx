@@ -135,6 +135,36 @@ export default function NewEstimatePage() {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
   };
 
+  const [suggestingHsn, setSuggestingHsn] = useState<Record<number, boolean>>({});
+
+  const handleSuggestHsn = async (index: number) => {
+    const item = items[index];
+    if (!item.description || !item.description.trim()) return;
+
+    setSuggestingHsn((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch("/api/suggest-hsn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: item.description }),
+      });
+      const data = await res.json();
+      if (data.data) {
+        const { hsn_code, gst_rate } = data.data;
+        if (hsn_code) {
+          updateItem(index, "hsn_code", hsn_code);
+        }
+        if (gst_rate !== undefined) {
+          updateItem(index, "gst_rate", gst_rate);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to suggest HSN:", err);
+    } finally {
+      setSuggestingHsn((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
   const addItem = () => {
     setItems(prev => [...prev, { description: "", hsn_code: "", quantity: 1, unit: "pcs", rate: 0, gst_rate: 18 }]);
   };
@@ -344,6 +374,11 @@ export default function NewEstimatePage() {
                       placeholder="Item description"
                       value={item.description}
                       onChange={(e) => updateItem(idx, "description", e.target.value)}
+                      onBlur={() => {
+                        if (!item.hsn_code && item.description.trim()) {
+                          handleSuggestHsn(idx);
+                        }
+                      }}
                       className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                     <button
@@ -356,13 +391,30 @@ export default function NewEstimatePage() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <input
-                      type="text"
-                      placeholder="HSN"
-                      value={item.hsn_code}
-                      onChange={(e) => updateItem(idx, "hsn_code", e.target.value)}
-                      className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="HSN"
+                        value={item.hsn_code}
+                        onChange={(e) => updateItem(idx, "hsn_code", e.target.value)}
+                        className="w-full pl-3 pr-7 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      {item.description.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => handleSuggestHsn(idx)}
+                          disabled={suggestingHsn[idx]}
+                          title="Suggest HSN with AI"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 hover:text-primary transition-all disabled:opacity-50"
+                        >
+                          {suggestingHsn[idx] ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <div className="flex gap-1">
                       <input
                         type="number"
