@@ -256,6 +256,39 @@ export default function NewPurchasePage() {
       }
 
       applyParsedData(result.data);
+
+      // Early duplicate check
+      if (result.data?.bill_number) {
+        const checkSupplierName = result.data.supplier_name || "";
+        const checkSupplierGstin = result.data.supplier_gstin || "";
+        
+        let dupQuery = supabase
+          .from("purchase_invoices")
+          .select("id")
+          .eq("bill_number", result.data.bill_number);
+          
+        let matchedId = null;
+        if (checkSupplierGstin) {
+          const matched = suppliers.find(s => s.gstin && s.gstin.trim().toUpperCase() === checkSupplierGstin.trim().toUpperCase());
+          if (matched) matchedId = matched.id;
+        }
+        if (!matchedId && checkSupplierName) {
+          const matched = suppliers.find(s => s.name.trim().toLowerCase() === checkSupplierName.trim().toLowerCase());
+          if (matched) matchedId = matched.id;
+        }
+        
+        if (matchedId) {
+          dupQuery = dupQuery.eq("supplier_id", matchedId);
+        } else {
+          dupQuery = dupQuery.eq("supplier_name", checkSupplierName);
+        }
+        
+        const { data: duplicate } = await dupQuery.maybeSingle();
+        if (duplicate) {
+          setError(`Warning: A purchase bill with number "${result.data.bill_number}" already exists for this supplier.`);
+        }
+      }
+
       setParseState("done");
     } catch (err: any) {
       setParseError(err.message || "Upload failed");
@@ -467,6 +500,24 @@ export default function NewPurchasePage() {
 
           if (newSupplier) finalSupplierId = newSupplier.id;
         }
+      }
+
+      // Duplicacy check: Check if bill number and supplier already exists
+      let dupQuery = supabase
+        .from("purchase_invoices")
+        .select("id")
+        .eq("business_id", userData.business_id)
+        .eq("bill_number", billNumber);
+
+      if (finalSupplierId) {
+        dupQuery = dupQuery.eq("supplier_id", finalSupplierId);
+      } else {
+        dupQuery = dupQuery.eq("supplier_name", finalSupplierName);
+      }
+
+      const { data: duplicate } = await dupQuery.maybeSingle();
+      if (duplicate) {
+        throw new Error(`A purchase bill with number "${billNumber}" already exists for this supplier.`);
       }
 
       const { data: purchase, error: purchaseError } = await supabase

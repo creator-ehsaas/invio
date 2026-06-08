@@ -303,6 +303,24 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
     const igst = intraState ? 0 : calculatedGst;
     const total = calculatedSubtotal + calculatedGst;
 
+    // Check if supplier/bill duplicate already exists
+    let dupQuery = supabase
+      .from("purchase_invoices")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("bill_number", parsedData.bill_number);
+
+    if (finalSupplierId) {
+      dupQuery = dupQuery.eq("supplier_id", finalSupplierId);
+    } else {
+      dupQuery = dupQuery.eq("supplier_name", finalSupplierName);
+    }
+
+    const { data: duplicate } = await dupQuery.maybeSingle();
+    if (duplicate) {
+      throw new Error(`Duplicate: Bill #${parsedData.bill_number} already exists for this supplier`);
+    }
+
     // Insert purchase invoice
     const { data: purchase, error: purchaseError } = await supabase
       .from("purchase_invoices")
