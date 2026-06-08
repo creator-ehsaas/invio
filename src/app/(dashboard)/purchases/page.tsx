@@ -15,10 +15,12 @@ import {
   XCircle,
   Loader2,
   Building2,
+  Upload,
 } from "lucide-react";
 import type { PurchaseInvoice } from "@/types/database";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import BulkUploadModal from "@/components/purchases/bulk-upload-modal";
 
 const statusConfig = {
   pending: { label: "Pending", icon: Clock, color: "text-amber-600 bg-amber-100 dark:bg-amber-900/30" },
@@ -35,6 +37,7 @@ export default function PurchasesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const fetchPurchases = useCallback(async () => {
     try {
@@ -115,6 +118,13 @@ export default function PurchasesPage() {
             <Building2 className="w-4 h-4" />
             <span className="hidden sm:inline">Suppliers</span>
           </Link>
+          <button
+            onClick={() => setIsBulkUploadOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-secondary text-foreground font-medium rounded-xl hover:bg-muted transition-colors border border-slate-200/50 dark:border-slate-800/50 shadow-sm"
+          >
+            <Upload className="w-4 h-4 text-primary animate-bounce-subtle" />
+            <span>Bulk Upload</span>
+          </button>
           <Link
             href="/purchases/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
@@ -303,6 +313,12 @@ export default function PurchasesPage() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={fetchPurchases}
+      />
     </div>
   );
 }
