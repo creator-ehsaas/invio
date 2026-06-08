@@ -22,6 +22,7 @@ import {
   BookOpen,
   Sparkles,
 } from "lucide-react";
+import DoubleEntryLedger from "@/components/shared/double-entry-ledger";
 
 interface Customer {
   id: string;
@@ -548,102 +549,8 @@ export default function CustomerDetailPage() {
             </div>
           ) : (
             /* Ledger view */
-            <div className="p-4 space-y-4">
-              {/* Summary */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-muted rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Total Billed</p>
-                  <p className="font-bold text-sm mt-0.5">₹{totalDebit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
-                </div>
-                <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Received</p>
-                  <p className="font-bold text-sm mt-0.5 text-emerald-600">₹{totalCredit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
-                </div>
-                <div className={`rounded-xl p-3 text-center ${outstanding > 0 ? "bg-red-50 dark:bg-red-950/30" : "bg-emerald-50 dark:bg-emerald-950/30"}`}>
-                  <p className="text-xs text-muted-foreground">Outstanding</p>
-                  <p className={`font-bold text-sm mt-0.5 ${outstanding > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                    ₹{Math.abs(outstanding).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                  </p>
-                </div>
-              </div>
-
-              {/* AI Insight */}
-              {ledger.length > 0 && (
-                <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-800/50 rounded-xl p-3">
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                    <div className="flex-1 text-xs text-muted-foreground">
-                      {aiInsight || "AI can analyze this customer's payment behavior and suggest follow-up actions."}
-                    </div>
-                    <button
-                      onClick={getAiInsight}
-                      disabled={loadingInsight}
-                      className="shrink-0 text-xs px-2 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
-                    >
-                      {loadingInsight ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                      {loadingInsight ? "..." : "Insight"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Ledger table */}
-              {ledgerLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
-              ) : ledger.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8 text-sm">No transactions yet</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 font-medium text-muted-foreground">Date</th>
-                        <th className="text-left py-2 font-medium text-muted-foreground">Description</th>
-                        <th className="text-right py-2 font-medium text-muted-foreground">Debit</th>
-                        <th className="text-right py-2 font-medium text-muted-foreground">Credit</th>
-                        <th className="text-right py-2 font-medium text-muted-foreground">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ledger.map((entry, idx) => (
-                        <tr key={idx} className="border-b border-border/50 hover:bg-muted/30">
-                          <td className="py-2 text-muted-foreground whitespace-nowrap">
-                            {new Date(entry.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                          </td>
-                          <td className="py-2">
-                            <Link href={entry.link} className="hover:text-primary transition-colors">
-                              {entry.description}
-                            </Link>
-                          </td>
-                          <td className="py-2 text-right text-red-600">
-                            {entry.debit > 0 ? `₹${entry.debit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : ""}
-                          </td>
-                          <td className="py-2 text-right text-emerald-600">
-                            {entry.credit > 0 ? `₹${entry.credit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : ""}
-                          </td>
-                          <td className={`py-2 text-right font-medium ${entry.balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                            ₹{Math.abs(entry.balance).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                            {entry.balance > 0 ? " Dr" : entry.balance < 0 ? " Cr" : ""}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-border font-bold">
-                        <td colSpan={2} className="py-2 text-xs">Closing Balance</td>
-                        <td className="py-2 text-right text-xs">₹{totalDebit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
-                        <td className="py-2 text-right text-xs">₹{totalCredit.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
-                        <td className={`py-2 text-right text-xs ${outstanding > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                          ₹{Math.abs(outstanding).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                          {outstanding > 0 ? " Dr" : outstanding < 0 ? " Cr" : ""}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
+            <div className="p-4">
+              <DoubleEntryLedger mode="customer" partyId={customer.id} partyName={customer.name} />
             </div>
           )}
         </div>
