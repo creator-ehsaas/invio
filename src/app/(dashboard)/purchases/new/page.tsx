@@ -145,8 +145,35 @@ export default function NewPurchasePage() {
   const applyParsedData = (data: any) => {
     if (!data) return;
 
-    if (data.supplier_name && !supplierName) setSupplierName(data.supplier_name);
-    if (data.supplier_gstin && !supplierGstin) setSupplierGstin(data.supplier_gstin);
+    // Try to find matching supplier from the loaded suppliers list
+    let matchedSupplier: Supplier | null = null;
+    if (data.supplier_gstin) {
+      const gstinClean = data.supplier_gstin.trim().toUpperCase();
+      matchedSupplier = suppliers.find(
+        (s) => s.gstin && s.gstin.trim().toUpperCase() === gstinClean
+      ) || null;
+    }
+
+    if (!matchedSupplier && data.supplier_name) {
+      const nameClean = data.supplier_name.trim().toLowerCase();
+      matchedSupplier = suppliers.find(
+        (s) => s.name.trim().toLowerCase() === nameClean ||
+               s.business_name?.trim().toLowerCase() === nameClean
+      ) || null;
+    }
+
+    if (matchedSupplier) {
+      setSelectedSupplier(matchedSupplier);
+      setSupplierName(matchedSupplier.name);
+      if (matchedSupplier.gstin) setSupplierGstin(matchedSupplier.gstin);
+      const due = new Date();
+      due.setDate(due.getDate() + (matchedSupplier.payment_terms || 30));
+      setDueDate(due.toISOString().split("T")[0]);
+    } else {
+      if (data.supplier_name) setSupplierName(data.supplier_name);
+      if (data.supplier_gstin) setSupplierGstin(data.supplier_gstin);
+    }
+
     if (data.bill_number && !billNumber) setBillNumber(data.bill_number);
     if (data.bill_date) {
       const d = new Date(data.bill_date);
