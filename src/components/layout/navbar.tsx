@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Search,
   Keyboard,
+  Gavel,
 } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -39,6 +40,7 @@ const navLinks = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/bids", label: "Bids", icon: Gavel },
 ];
 
 // Mobile bottom nav - show most used items
@@ -247,6 +249,7 @@ export function Navbar({ user, business }: NavbarProps) {
                 { href: "/suppliers", label: "Suppliers", icon: Truck },
                 { href: "/inventory", label: "Stock", icon: Package },
                 { href: "/reports", label: "Reports", icon: BarChart3 },
+                { href: "/bids", label: "Bids", icon: Gavel },
                 { href: "/subscription", label: "Plans", icon: CreditCard },
                 { href: "/settings", label: "Settings", icon: Settings },
               ].map(link => {

@@ -15,6 +15,7 @@ import {
   Trash2,
   CreditCard,
   X,
+  Pencil,
 } from "lucide-react";
 import type { PurchaseInvoice, PurchaseInvoiceItem, Supplier } from "@/types/database";
 
@@ -186,6 +187,13 @@ export default function PurchaseDetailPage() {
               Record Payment
             </button>
           )}
+          <Link
+            href={`/purchases/${purchase.id}/edit`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-border font-medium rounded-xl hover:bg-muted transition-colors text-foreground"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit
+          </Link>
           {purchase.status !== "cancelled" && (
             <button
               onClick={markAsCancelled}

@@ -331,7 +331,7 @@ export default function InvoicesPage() {
           <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
             <Download className="h-4 w-4" /> Export
           </Button>
-          <Button asChild className="gap-2">
+          <Button asChild className="gap-2 rounded-full px-5">
             <Link href="/invoices/new">
               <Plus className="h-4 w-4" /> New Invoice
             </Link>

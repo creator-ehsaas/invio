@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Plus, Trash2, Loader2, Save, Mic, MicOff, Sparkles } from "lucide-react";
 import { isIntraState } from "@/types/database";
 import { useVoiceInput } from "@/hooks/use-voice-input";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface EstimateItem {
   description: string;
@@ -98,11 +100,7 @@ export default function NewEstimatePage() {
     if (!user) return;
 
     const { data: userData } = await supabase
-      .from("users")
-      .select("business_id")
-      .eq("id", user.id)
-      .single();
-
+      .from("users").select("business_id").eq("id", user.id).single();
     if (userData?.business_id) {
       const [{ data: business }, { data: customersData }] = await Promise.all([
         supabase.from("businesses")
@@ -271,38 +269,38 @@ export default function NewEstimatePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/estimates" className="p-2 hover:bg-muted rounded-lg transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" asChild className="rounded-md">
+          <Link href="/estimates">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+        </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-foreground">New Estimate</h1>
-          <p className="text-sm text-muted-foreground">Create a quotation / proposal</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">New Estimate</h1>
+          <p className="text-muted-foreground mt-1">Create a quotation / proposal</p>
         </div>
-        <button
+        <Button
+          type="button"
           onClick={toggleRecording}
           disabled={isTranscribing || isParsingVoice}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-            isRecording
-              ? "bg-red-500 text-white animate-pulse"
-              : "bg-primary/10 text-primary hover:bg-primary/20"
-          }`}
-          title="Dictate estimate by voice"
+          variant={isRecording ? "destructive" : "secondary"}
+          size="sm"
+          className={`gap-2 rounded-md ${isRecording ? "animate-pulse" : ""}`}
         >
           {isRecording ? <MicOff className="w-4 h-4" /> : isTranscribing || isParsingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
           {isRecording ? "Stop" : isTranscribing ? "Transcribing..." : isParsingVoice ? "Parsing..." : "Voice"}
-        </button>
+        </Button>
       </div>
 
       {/* Voice hint */}
       {voiceHint && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl text-sm text-primary">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-md text-sm text-primary">
           <Sparkles className="w-4 h-4 shrink-0" />
           {voiceHint}
         </div>
       )}
       {isRecording && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-xl">
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-md">
           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           <span className="text-sm text-red-600 font-medium">Listening... Say customer name and items with quantities and rates</span>
         </div>
@@ -318,18 +316,18 @@ export default function NewEstimatePage() {
         {/* Left: form */}
         <div className="lg:col-span-2 space-y-4">
           {/* Customer + Dates */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            <h2 className="font-semibold text-foreground">Estimate Details</h2>
+          <div className="bg-card border rounded-lg p-6 space-y-4">
+            <h2 className="text-base font-bold text-foreground">Estimate Details</h2>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer</label>
-              <input
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</label>
+              <Input
                 type="text"
                 list="customers-list"
                 placeholder="Type customer name..."
                 value={customerName}
                 onChange={(e) => handleCustomerChange(e.target.value)}
-                className="mt-1 w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="h-8"
               />
               <datalist id="customers-list">
                 {customers.map(c => <option key={c.id} value={c.name} />)}
@@ -340,36 +338,48 @@ export default function NewEstimatePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estimate Date</label>
-                <input
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estimate Date</label>
+                <Input
                   type="date"
                   value={estimateDate}
                   onChange={(e) => setEstimateDate(e.target.value)}
-                  className="mt-1 w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="h-8"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Valid Until</label>
-                <input
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Valid Until</label>
+                <Input
                   type="date"
                   value={validUntil}
                   onChange={(e) => setValidUntil(e.target.value)}
-                  className="mt-1 w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="h-8"
                 />
               </div>
             </div>
           </div>
 
           {/* Items */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-            <h2 className="font-semibold text-foreground">Items</h2>
+          <div className="bg-card border rounded-lg p-6 space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-bold text-foreground">Items</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addItem}
+                className="gap-1 rounded-md text-primary hover:text-primary/80"
+              >
+                <Plus className="w-4 h-4" />
+                Add Item
+              </Button>
+            </div>
 
             <div className="space-y-3">
               {items.map((item, idx) => (
-                <div key={idx} className="border border-border rounded-lg p-3 space-y-2">
+                <div key={idx} className="border rounded-md p-4 space-y-3 bg-muted/30">
                   <div className="flex items-center gap-2">
-                    <input
+                    <Input
                       type="text"
                       placeholder="Item description"
                       value={item.description}
@@ -379,25 +389,29 @@ export default function NewEstimatePage() {
                           handleSuggestHsn(idx);
                         }
                       }}
-                      className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="flex-1 h-8"
                     />
-                    <button
-                      onClick={() => removeItem(idx)}
-                      disabled={items.length === 1}
-                      className="p-2 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {items.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(idx)}
+                        className="text-muted-foreground hover:text-red-500 transition-colors h-8 w-8 shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div className="relative">
-                      <input
+                      <Input
                         type="text"
                         placeholder="HSN"
                         value={item.hsn_code}
                         onChange={(e) => updateItem(idx, "hsn_code", e.target.value)}
-                        className="w-full pl-3 pr-7 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="w-full h-8 pr-7"
                       />
                       {item.description.trim() && (
                         <button
@@ -416,36 +430,36 @@ export default function NewEstimatePage() {
                       )}
                     </div>
                     <div className="flex gap-1">
-                      <input
+                      <Input
                         type="number"
                         placeholder="Qty"
-                        value={item.quantity}
+                        value={item.quantity || ""}
                         min={0}
                         onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="w-full h-8"
                       />
                       <select
                         value={item.unit}
                         onChange={(e) => updateItem(idx, "unit", e.target.value)}
-                        className="px-2 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none"
+                        className="h-8 rounded-xs border border-input bg-transparent px-2 py-1 text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground dark:bg-input/35"
                       >
                         {["pcs","kg","ton","mtr","box","ltr","bag","set","nos"].map(u => (
                           <option key={u} value={u}>{u}</option>
                         ))}
                       </select>
                     </div>
-                    <input
+                    <Input
                       type="number"
                       placeholder="Rate (₹)"
                       value={item.rate || ""}
                       min={0}
                       onChange={(e) => updateItem(idx, "rate", parseFloat(e.target.value) || 0)}
-                      className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="w-full h-8"
                     />
                     <select
                       value={item.gst_rate}
                       onChange={(e) => updateItem(idx, "gst_rate", parseFloat(e.target.value))}
-                      className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none"
+                      className="h-8 w-full rounded-xs border border-input bg-transparent px-2.5 py-1 text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground dark:bg-input/35"
                     >
                       {[0, 5, 12, 18, 28].map(r => (
                         <option key={r} value={r}>GST {r}%</option>
@@ -453,41 +467,34 @@ export default function NewEstimatePage() {
                     </select>
                   </div>
 
-                  <div className="text-right text-sm font-medium text-foreground">
-                    ₹{((item.quantity * item.rate) * (1 + item.gst_rate / 100)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  <div className="text-right text-xs font-semibold text-foreground">
+                    Subtotal: ₹{((item.quantity * item.rate) * (1 + item.gst_rate / 100)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                   </div>
                 </div>
               ))}
             </div>
-
-            <button
-              onClick={addItem}
-              className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-border rounded-lg text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Add Item
-            </button>
           </div>
 
           {/* Notes / Terms */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</label>
+          <div className="bg-card border rounded-lg p-6 space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes</label>
               <textarea
                 rows={2}
                 placeholder="Notes to customer..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="mt-1 w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                className="w-full px-3 py-2 bg-background border border-input rounded-xs text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground resize-none"
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Terms & Conditions</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Terms & Conditions</label>
               <textarea
                 rows={2}
                 placeholder="Terms, validity, payment terms..."
                 value={terms}
                 onChange={(e) => setTerms(e.target.value)}
-                className="mt-1 w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                className="w-full px-3 py-2 bg-background border border-input rounded-xs text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground resize-none"
               />
             </div>
           </div>
@@ -495,54 +502,55 @@ export default function NewEstimatePage() {
 
         {/* Right: summary */}
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-xl p-4 space-y-3 sticky top-24">
-            <h2 className="font-semibold text-foreground">Summary</h2>
+          <div className="bg-card border rounded-lg p-6 space-y-3 sticky top-24">
+            <h2 className="text-base font-bold text-foreground border-b pb-2">Summary</h2>
 
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>₹{subtotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                <span className="font-semibold text-foreground">₹{subtotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
               </div>
               {intra ? (
                 <>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">CGST</span>
-                    <span>₹{cgst.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                    <span className="font-semibold text-foreground">₹{cgst.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">SGST</span>
-                    <span>₹{sgst.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                    <span className="font-semibold text-foreground">₹{sgst.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
                   </div>
                 </>
               ) : (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">IGST</span>
-                  <span>₹{igst.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                  <span className="font-semibold text-foreground">₹{igst.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2">
+              <div className="flex justify-between font-bold text-sm border-t pt-2.5 mt-2.5">
                 <span>Total</span>
                 <span>₹{total.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
               </div>
             </div>
 
-            <div className="space-y-2 pt-2">
-              <button
+            <div className="space-y-2.5 pt-3 border-t">
+              <Button
+                variant="outline"
                 onClick={() => handleSave("draft")}
                 disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+                className="w-full rounded-md h-9 gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save as Draft
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleSave("sent")}
                 disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="w-full rounded-md h-9 gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Save & Send
-              </button>
+              </Button>
             </div>
           </div>
         </div>

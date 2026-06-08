@@ -15,13 +15,15 @@ import {
   MicOff,
   X,
   FileText,
-  Image as ImageIcon,
   Sparkles,
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
 import { isIntraState } from "@/types/database";
 import type { Supplier } from "@/types/database";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 interface PurchaseItem {
   description: string;
@@ -592,7 +594,6 @@ export default function NewPurchasePage() {
   };
 
   const totals = calculateTotals();
-
   const isAiField = aiHighlighted;
 
   if (loading) {
@@ -607,9 +608,11 @@ export default function NewPurchasePage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/purchases" className="p-2 rounded-xl hover:bg-muted transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+        <Button variant="outline" size="icon" asChild className="rounded-md">
+          <Link href="/purchases">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+        </Button>
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Record Purchase</h1>
           <p className="text-muted-foreground mt-1">Upload bill or use voice to auto-fill</p>
@@ -623,10 +626,10 @@ export default function NewPurchasePage() {
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`relative rounded-2xl border-2 border-dashed p-6 transition-all ${
+          className={`relative rounded-lg border border-dashed p-6 transition-all ${
             isDragging
               ? "border-primary bg-primary/5"
-              : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+              : "border-border hover:border-primary/50"
           }`}
         >
           <input
@@ -641,7 +644,7 @@ export default function NewPurchasePage() {
             <div className="space-y-3">
               {/* File preview */}
               {uploadedFileUrl ? (
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-muted">
+                <div className="relative aspect-video rounded-md overflow-hidden bg-muted">
                   <img
                     src={uploadedFileUrl}
                     alt="Invoice preview"
@@ -649,7 +652,7 @@ export default function NewPurchasePage() {
                   />
                 </div>
               ) : (
-                <div className="flex items-center gap-3 p-3 bg-muted rounded-xl">
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-md">
                   <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="font-medium text-sm text-foreground truncate">{uploadedFile.name}</p>
@@ -695,17 +698,17 @@ export default function NewPurchasePage() {
             </div>
           ) : (
             <div
-              className="text-center cursor-pointer"
+              className="text-center cursor-pointer py-2"
               onClick={() => fileInputRef.current?.click()}
             >
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 bg-primary/10 rounded-md flex items-center justify-center mx-auto mb-3">
                 <Upload className="w-6 h-6 text-primary" />
               </div>
-              <p className="font-medium text-foreground">Upload Invoice</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="font-semibold text-foreground text-sm">Upload Invoice</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Drag & drop or click — Image or PDF
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-[10px] text-muted-foreground mt-0.5">
                 AI will auto-fill all fields
               </p>
             </div>
@@ -713,30 +716,29 @@ export default function NewPurchasePage() {
         </div>
 
         {/* Voice Input */}
-        <div className="rounded-2xl border border-slate-200/50 dark:border-slate-800/50 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl p-6 text-center">
-          <button
+        <div className="rounded-lg border bg-card p-6 text-center flex flex-col justify-center items-center">
+          <Button
+            type="button"
             onClick={isRecording ? stopRecording : startRecording}
             disabled={isTranscribing}
-            className={`h-16 w-16 rounded-full flex items-center justify-center mx-auto transition-all ${
-              isRecording
-                ? "bg-red-500 animate-pulse shadow-lg shadow-red-500/30"
-                : isTranscribing
-                ? "bg-muted"
-                : "bg-gradient-to-br from-primary to-blue-500 hover:opacity-90 shadow-lg shadow-primary/20"
-            } text-white`}
+            variant={isRecording ? "destructive" : "secondary"}
+            size="lg"
+            className={`h-16 w-16 rounded-full flex items-center justify-center transition-all ${
+              isRecording ? "animate-pulse shadow-lg shadow-red-500/20" : ""
+            }`}
           >
             {isTranscribing ? (
               <Loader2 className="w-7 h-7 animate-spin" />
             ) : isRecording ? (
-              <MicOff className="w-7 h-7" />
+              <MicOff className="w-7 h-7 text-white" />
             ) : (
-              <Mic className="w-7 h-7" />
+              <Mic className="w-7 h-7 text-primary" />
             )}
-          </button>
-          <p className="mt-3 font-medium text-foreground">
+          </Button>
+          <p className="mt-3 font-semibold text-foreground text-sm">
             {isRecording ? "Listening..." : isTranscribing ? "Processing..." : "Voice Input"}
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {isRecording
               ? "Tap to stop"
               : isTranscribing
@@ -744,9 +746,9 @@ export default function NewPurchasePage() {
               : "Dictate supplier, items & amounts"}
           </p>
           {transcript && (
-            <div className="mt-3 p-3 bg-muted rounded-xl text-left">
-              <p className="text-xs text-muted-foreground mb-1">Heard:</p>
-              <p className="text-xs text-foreground line-clamp-3">{transcript}</p>
+            <div className="mt-3 p-3 bg-muted rounded-md text-left w-full">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Heard:</p>
+              <p className="text-xs text-foreground font-medium line-clamp-3">{transcript}</p>
             </div>
           )}
         </div>
@@ -754,16 +756,16 @@ export default function NewPurchasePage() {
 
       {/* AI Fill Banner */}
       {isAiField && (
-        <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+        <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md">
           <Sparkles className="w-5 h-5 text-amber-600 flex-shrink-0" />
-          <p className="text-sm text-amber-700 dark:text-amber-300">
+          <p className="text-xs text-amber-700 dark:text-amber-300">
             Fields highlighted in yellow were filled by AI. Please review and edit if needed.
           </p>
         </div>
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
+        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -771,17 +773,17 @@ export default function NewPurchasePage() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Bill Details */}
-          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Bill Details</h2>
+          <div className="bg-card rounded-lg border p-6">
+            <h2 className="text-base font-bold text-foreground mb-4">Bill Details</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {/* Supplier */}
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Supplier</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supplier</label>
                 <div className="flex gap-2">
                   <select
                     value={selectedSupplier?.id || ""}
                     onChange={(e) => handleSupplierChange(e.target.value)}
-                    className="flex-1 bg-secondary border-none rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                    className="flex-1 h-8 rounded-xs border border-input bg-transparent px-2.5 py-1 text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground dark:bg-input/35"
                   >
                     <option value="">Select existing supplier</option>
                     {suppliers.map((s) => (
@@ -790,28 +792,26 @@ export default function NewPurchasePage() {
                       </option>
                     ))}
                   </select>
-                  <Link
-                    href="/suppliers/new"
-                    className="p-3 bg-muted rounded-xl hover:bg-muted/80 transition-colors"
-                    title="Add supplier"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </Link>
+                  <Button variant="secondary" size="icon" asChild className="rounded-md h-8 w-8 shrink-0">
+                    <Link href="/suppliers/new" title="Add supplier">
+                      <Plus className="w-4 h-4 text-primary" />
+                    </Link>
+                  </Button>
                 </div>
               </div>
 
               {/* Supplier Name (free text - for new/unregistered) */}
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Supplier Name
-                  <span className="text-xs text-muted-foreground ml-2">(or enter new)</span>
+                  <span className="text-[10px] text-muted-foreground ml-2">(or enter new)</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder="ABC Enterprises"
                   value={supplierName}
                   onChange={(e) => setSupplierName(e.target.value)}
-                  className={`w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none transition-colors ${
+                  className={`h-8 transition-colors ${
                     isAiField && supplierName ? "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-950/10" : ""
                   }`}
                 />
@@ -819,14 +819,14 @@ export default function NewPurchasePage() {
 
               {/* Supplier GSTIN */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Supplier GSTIN</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supplier GSTIN</label>
+                <Input
                   type="text"
                   placeholder="22AAAAA0000A1Z5"
                   value={supplierGstin}
                   onChange={(e) => setSupplierGstin(e.target.value.toUpperCase())}
                   maxLength={15}
-                  className={`w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground font-mono placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none transition-colors ${
+                  className={`h-8 font-mono transition-colors ${
                     isAiField && supplierGstin ? "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-950/10" : ""
                   }`}
                 />
@@ -834,13 +834,13 @@ export default function NewPurchasePage() {
 
               {/* Bill Number */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Bill Number *</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bill Number *</label>
+                <Input
                   type="text"
                   placeholder="INV-001"
                   value={billNumber}
                   onChange={(e) => setBillNumber(e.target.value)}
-                  className={`w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none transition-colors ${
+                  className={`h-8 transition-colors ${
                     isAiField && billNumber ? "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-950/10" : ""
                   }`}
                 />
@@ -848,12 +848,12 @@ export default function NewPurchasePage() {
 
               {/* Bill Date */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Bill Date</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bill Date</label>
+                <Input
                   type="date"
                   value={billDate}
                   onChange={(e) => setBillDate(e.target.value)}
-                  className={`w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-colors ${
+                  className={`h-8 transition-colors ${
                     isAiField ? "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-950/10" : ""
                   }`}
                 />
@@ -861,47 +861,50 @@ export default function NewPurchasePage() {
 
               {/* Due Date */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Due Date</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Due Date</label>
+                <Input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="h-8"
                 />
               </div>
             </div>
           </div>
 
           {/* Items */}
-          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+          <div className="bg-card rounded-lg border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Items</h2>
-              <button
+              <h2 className="text-base font-bold text-foreground">Items</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={addItem}
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+                className="gap-1 rounded-md text-primary hover:text-primary/80"
               >
                 <Plus className="w-4 h-4" />
                 Add Item
-              </button>
+              </Button>
             </div>
             <div className="space-y-4">
               {items.map((item, index) => (
                 <div
                   key={index}
-                  className={`p-4 rounded-xl space-y-3 transition-colors ${
+                  className={`p-4 rounded-md space-y-3 transition-colors ${
                     item.aiGenerated && isAiField
                       ? "bg-amber-50/60 dark:bg-amber-950/15 ring-1 ring-amber-300 dark:ring-amber-700"
-                      : "bg-muted/50"
+                      : "bg-muted/30 border"
                   }`}
                 >
                   {item.aiGenerated && isAiField && (
-                    <div className="flex items-center gap-1 text-xs text-amber-600">
-                      <Sparkles className="w-3 h-3" />
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 uppercase">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                       AI extracted — verify this item
                     </div>
                   )}
                   <div className="flex items-start justify-between gap-2">
-                    <input
+                    <Input
                       type="text"
                       placeholder="Item description"
                       value={item.description}
@@ -911,23 +914,28 @@ export default function NewPurchasePage() {
                           handleSuggestHsn(index);
                         }
                       }}
-                      className="flex-1 bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                      className="flex-1 h-8"
                     />
-                    <button
-                      onClick={() => removeItem(index)}
-                      className="p-2 text-muted-foreground hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {items.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(index)}
+                        className="text-muted-foreground hover:text-red-500 transition-colors h-8 w-8 shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     <div className="relative">
-                      <input
+                      <Input
                         type="text"
                         placeholder="HSN"
                         value={item.hsn_code}
                         onChange={(e) => updateItem(index, "hsn_code", e.target.value)}
-                        className="w-full bg-white dark:bg-slate-900 border-none rounded-lg pl-3 pr-7 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                        className="w-full h-8 pr-7"
                       />
                       {item.description.trim() && (
                         <button
@@ -945,35 +953,31 @@ export default function NewPurchasePage() {
                         </button>
                       )}
                     </div>
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        placeholder="Qty"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
-                        className="w-full bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
-                      />
-                    </div>
-                    <div className="flex gap-1 col-span-1">
-                      <input
-                        type="text"
-                        placeholder="Unit"
-                        value={item.unit}
-                        onChange={(e) => updateItem(index, "unit", e.target.value)}
-                        className="w-full bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
-                      />
-                    </div>
-                    <input
+                    <Input
+                      type="number"
+                      placeholder="Qty"
+                      value={item.quantity || ""}
+                      onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
+                      className="w-full h-8"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="Unit"
+                      value={item.unit}
+                      onChange={(e) => updateItem(index, "unit", e.target.value)}
+                      className="w-full h-8"
+                    />
+                    <Input
                       type="number"
                       placeholder="Rate"
-                      value={item.rate}
+                      value={item.rate || ""}
                       onChange={(e) => updateItem(index, "rate", Number(e.target.value))}
-                      className="bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                      className="w-full h-8"
                     />
                     <select
                       value={item.gst_rate}
                       onChange={(e) => updateItem(index, "gst_rate", Number(e.target.value))}
-                      className="bg-white dark:bg-slate-900 border-none rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                      className="h-8 w-full rounded-xs border border-input bg-transparent px-2.5 py-1 text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground dark:bg-input/35"
                     >
                       <option value={0}>0% GST</option>
                       <option value={5}>5% GST</option>
@@ -982,7 +986,7 @@ export default function NewPurchasePage() {
                       <option value={28}>28% GST</option>
                     </select>
                   </div>
-                  <div className="text-right text-sm font-medium text-foreground">
+                  <div className="text-right text-xs font-semibold text-foreground">
                     Subtotal: ₹{(item.quantity * item.rate).toLocaleString("en-IN")}
                     {item.gst_rate > 0 && (
                       <span className="text-muted-foreground ml-2">
@@ -997,84 +1001,84 @@ export default function NewPurchasePage() {
           </div>
 
           {/* Notes */}
-          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Notes</h2>
-            <textarea
+          <div className="bg-card rounded-lg border p-6">
+            <h2 className="text-base font-bold text-foreground mb-4">Notes</h2>
+            <Textarea
               placeholder="Additional notes..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+              className="min-h-16"
             />
           </div>
         </div>
 
         {/* Summary Sidebar */}
         <div className="space-y-6">
-          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm sticky top-24">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Summary</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
+          <div className="bg-card rounded-lg border p-6 sticky top-24">
+            <h2 className="text-base font-bold text-foreground mb-4 border-b pb-2">Summary</h2>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>₹{totals.subtotal.toLocaleString("en-IN")}</span>
+                <span className="font-semibold text-foreground">₹{totals.subtotal.toLocaleString("en-IN")}</span>
               </div>
               {totals.isIntraState ? (
                 <>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">CGST (ITC)</span>
-                    <span className="text-emerald-600">₹{totals.cgst.toLocaleString("en-IN")}</span>
+                    <span className="text-emerald-600 font-semibold">₹{totals.cgst.toLocaleString("en-IN")}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">SGST (ITC)</span>
-                    <span className="text-emerald-600">₹{totals.sgst.toLocaleString("en-IN")}</span>
+                    <span className="text-emerald-600 font-semibold">₹{totals.sgst.toLocaleString("en-IN")}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">IGST (ITC)</span>
-                  <span className="text-emerald-600">₹{totals.igst.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-600 font-semibold">₹{totals.igst.toLocaleString("en-IN")}</span>
                 </div>
               )}
-              <div className="flex justify-between text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 p-2 rounded-lg">
-                <span>ITC Claimable</span>
-                <span className="font-medium">
+              <div className="flex justify-between text-xs text-emerald-600 bg-emerald-500/5 p-2.5 border border-emerald-500/20 rounded-md">
+                <span className="font-semibold">ITC Claimable</span>
+                <span className="font-bold">
                   ₹{(totals.isIntraState
                     ? totals.cgst + totals.sgst
                     : totals.igst
                   ).toLocaleString("en-IN")}
                 </span>
               </div>
-              <div className="border-t border-slate-200 dark:border-slate-800 pt-3 flex justify-between">
-                <span className="font-semibold">Total</span>
-                <span className="font-bold text-lg">₹{totals.total.toLocaleString("en-IN")}</span>
+              <div className="border-t pt-3 flex justify-between items-baseline">
+                <span className="font-extrabold text-foreground uppercase tracking-wider">Total</span>
+                <span className="font-black text-lg font-mono">₹{totals.total.toLocaleString("en-IN")}</span>
               </div>
             </div>
 
             {/* Attachment indicator */}
             {storedAttachmentUrl && (
-              <div className="mt-4 flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 p-2 rounded-lg">
+              <div className="mt-4 flex items-center gap-2 text-xs text-emerald-600 bg-emerald-500/5 border border-emerald-500/20 p-2.5 rounded-md">
                 <CheckCircle className="w-3.5 h-3.5" />
                 Bill image attached
               </div>
             )}
 
-            <button
+            <Button
               onClick={handleSubmit}
               disabled={saving || !billNumber || items.every((i) => !i.description)}
-              className="w-full mt-6 py-3 bg-gradient-to-br from-primary to-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full mt-6 rounded-md h-9"
             >
               {saving ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
+                  <Save className="w-4 h-4 mr-1" />
                   Save Purchase
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

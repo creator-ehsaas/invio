@@ -244,7 +244,7 @@ export default function CustomersPage() {
           <h1 className="text-2xl font-bold">Customers</h1>
           <p className="text-sm text-muted-foreground">{customers.length} total · {filtered.length} showing</p>
         </div>
-        <Button asChild className="gap-2">
+        <Button asChild className="gap-2 rounded-full px-5">
           <Link href="/customers/new"><Plus className="h-4 w-4" /> Add Customer</Link>
         </Button>
       </div>

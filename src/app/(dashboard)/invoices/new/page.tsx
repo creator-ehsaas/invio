@@ -28,6 +28,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { isIntraState, INDIAN_STATES, getStateFromGSTIN } from "@/types/database";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface InvoiceItem {
   description: string;
@@ -1172,7 +1174,7 @@ export default function NewInvoicePage() {
       
       {/* Mapped Confirms Banner */}
       {showConfirmBanner && (
-        <div className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0" />
             <div>
@@ -1182,24 +1184,24 @@ export default function NewInvoicePage() {
               </p>
             </div>
           </div>
-          <button
+          <Button
             onClick={confirmAllFields}
-            className="text-xs font-semibold px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors shadow-sm"
+            size="sm"
+            className="text-xs font-semibold px-4 bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm rounded-md"
           >
             Confirm All Fields
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link
-            href="/invoices"
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-secondary transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </Link>
+          <Button variant="outline" size="icon" asChild className="rounded-md h-9 w-9">
+            <Link href="/invoices">
+              <ArrowLeft className="w-4 h-4 text-foreground" />
+            </Link>
+          </Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">Create Invoice</h1>
@@ -1213,22 +1215,26 @@ export default function NewInvoicePage() {
 
         <div className="flex items-center gap-2">
           {/* Collapsible Supplier Info Trigger */}
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowSupplierDetails(!showSupplierDetails)}
-            className="flex items-center gap-2 text-xs font-medium px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-secondary transition-colors text-muted-foreground"
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground rounded-md h-9"
           >
             {showSupplierDetails ? "Hide Supplier Info" : "Show Supplier Info"}
             {showSupplierDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
+          </Button>
 
           {/* Import Past Invoice Trigger */}
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl bg-secondary hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-foreground transition-all shadow-sm"
+            className="flex items-center gap-1.5 text-xs font-semibold text-foreground transition-all shadow-sm rounded-md h-9"
           >
             <Upload className="w-3.5 h-3.5" />
             Import Past Invoice
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1326,7 +1332,7 @@ export default function NewInvoicePage() {
               {/* Invoice Number */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice Number</label>
-                <input
+                <Input
                   type="text"
                   placeholder="Prefix/FY/Sequence"
                   value={invoiceNumber}
@@ -1337,8 +1343,8 @@ export default function NewInvoicePage() {
                     setInvoiceNumberError("");
                   }}
                   onBlur={(e) => checkDuplicateInvoiceNumber(e.target.value)}
-                  className={`w-full bg-secondary border rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-primary/20 outline-none font-mono ${
-                    invoiceNumberError ? "border-red-500" : "border-transparent"
+                  className={`font-mono h-8 ${
+                    invoiceNumberError ? "border-red-500 focus-visible:ring-destructive/50" : ""
                   }`}
                 />
                 {invoiceNumberError && (
@@ -1351,12 +1357,12 @@ export default function NewInvoicePage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <input
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground z-10" />
+                  <Input
                     type="date"
                     value={invoiceDate}
                     onChange={(e) => setInvoiceDate(e.target.value)}
-                    className="w-full bg-secondary border border-transparent rounded-xl pl-9 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-primary/20 outline-none"
+                    className="pl-9 h-8"
                   />
                 </div>
               </div>
@@ -1365,15 +1371,15 @@ export default function NewInvoicePage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Due Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <input
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground z-10" />
+                  <Input
                     type="date"
                     value={dueDate}
                     onChange={(e) => {
                       setDueDate(e.target.value);
                       if (unconfirmedFields.invoiceDate) confirmField("invoiceDate");
                     }}
-                    className="w-full bg-secondary border border-transparent rounded-xl pl-9 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-primary/20 outline-none"
+                    className="pl-9 h-8"
                   />
                 </div>
               </div>
@@ -1396,7 +1402,7 @@ export default function NewInvoicePage() {
           </div>
 
           {/* Customer profile selection */}
-          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm space-y-4">
+          <div className="bg-card rounded-lg border p-6 space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Customer / Recipient</h2>
             
             <div className="grid sm:grid-cols-2 gap-4">
@@ -1404,15 +1410,15 @@ export default function NewInvoicePage() {
               {/* Customer Selector */}
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer Name</label>
-                <input
+                <Input
                   type="text"
                   placeholder="Select or enter customer name"
                   value={customerName}
                   onChange={(e) => handleCustomerNameChange(e.target.value)}
                   list="customers-list"
-                  className={`w-full bg-secondary border rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-primary/20 outline-none ${
-                    customerTouched && !customerName ? "border-red-500" : "border-transparent"
-                  } ${unconfirmedFields.customerName ? "border-amber-500" : ""}`}
+                  className={`h-8 ${
+                    customerTouched && !customerName ? "border-red-500 focus-visible:ring-destructive/50" : ""
+                  } ${unconfirmedFields.customerName ? "border-amber-500 focus-visible:ring-amber-500/50" : ""}`}
                 />
                 <datalist id="customers-list">
                   {customers.map((c) => (
@@ -2054,12 +2060,12 @@ export default function NewInvoicePage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-2.5 pt-3">
-              <button
+            <div className="space-y-2.5 pt-3 border-t">
+              <Button
                 type="button"
                 onClick={() => handleSaveAction("sent")}
                 disabled={saving || !customerName}
-                className="w-full py-3 bg-gradient-to-br from-primary to-blue-500 hover:opacity-95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full h-9 gap-2 rounded-md"
               >
                 {saving && saveStatus === "sent" ? (
                   <>
@@ -2072,13 +2078,14 @@ export default function NewInvoicePage() {
                     Save & Issue Invoice
                   </>
                 )}
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => handleSaveAction("draft")}
                 disabled={saving || !customerName}
-                className="w-full py-3 border hover:bg-secondary text-foreground font-bold text-xs uppercase tracking-wider rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full h-9 gap-2 rounded-md"
               >
                 {saving && saveStatus === "draft" ? (
                   <>
@@ -2088,7 +2095,7 @@ export default function NewInvoicePage() {
                 ) : (
                   "Save as Draft"
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

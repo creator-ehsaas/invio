@@ -307,16 +307,39 @@ export function AIAssistant() {
       if (navRes.ok) {
         const navData = await navRes.json();
 
-        if (navData.type === "action" && navData.action === "navigate" && navData.route) {
-          const assistantMsg: Message = {
-            role: "assistant",
-            content: navData.message || "Opening...",
-            action: { route: navData.route, params: navData.params },
-          };
-          setMessages([...newMessages, assistantMsg]);
-          if (speakEnabled) speak(navData.message || "Opening that for you.");
-          setLoading(false);
-          return;
+        if (navData.type === "action") {
+          if (navData.action === "navigate" && navData.route) {
+            const assistantMsg: Message = {
+              role: "assistant",
+              content: navData.message || "Opening...",
+              action: { route: navData.route, params: navData.params },
+            };
+            setMessages([...newMessages, assistantMsg]);
+            if (speakEnabled) speak(navData.message || "Opening that for you.");
+            setLoading(false);
+            return;
+          } else if (navData.action === "execute_success") {
+            const assistantMsg: Message = {
+              role: "assistant",
+              content: navData.message || "Action completed.",
+            };
+            setMessages([...newMessages, assistantMsg]);
+            if (speakEnabled) speak(navData.message || "Action completed.");
+            if (navData.refresh) {
+              router.refresh();
+            }
+            setLoading(false);
+            return;
+          } else if (navData.action === "execute_failed") {
+            const assistantMsg: Message = {
+              role: "assistant",
+              content: navData.message || "Action failed.",
+            };
+            setMessages([...newMessages, assistantMsg]);
+            if (speakEnabled) speak(navData.message || "Action failed.");
+            setLoading(false);
+            return;
+          }
         }
       }
 

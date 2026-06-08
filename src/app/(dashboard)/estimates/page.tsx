@@ -267,28 +267,26 @@ export default function EstimatesPage() {
           <h1 className="text-2xl font-bold">Estimates</h1>
           <p className="text-sm text-muted-foreground">Quotations and proposals for customers</p>
         </div>
-        <Button asChild className="gap-2">
+        <Button asChild className="gap-2 rounded-full px-5">
           <Link href="/estimates/new"><Plus className="h-4 w-4" /> New Estimate</Link>
         </Button>
       </div>
 
       {/* Stats Summary cards */}
       <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardHeader className="pb-1 pt-3 px-4"><CardTitle className="text-xs text-muted-foreground font-medium">Total Quotes</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-3"><p className="text-xl font-bold">{estimates.length}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1 pt-3 px-4"><CardTitle className="text-xs text-muted-foreground font-medium">Total Value</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-3"><p className="text-xl font-bold">₹{totalValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1 pt-3 px-4"><CardTitle className="text-xs text-muted-foreground font-medium">Accepted Value</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-3">
-            <p className="text-xl font-bold text-emerald-600">₹{acceptedValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
-            <span className="text-[10px] text-purple-600 block mt-0.5">{conversionRate}% conversion rate</span>
-          </CardContent>
-        </Card>
+        <div className="bg-card border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Quotes</p>
+          <p className="text-xl sm:text-2xl font-bold text-foreground mt-1">{estimates.length}</p>
+        </div>
+        <div className="bg-card border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Value</p>
+          <p className="text-xl sm:text-2xl font-bold text-foreground mt-1">₹{totalValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+        </div>
+        <div className="bg-card border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Accepted Value</p>
+          <p className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1">₹{acceptedValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+          <span className="text-[10px] text-purple-600 block mt-0.5">{conversionRate}% conversion rate</span>
+        </div>
       </div>
 
       {/* Search & Filters */}

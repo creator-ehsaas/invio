@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Check, Loader2, Mic, MicOff, Sparkles } from "lucide-react";
-import { INDIAN_STATES, INDIAN_STATE_NAMES } from "@/types/database";
+import { INDIAN_STATES } from "@/types/database";
 import { useVoiceInput } from "@/hooks/use-voice-input";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function NewCustomerPage() {
   const router = useRouter();
@@ -111,130 +113,133 @@ export default function NewCustomerPage() {
     <div className="space-y-6 max-w-2xl">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/customers" className="p-2 rounded-xl hover:bg-muted transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+        <Button variant="outline" size="icon" asChild className="rounded-md">
+          <Link href="/customers">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+        </Button>
         <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Add Customer</h1>
           <p className="text-muted-foreground mt-1">Create a new customer record</p>
         </div>
-        <button
+        <Button
+          type="button"
           onClick={toggleRecording}
           disabled={isTranscribing || isParsingVoice}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-            isRecording ? "bg-red-500 text-white animate-pulse" : "bg-primary/10 text-primary hover:bg-primary/20"
-          }`}
+          variant={isRecording ? "destructive" : "secondary"}
+          size="sm"
+          className={`gap-2 rounded-md ${isRecording ? "animate-pulse" : ""}`}
         >
           {isRecording ? <MicOff className="w-4 h-4" /> : isTranscribing || isParsingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
           {isRecording ? "Stop" : isTranscribing ? "Transcribing..." : isParsingVoice ? "Filling..." : "Voice"}
-        </button>
+        </Button>
       </div>
 
       {(isRecording || voiceHint) && (
-        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${isRecording ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 text-red-600" : "bg-primary/5 border border-primary/20 text-primary"}`}>
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-md text-sm ${isRecording ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 text-red-600" : "bg-primary/5 border border-primary/20 text-primary"}`}>
           {isRecording ? <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /> : <Sparkles className="w-4 h-4 shrink-0" />}
           {isRecording ? "Listening... Say customer name, phone, GSTIN and address" : voiceHint}
         </div>
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm">
+        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Info */}
-        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Basic Information</h2>
+        <div className="bg-card rounded-lg border p-6">
+          <h2 className="text-base font-bold text-foreground mb-4">Basic Information</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Contact Name <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
                 placeholder="John Doe"
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Business Name</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Name</label>
+              <Input
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 placeholder="Acme Corp"
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Email</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</label>
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john@example.com"
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Phone</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone</label>
+              <Input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium text-foreground">GSTIN</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">GSTIN</label>
+              <Input
                 type="text"
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value.toUpperCase())}
                 placeholder="22AAAAA0000A1Z5"
                 maxLength={15}
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8 font-mono"
               />
             </div>
           </div>
         </div>
 
         {/* Billing Address */}
-        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Billing Address</h2>
+        <div className="bg-card rounded-lg border p-6">
+          <h2 className="text-base font-bold text-foreground mb-4">Billing Address</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Street Address</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Street Address</label>
+              <Input
                 type="text"
                 value={billingAddress.street}
                 onChange={(e) => setBillingAddress({ ...billingAddress, street: e.target.value })}
                 placeholder="123 Main Street"
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">City</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">City</label>
+              <Input
                 type="text"
                 value={billingAddress.city}
                 onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })}
                 placeholder="Mumbai"
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">State</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">State</label>
               <select
                 value={billingAddress.state}
                 onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })}
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8 w-full rounded-xs border border-input bg-transparent px-2.5 py-1 text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground dark:bg-input/35"
               >
                 <option value="">Select state</option>
                 {INDIAN_STATES.map((s) => (
@@ -245,61 +250,61 @@ export default function NewCustomerPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Pincode</label>
-              <input
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pincode</label>
+              <Input
                 type="text"
                 value={billingAddress.pincode}
                 onChange={(e) => setBillingAddress({ ...billingAddress, pincode: e.target.value })}
                 placeholder="400001"
                 maxLength={6}
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="h-8"
               />
             </div>
           </div>
         </div>
 
         {/* Shipping Address */}
-        <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+        <div className="bg-card rounded-lg border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Shipping Address</h2>
-            <label className="flex items-center gap-2 text-sm">
+            <h2 className="text-base font-bold text-foreground">Shipping Address</h2>
+            <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={sameAsBilling}
                 onChange={(e) => setSameAsBilling(e.target.checked)}
-                className="rounded"
+                className="rounded text-primary focus:ring-primary/20"
               />
-              <span className="text-muted-foreground">Same as billing</span>
+              Same as billing
             </label>
           </div>
           {!sameAsBilling && (
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-150">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Street Address</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Street Address</label>
+                <Input
                   type="text"
                   value={shippingAddress.street}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, street: e.target.value })}
                   placeholder="123 Main Street"
-                  className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="h-8"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">City</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">City</label>
+                <Input
                   type="text"
                   value={shippingAddress.city}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
                   placeholder="Mumbai"
-                  className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="h-8"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">State</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">State</label>
                 <select
                   value={shippingAddress.state}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                  className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="h-8 w-full rounded-xs border border-input bg-transparent px-2.5 py-1 text-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none text-foreground dark:bg-input/35"
                 >
                   <option value="">Select state</option>
                   {INDIAN_STATES.map((state) => (
@@ -310,14 +315,14 @@ export default function NewCustomerPage() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Pincode</label>
-                <input
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pincode</label>
+                <Input
                   type="text"
                   value={shippingAddress.pincode}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, pincode: e.target.value })}
                   placeholder="400001"
                   maxLength={6}
-                  className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="h-8"
                 />
               </div>
             </div>
@@ -325,30 +330,27 @@ export default function NewCustomerPage() {
         </div>
 
         {/* Submit */}
-        <div className="flex gap-4">
-          <Link
-            href="/customers"
-            className="px-6 py-3 border border-slate-200 dark:border-slate-800 rounded-xl text-foreground font-medium hover:bg-muted transition-colors"
-          >
-            Cancel
-          </Link>
-          <button
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm" asChild className="px-6 rounded-md h-9">
+            <Link href="/customers">Cancel</Link>
+          </Button>
+          <Button
             type="submit"
             disabled={saving || !name}
-            className="flex-1 py-3 bg-gradient-to-br from-primary to-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 rounded-md h-9"
           >
             {saving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 Saving...
               </>
             ) : (
               <>
-                <Check className="w-4 h-4" />
+                <Check className="w-4 h-4 mr-1" />
                 Add Customer
               </>
             )}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
