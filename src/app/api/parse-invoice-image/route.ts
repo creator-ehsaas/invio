@@ -82,9 +82,13 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      const pdfParseModule = await import("pdf-parse");
-      const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
-      const pdfData = await pdfParse(buffer);
+      if (typeof globalThis.DOMMatrix === "undefined") {
+        const { DOMMatrix } = await import("@napi-rs/canvas");
+        globalThis.DOMMatrix = DOMMatrix as any;
+      }
+      const { PDFParse } = await import("pdf-parse");
+      const parser = new PDFParse({ data: buffer });
+      const pdfData = await parser.getText();
       const text = pdfData.text;
 
       if (!text || text.trim().length < 20) {
