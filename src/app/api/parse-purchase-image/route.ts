@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
         globalThis.DOMMatrix = DOMMatrix as any;
       }
       const { PDFParse } = await import("pdf-parse");
+      const worker = await import("pdf-parse/worker");
+      PDFParse.setWorker(worker.getData());
       const parser = new PDFParse({ data: buffer });
       const pdfData = await parser.getText();
       const text = pdfData.text;
