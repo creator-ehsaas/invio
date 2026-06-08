@@ -10,7 +10,7 @@ You can respond in three ways:
 2. ANSWER: Answer questions about their business data
 3. EXECUTE: Perform a database mutation (like marking records paid, cancelling, deleting, or creating profiles)
 
-Based on the user's message, return a JSON response:
+Based on the user's message, the conversation history, and context, return a JSON response:
 
 For navigation/creation actions:
 {
@@ -34,14 +34,14 @@ For sending reminders:
   "message": "Go to Aged Receivables to send reminders"
 }
 
-For database mutations (e.g., "mark purchase #123 paid", "cancel sales invoice INV-002", "delete customer Shyam", "create supplier Ganesha Traders"):
+For database mutations (e.g., "mark purchase #123 paid", "mark all purchases as paid", "cancel sales invoice INV-002", "delete customer Shyam", "create supplier Ganesha Traders"):
 {
   "type": "action",
   "action": "execute",
   "mutation": "mark_purchase_paid" | "mark_invoice_paid" | "cancel_purchase" | "cancel_invoice" | "delete_purchase" | "delete_invoice" | "create_customer" | "create_supplier",
   "params": {
-    "billNumber": "123" (for purchases),
-    "invoiceNumber": "INV-002" (for sales invoices),
+    "billNumber": "123" or "all" (for purchases),
+    "invoiceNumber": "INV-002" or "all" (for sales invoices),
     "name": "Supplier or Customer Name" (for creating profiles),
     "gstin": "GSTIN if provided" (optional),
     "phone": "phone number if provided" (optional),
@@ -49,6 +49,11 @@ For database mutations (e.g., "mark purchase #123 paid", "cancel sales invoice I
   },
   "message": "I am marking purchase bill #123 as paid..."
 }
+
+Conversation History Rules:
+- Use the provided conversation history to understand context. E.g., if you previously asked "Please specify the bill number of the purchase invoice to mark paid" and the user replies with a number like "180" or "bill 180", parse this as a request to mark purchase paid with billNumber "180".
+- If the user says "mark all paid" or "mark all purchases as paid" or "mark all status all paid", set billNumber to "all".
+- If the user previously asked to mark a sales invoice as paid, and now provides the number, set invoiceNumber to that value.
 
 Supported routes and when to navigate to them:
 - /invoices/new → create invoice, bill someone, raise invoice
@@ -75,6 +80,28 @@ If no context is relevant, say you can show the data if they navigate to the rel
 IMPORTANT: Keep messages short (under 20 words). Be direct. Use rupee symbol ₹ for amounts.
 Today's date: ${new Date().toLocaleDateString("en-IN")}`;
 
+// Helper to save conversation logs to the database so that the history remains persistent
+async function saveConversation(supabase: any, userId: string, businessId: string, userMsg: string, assistantMsg: string) {
+  try {
+    await supabase.from("ai_conversations").insert([
+      {
+        user_id: userId,
+        business_id: businessId,
+        role: "user",
+        content: userMsg,
+      },
+      {
+        user_id: userId,
+        business_id: businessId,
+        role: "assistant",
+        content: assistantMsg,
+      }
+    ]);
+  } catch (err) {
+    console.error("Failed to save conversation history:", err);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -94,13 +121,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No business found" }, { status: 400 });
     }
 
-    const { message, businessContext } = await request.json();
+    const { message, history = [], businessContext } = await request.json();
 
     // Build context string from any provided data
     const contextStr = businessContext ? `\n\nBusiness Context:\n${JSON.stringify(businessContext, null, 2)}` : "";
 
+    // Build messages array including recent history
+    const messages = [];
+    if (history && Array.isArray(history)) {
+      history.forEach((h: any) => {
+        messages.push({
+          role: h.role === "assistant" ? "assistant" as const : "user" as const,
+          content: h.content,
+        });
+      });
+    }
+
+    messages.push({
+      role: "user" as const,
+      content: `${message}${contextStr}`,
+    });
+
     const response = await aiChat(
-      [{ role: "user", content: `${message}${contextStr}` }],
+      messages,
       {
         temperature: 0.2,
         maxTokens: 400,
@@ -123,14 +166,64 @@ export async function POST(request: NextRequest) {
         case "mark_purchase_paid": {
           const billNo = params.billNumber;
           if (!billNo) {
+            const reply = "Please specify the bill number of the purchase invoice to mark paid.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify the bill number of the purchase invoice to mark paid.",
+              message: reply,
             });
           }
 
-          // Find purchase invoice
+          if (billNo.toString().toLowerCase() === "all") {
+            const { data: purchases, error: findErr } = await supabase
+              .from("purchase_invoices")
+              .select("*")
+              .eq("business_id", businessId)
+              .in("status", ["pending", "partial"]);
+
+            if (findErr) throw findErr;
+            if (!purchases || purchases.length === 0) {
+              const reply = "All purchase bills are already paid.";
+              await saveConversation(supabase, user.id, businessId, message, reply);
+              return NextResponse.json({
+                type: "action",
+                action: "execute_success",
+                message: reply,
+                refresh: false,
+              });
+            }
+
+            for (const purchase of purchases) {
+              await supabase
+                .from("purchase_invoices")
+                .update({
+                  status: "paid",
+                  amount_paid: purchase.total,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", purchase.id);
+
+              await supabase.from("purchase_payments").insert({
+                purchase_invoice_id: purchase.id,
+                amount: purchase.total - purchase.amount_paid,
+                payment_date: new Date().toISOString(),
+                payment_method: "bank_transfer",
+                notes: "Recorded via AI Assistant (Bulk)",
+              });
+            }
+
+            const reply = `Marked all ${purchases.length} purchase bills as paid.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
+            return NextResponse.json({
+              type: "action",
+              action: "execute_success",
+              message: reply,
+              refresh: true,
+            });
+          }
+
+          // Otherwise, find a single purchase invoice
           const { data: purchase, error: findErr } = await supabase
             .from("purchase_invoices")
             .select("*")
@@ -140,10 +233,12 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (findErr || !purchase) {
+            const reply = `I couldn't find a purchase bill matching '#${billNo}'.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: `I couldn't find a purchase bill matching '#${billNo}'.`,
+              message: reply,
             });
           }
 
@@ -162,16 +257,18 @@ export async function POST(request: NextRequest) {
           // Insert payment record
           await supabase.from("purchase_payments").insert({
             purchase_invoice_id: purchase.id,
-            amount: purchase.total,
+            amount: purchase.total - purchase.amount_paid,
             payment_date: new Date().toISOString(),
             payment_method: "bank_transfer",
             notes: "Recorded via AI Assistant",
           });
 
+          const reply = `Purchase bill #${purchase.bill_number} has been marked as paid.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Purchase bill #${purchase.bill_number} has been marked as paid.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -179,10 +276,59 @@ export async function POST(request: NextRequest) {
         case "mark_invoice_paid": {
           const invNo = params.invoiceNumber;
           if (!invNo) {
+            const reply = "Please specify the sales invoice number to mark paid.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify the invoice number to mark paid.",
+              message: reply,
+            });
+          }
+
+          if (invNo.toString().toLowerCase() === "all") {
+            const { data: invoices, error: findErr } = await supabase
+              .from("invoices")
+              .select("*")
+              .eq("business_id", businessId)
+              .in("status", ["draft", "sent", "overdue"]);
+
+            if (findErr) throw findErr;
+            if (!invoices || invoices.length === 0) {
+              const reply = "All sales invoices are already paid.";
+              await saveConversation(supabase, user.id, businessId, message, reply);
+              return NextResponse.json({
+                type: "action",
+                action: "execute_success",
+                message: reply,
+                refresh: false,
+              });
+            }
+
+            for (const invoice of invoices) {
+              await supabase
+                .from("invoices")
+                .update({
+                  status: "paid",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", invoice.id);
+
+              await supabase.from("payments").insert({
+                invoice_id: invoice.id,
+                amount: invoice.total,
+                payment_date: new Date().toISOString(),
+                payment_method: "bank_transfer",
+                notes: "Recorded via AI Assistant (Bulk)",
+              });
+            }
+
+            const reply = `All ${invoices.length} sales invoices have been marked as paid.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
+            return NextResponse.json({
+              type: "action",
+              action: "execute_success",
+              message: reply,
+              refresh: true,
             });
           }
 
@@ -196,10 +342,12 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (findErr || !invoice) {
+            const reply = `I couldn't find an invoice matching '${invNo}'.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: `I couldn't find an invoice matching '${invNo}'.`,
+              message: reply,
             });
           }
 
@@ -223,10 +371,12 @@ export async function POST(request: NextRequest) {
             notes: "Recorded via AI Assistant",
           });
 
+          const reply = `Sales invoice ${invoice.invoice_number} has been marked as paid.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Sales invoice ${invoice.invoice_number} has been marked as paid.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -234,10 +384,12 @@ export async function POST(request: NextRequest) {
         case "cancel_purchase": {
           const billNo = params.billNumber;
           if (!billNo) {
+            const reply = "Please specify the bill number of the purchase invoice to cancel.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify the bill number of the purchase invoice to cancel.",
+              message: reply,
             });
           }
 
@@ -250,10 +402,12 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (findErr || !purchase) {
+            const reply = `I couldn't find a purchase bill matching '#${billNo}' to cancel.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: `I couldn't find a purchase bill matching '#${billNo}' to cancel.`,
+              message: reply,
             });
           }
 
@@ -262,10 +416,12 @@ export async function POST(request: NextRequest) {
             .update({ status: "cancelled", updated_at: new Date().toISOString() })
             .eq("id", purchase.id);
 
+          const reply = `Purchase bill #${purchase.bill_number} has been cancelled.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Purchase bill #${purchase.bill_number} has been cancelled.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -273,10 +429,12 @@ export async function POST(request: NextRequest) {
         case "cancel_invoice": {
           const invNo = params.invoiceNumber;
           if (!invNo) {
+            const reply = "Please specify the invoice number to cancel.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify the invoice number to cancel.",
+              message: reply,
             });
           }
 
@@ -289,10 +447,12 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (findErr || !invoice) {
+            const reply = `I couldn't find an invoice matching '${invNo}' to cancel.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: `I couldn't find an invoice matching '${invNo}' to cancel.`,
+              message: reply,
             });
           }
 
@@ -301,10 +461,12 @@ export async function POST(request: NextRequest) {
             .update({ status: "cancelled", updated_at: new Date().toISOString() })
             .eq("id", invoice.id);
 
+          const reply = `Sales invoice ${invoice.invoice_number} has been cancelled.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Sales invoice ${invoice.invoice_number} has been cancelled.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -312,10 +474,12 @@ export async function POST(request: NextRequest) {
         case "delete_purchase": {
           const billNo = params.billNumber;
           if (!billNo) {
+            const reply = "Please specify the bill number of the purchase invoice to delete.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify the bill number of the purchase invoice to delete.",
+              message: reply,
             });
           }
 
@@ -328,19 +492,23 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (findErr || !purchase) {
+            const reply = `I couldn't find a purchase bill matching '#${billNo}' to delete.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: `I couldn't find a purchase bill matching '#${billNo}' to delete.`,
+              message: reply,
             });
           }
 
           await supabase.from("purchase_invoices").delete().eq("id", purchase.id);
 
+          const reply = `Purchase bill #${purchase.bill_number} has been deleted.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Purchase bill #${purchase.bill_number} has been deleted.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -348,10 +516,12 @@ export async function POST(request: NextRequest) {
         case "delete_invoice": {
           const invNo = params.invoiceNumber;
           if (!invNo) {
+            const reply = "Please specify the invoice number to delete.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify the invoice number to delete.",
+              message: reply,
             });
           }
 
@@ -364,19 +534,23 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (findErr || !invoice) {
+            const reply = `I couldn't find an invoice matching '${invNo}' to delete.`;
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: `I couldn't find an invoice matching '${invNo}' to delete.`,
+              message: reply,
             });
           }
 
           await supabase.from("invoices").delete().eq("id", invoice.id);
 
+          const reply = `Sales invoice ${invoice.invoice_number} has been deleted.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Sales invoice ${invoice.invoice_number} has been deleted.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -384,10 +558,12 @@ export async function POST(request: NextRequest) {
         case "create_customer": {
           const { name, gstin, phone, email } = params;
           if (!name) {
+            const reply = "Please specify a name to create a customer.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify a name to create a customer.",
+              message: reply,
             });
           }
 
@@ -405,10 +581,12 @@ export async function POST(request: NextRequest) {
 
           if (insertErr) throw insertErr;
 
+          const reply = `Customer '${customer.name}' has been created.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Customer '${customer.name}' has been created.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -416,10 +594,12 @@ export async function POST(request: NextRequest) {
         case "create_supplier": {
           const { name, gstin, phone, email } = params;
           if (!name) {
+            const reply = "Please specify a name to create a supplier.";
+            await saveConversation(supabase, user.id, businessId, message, reply);
             return NextResponse.json({
               type: "action",
               action: "execute_failed",
-              message: "Please specify a name to create a supplier.",
+              message: reply,
             });
           }
 
@@ -438,10 +618,12 @@ export async function POST(request: NextRequest) {
 
           if (insertErr) throw insertErr;
 
+          const reply = `Supplier '${supplier.name}' has been created.`;
+          await saveConversation(supabase, user.id, businessId, message, reply);
           return NextResponse.json({
             type: "action",
             action: "execute_success",
-            message: `Supplier '${supplier.name}' has been created.`,
+            message: reply,
             refresh: true,
           });
         }
@@ -452,6 +634,13 @@ export async function POST(request: NextRequest) {
             action: "execute_failed",
             message: "Unsupported mutation action.",
           });
+      }
+    }
+
+    // For standard navigation and reminder actions, save them to the DB as well
+    if (parsed.type === "action") {
+      if (parsed.action === "navigate" || parsed.action === "reminder") {
+        await saveConversation(supabase, user.id, businessId, message, parsed.message || "");
       }
     }
 

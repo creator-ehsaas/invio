@@ -23,6 +23,7 @@ import {
   Plus,
   Calendar,
   CreditCard,
+  Pencil,
 } from "lucide-react";
 import { downloadInvoicePDF, type InvoicePDFData } from "@/components/invoice-pdf";
 import { buildWaUrl, paymentReminderMessage, invoiceShareMessage } from "@/lib/whatsapp";
@@ -106,6 +107,7 @@ export default function InvoiceDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [recordingPayment, setRecordingPayment] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -187,45 +189,146 @@ export default function InvoiceDetailPage() {
     const supabase = createClient();
     const amount = parseFloat(paymentForm.amount);
 
-    // Generate receipt number
-    const receiptNumber = `RCP-${invoice.invoice_number.replace("INV-", "")}-${payments.length + 1}`;
+    if (editingPayment) {
+      // Edit mode
+      const { data: updatedPayment, error } = await supabase
+        .from("payment_receipts")
+        .update({
+          amount,
+          payment_date: paymentForm.payment_date,
+          payment_mode: paymentForm.payment_mode,
+          reference_number: paymentForm.reference_number || null,
+          notes: paymentForm.notes || null,
+        })
+        .eq("id", editingPayment.id)
+        .select()
+        .single();
 
-    const { data: newPayment, error } = await supabase
-      .from("payment_receipts")
-      .insert({
-        invoice_id: invoice.id,
-        business_id: invoice.business_id,
-        receipt_number: receiptNumber,
-        amount,
-        payment_date: paymentForm.payment_date,
-        payment_mode: paymentForm.payment_mode,
-        reference_number: paymentForm.reference_number || null,
-        notes: paymentForm.notes || null,
-      })
-      .select()
-      .single();
+      if (!error && updatedPayment) {
+        // Update state
+        const updatedPayments = payments.map((p) =>
+          p.id === editingPayment.id ? updatedPayment : p
+        );
+        setPayments(updatedPayments);
 
-    if (!error && newPayment) {
-      setPayments([newPayment, ...payments]);
+        // Recalculate invoice status based on new totals
+        const newTotalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+        let newStatus = invoice.status;
+        if (newTotalPaid >= invoice.total) {
+          newStatus = "paid";
+        } else if (invoice.status === "paid") {
+          newStatus = "sent";
+          if (invoice.due_date && new Date(invoice.due_date) < new Date()) {
+            newStatus = "overdue";
+          }
+        }
 
-      // Auto-update invoice status if fully paid
-      const newTotalPaid = totalPaid + amount;
-      if (newTotalPaid >= invoice.total && invoice.status !== "paid") {
-        await supabase.from("invoices").update({ status: "paid" }).eq("id", invoice.id);
-        setInvoice({ ...invoice, status: "paid" });
+        if (newStatus !== invoice.status) {
+          await supabase.from("invoices").update({ status: newStatus }).eq("id", invoice.id);
+          setInvoice({ ...invoice, status: newStatus });
+        }
+
+        setShowPaymentModal(false);
+        setEditingPayment(null);
+        setPaymentForm({
+          amount: "",
+          payment_date: new Date().toISOString().split("T")[0],
+          payment_mode: "bank_transfer",
+          reference_number: "",
+          notes: "",
+        });
+      } else {
+        alert("Failed to update payment record: " + (error?.message || "Unknown error"));
       }
+    } else {
+      // Record new mode
+      const receiptNumber = `RCP-${invoice.invoice_number.replace("INV-", "")}-${payments.length + 1}`;
 
-      setShowPaymentModal(false);
-      setPaymentForm({
-        amount: "",
-        payment_date: new Date().toISOString().split("T")[0],
-        payment_mode: "bank_transfer",
-        reference_number: "",
-        notes: "",
-      });
+      const { data: newPayment, error } = await supabase
+        .from("payment_receipts")
+        .insert({
+          invoice_id: invoice.id,
+          business_id: invoice.business_id,
+          receipt_number: receiptNumber,
+          amount,
+          payment_date: paymentForm.payment_date,
+          payment_mode: paymentForm.payment_mode,
+          reference_number: paymentForm.reference_number || null,
+          notes: paymentForm.notes || null,
+        })
+        .select()
+        .single();
+
+      if (!error && newPayment) {
+        setPayments([newPayment, ...payments]);
+
+        // Auto-update invoice status if fully paid
+        const newTotalPaid = totalPaid + amount;
+        if (newTotalPaid >= invoice.total && invoice.status !== "paid") {
+          await supabase.from("invoices").update({ status: "paid" }).eq("id", invoice.id);
+          setInvoice({ ...invoice, status: "paid" });
+        }
+
+        setShowPaymentModal(false);
+        setPaymentForm({
+          amount: "",
+          payment_date: new Date().toISOString().split("T")[0],
+          payment_mode: "bank_transfer",
+          reference_number: "",
+          notes: "",
+        });
+      } else {
+        alert("Failed to record payment: " + (error?.message || "Unknown error"));
+      }
     }
 
     setRecordingPayment(false);
+  };
+
+  const handleStartEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setPaymentForm({
+      amount: payment.amount.toString(),
+      payment_date: payment.payment_date,
+      payment_mode: payment.payment_mode,
+      reference_number: payment.reference_number || "",
+      notes: payment.notes || "",
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleDeletePayment = async (payment: Payment) => {
+    if (!invoice || !confirm("Are you sure you want to delete this payment record? This will update the invoice's outstanding balance.")) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("payment_receipts")
+      .delete()
+      .eq("id", payment.id);
+
+    if (!error) {
+      const updatedPayments = payments.filter((p) => p.id !== payment.id);
+      setPayments(updatedPayments);
+
+      // Recalculate status
+      const newTotalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+      let newStatus = invoice.status;
+      if (newTotalPaid >= invoice.total) {
+        newStatus = "paid";
+      } else if (invoice.status === "paid") {
+        newStatus = "sent";
+        if (invoice.due_date && new Date(invoice.due_date) < new Date()) {
+          newStatus = "overdue";
+        }
+      }
+
+      if (newStatus !== invoice.status) {
+        await supabase.from("invoices").update({ status: newStatus }).eq("id", invoice.id);
+        setInvoice({ ...invoice, status: newStatus });
+      }
+    } else {
+      alert("Failed to delete payment receipt: " + error.message);
+    }
   };
 
   const downloadReceipt = (payment: Payment) => {
@@ -718,13 +821,29 @@ This is a computer-generated receipt.
                         {payment.payment_mode.replace("_", " ")}
                       </p>
                     </div>
-                    <button
-                      onClick={() => downloadReceipt(payment)}
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
-                      title="Download Receipt"
-                    >
-                      <Receipt className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleStartEditPayment(payment)}
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                        title="Edit Payment"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePayment(payment)}
+                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-muted rounded-lg transition-colors"
+                        title="Delete Payment"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => downloadReceipt(payment)}
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                        title="Download Receipt"
+                      >
+                        <Receipt className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -738,9 +857,21 @@ This is a computer-generated receipt.
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">Record Payment</h3>
+              <h3 className="text-lg font-semibold">
+                {editingPayment ? "Edit Payment Record" : "Record Payment"}
+              </h3>
               <button
-                onClick={() => setShowPaymentModal(false)}
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setEditingPayment(null);
+                  setPaymentForm({
+                    amount: "",
+                    payment_date: new Date().toISOString().split("T")[0],
+                    payment_mode: "bank_transfer",
+                    reference_number: "",
+                    notes: "",
+                  });
+                }}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -827,7 +958,17 @@ This is a computer-generated receipt.
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowPaymentModal(false)}
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setEditingPayment(null);
+                  setPaymentForm({
+                    amount: "",
+                    payment_date: new Date().toISOString().split("T")[0],
+                    payment_mode: "bank_transfer",
+                    reference_number: "",
+                    notes: "",
+                  });
+                }}
                 className="flex-1 py-2.5 border border-border rounded-xl hover:bg-muted transition-colors"
               >
                 Cancel
@@ -842,7 +983,7 @@ This is a computer-generated receipt.
                 ) : (
                   <CheckCircle className="w-4 h-4" />
                 )}
-                Record Payment
+                {editingPayment ? "Save Changes" : "Record Payment"}
               </button>
             </div>
           </div>

@@ -301,7 +301,11 @@ export function AIAssistant() {
       const navRes = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, businessContext: context }),
+        body: JSON.stringify({
+          message: msg,
+          history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+          businessContext: context,
+        }),
       });
 
       if (navRes.ok) {
