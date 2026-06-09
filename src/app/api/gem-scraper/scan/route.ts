@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Thin proxy to the Supabase Edge Function `gem-scan`.
-// Responsibility here: auth check + get business_id. Heavy lifting is in the Edge Function
-// which runs on Supabase's infrastructure with a 150 s timeout (vs Vercel Hobby's 10 s).
+// Proxy to the Fly.io gem-scraper service (Mumbai region = Indian IP, no geo-block).
+// Supabase Edge Functions / Vercel are blocked by GeM portal (non-Indian cloud IPs).
+// Fly.io service URL: https://invio-gem-scraper.fly.dev
+// Env vars needed: GEM_SCRAPER_URL, GEM_SCRAPER_API_KEY
 
-const EDGE_FUNCTION_URL = process.env.SUPABASE_GEM_SCAN_URL
-  ?? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gem-scan`;
+const SCRAPER_URL =
+  process.env.GEM_SCRAPER_URL ?? "https://invio-gem-scraper.fly.dev";
+const SCRAPER_API_KEY = process.env.GEM_SCRAPER_API_KEY ?? "";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,32 +23,28 @@ export async function POST(request: NextRequest) {
       .single();
     if (!userData?.business_id) return NextResponse.json({ error: "No business" }, { status: 400 });
 
-    const body = await request.json().catch(() => ({}));
-
-    // Delegate to Edge Function — it has a 150 s timeout
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceKey) {
+    if (!SCRAPER_API_KEY) {
       return NextResponse.json(
-        { error: "SUPABASE_SERVICE_ROLE_KEY not set. Add it to your environment variables." },
+        { error: "GEM_SCRAPER_API_KEY not set. Add it to your Vercel environment variables." },
         { status: 500 }
       );
     }
 
-    const edgeRes = await fetch(EDGE_FUNCTION_URL, {
+    const body = await request.json().catch(() => ({}));
+
+    const scraperRes = await fetch(`${SCRAPER_URL}/scan`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         business_id: userData.business_id,
         keywords: body.keywords,
         max_pages: body.maxPages ?? 3,
+        api_key: SCRAPER_API_KEY,
       }),
     });
 
-    const data = await edgeRes.json();
-    return NextResponse.json(data, { status: edgeRes.ok ? 200 : edgeRes.status });
+    const data = await scraperRes.json();
+    return NextResponse.json(data, { status: scraperRes.ok ? 200 : scraperRes.status });
   } catch (err: any) {
     console.error("scan proxy error:", err);
     return NextResponse.json({ error: err.message || "Failed" }, { status: 500 });
