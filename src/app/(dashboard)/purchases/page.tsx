@@ -56,6 +56,9 @@ export default function PurchasesPage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [fyFilter, setFyFilter] = useState<string>("all");
+  const [qtrFilter, setQtrFilter] = useState<string>("all");
+  const [monthFilter, setMonthFilter] = useState<string>("all");
 
   const fetchPurchases = useCallback(async () => {
     try {
@@ -89,12 +92,65 @@ export default function PurchasesPage() {
     fetchPurchases();
   }, [fetchPurchases]);
 
+  // Compute financial years dynamically from purchase bill dates
+  const financialYears = Array.from(
+    new Set(
+      purchases.map((p) => {
+        const date = new Date(p.bill_date);
+        const month = date.getMonth(); // 0-11
+        const year = date.getFullYear();
+        // Indian FY: April to March
+        return month >= 3 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
+      })
+    )
+  ).sort((a, b) => b.localeCompare(a));
+
+  const QUARTERS = [
+    { label: "Q1 (Apr - Jun)", value: "Q1" },
+    { label: "Q2 (Jul - Sep)", value: "Q2" },
+    { label: "Q3 (Oct - Dec)", value: "Q3" },
+    { label: "Q4 (Jan - Mar)", value: "Q4" },
+  ];
+
+  const MONTHS = [
+    { label: "April", value: "3" },
+    { label: "May", value: "4" },
+    { label: "June", value: "5" },
+    { label: "July", value: "6" },
+    { label: "August", value: "7" },
+    { label: "September", value: "8" },
+    { label: "October", value: "9" },
+    { label: "November", value: "10" },
+    { label: "December", value: "11" },
+    { label: "January", value: "0" },
+    { label: "February", value: "1" },
+    { label: "March", value: "2" },
+  ];
+
   const filteredPurchases = purchases.filter((purchase) => {
     const matchesSearch =
       purchase.bill_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (purchase.supplier_name || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || purchase.status === statusFilter;
-    return matchesSearch && matchesStatus;
+
+    // Date period filtering
+    const billDate = new Date(purchase.bill_date);
+    const m = billDate.getMonth();
+    const y = billDate.getFullYear();
+    const billFY = m >= 3 ? `${y}-${(y + 1).toString().slice(-2)}` : `${y - 1}-${y.toString().slice(-2)}`;
+    const matchesFY = fyFilter === "all" || billFY === fyFilter;
+
+    // Quarter calculation (Indian FY quarters)
+    let billQtr = "Q4";
+    if (m >= 3 && m <= 5) billQtr = "Q1";
+    else if (m >= 6 && m <= 8) billQtr = "Q2";
+    else if (m >= 9 && m <= 11) billQtr = "Q3";
+    const matchesQtr = qtrFilter === "all" || billQtr === qtrFilter;
+
+    // Month filter
+    const matchesMonth = monthFilter === "all" || m.toString() === monthFilter;
+
+    return matchesSearch && matchesStatus && matchesFY && matchesQtr && matchesMonth;
   });
 
   const selectedIds = Object.keys(rowSelection);
@@ -112,8 +168,8 @@ export default function PurchasesPage() {
     }
   };
 
-  // Calculate totals
-  const totalPending = purchases
+  // Calculate totals from filtered purchases
+  const totalPending = filteredPurchases
     .filter((p) => p.status === "pending" || p.status === "partial")
     .reduce((sum, p) => sum + (p.total - p.amount_paid), 0);
 
@@ -124,6 +180,9 @@ export default function PurchasesPage() {
       return billDate.getMonth() === now.getMonth() && billDate.getFullYear() === now.getFullYear();
     })
     .reduce((sum, p) => sum + p.total, 0);
+
+  const isPeriodFiltered = fyFilter !== "all" || qtrFilter !== "all" || monthFilter !== "all";
+  const totalPeriod = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
 
   const columns: ColumnDef<PurchaseInvoice>[] = [
     {
@@ -292,9 +351,11 @@ export default function PurchasesPage() {
           </p>
         </div>
         <div className="bg-card border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">This Month</p>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            {isPeriodFiltered ? "Period Total" : "This Month"}
+          </p>
           <p className="text-xl sm:text-2xl font-bold text-foreground mt-1">
-            ₹{totalThisMonth.toLocaleString("en-IN")}
+            ₹{(isPeriodFiltered ? totalPeriod : totalThisMonth).toLocaleString("en-IN")}
           </p>
         </div>
       </div>
@@ -334,6 +395,66 @@ export default function PurchasesPage() {
               className="pl-9 h-8 text-sm"
             />
           </div>
+
+          {/* Financial Year Filter */}
+          <select
+            value={fyFilter}
+            onChange={(e) => setFyFilter(e.target.value)}
+            className="h-8 px-2 bg-muted border border-border rounded-lg text-xs font-medium text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All FYs</option>
+            {financialYears.map((fy) => (
+              <option key={fy} value={fy}>
+                FY {fy}
+              </option>
+            ))}
+          </select>
+
+          {/* Quarter Filter */}
+          <select
+            value={qtrFilter}
+            onChange={(e) => setQtrFilter(e.target.value)}
+            className="h-8 px-2 bg-muted border border-border rounded-lg text-xs font-medium text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Quarters</option>
+            {QUARTERS.map((q) => (
+              <option key={q.value} value={q.value}>
+                {q.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Month Filter */}
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="h-8 px-2 bg-muted border border-border rounded-lg text-xs font-medium text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Months</option>
+            {MONTHS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Reset button */}
+          {(searchQuery || fyFilter !== "all" || qtrFilter !== "all" || monthFilter !== "all" || statusFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setFyFilter("all");
+                setQtrFilter("all");
+                setMonthFilter("all");
+                setStatusFilter("all");
+              }}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
+            >
+              Reset Filters
+            </Button>
+          )}
 
           <div className="ml-auto">
             <ViewSwitcher current={view} onChange={setView} available={["table", "card"]} />

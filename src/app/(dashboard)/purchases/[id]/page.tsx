@@ -17,7 +17,7 @@ import {
   X,
   Pencil,
 } from "lucide-react";
-import type { PurchaseInvoice, PurchaseInvoiceItem, Supplier } from "@/types/database";
+import type { PurchaseInvoice, PurchaseInvoiceItem, Supplier, PurchasePayment } from "@/types/database";
 
 export default function PurchaseDetailPage() {
   const params = useParams();
@@ -31,6 +31,10 @@ export default function PurchaseDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentRef, setPaymentRef] = useState("");
+  const [payments, setPayments] = useState<PurchasePayment[]>([]);
+  const [editingPayment, setEditingPayment] = useState<PurchasePayment | null>(null);
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
 
   useEffect(() => {
     fetchPurchase();
@@ -71,6 +75,15 @@ export default function PurchaseDetailPage() {
       if (supplierData) setSupplier(supplierData);
     }
 
+    // Fetch payments
+    const { data: paymentsData } = await supabase
+      .from("purchase_payments")
+      .select("*")
+      .eq("purchase_invoice_id", params.id)
+      .order("payment_date", { ascending: false });
+
+    if (paymentsData) setPayments(paymentsData);
+
     setLoading(false);
   };
 
@@ -80,23 +93,57 @@ export default function PurchaseDetailPage() {
     setUpdating(true);
     const supabase = createClient();
     const amount = parseFloat(paymentAmount);
+    const date = paymentDate || new Date().toISOString().split("T")[0];
 
-    // Create payment record
-    await supabase.from("purchase_payments").insert({
-      purchase_invoice_id: purchase.id,
-      amount,
-      payment_method: paymentMethod,
-      reference_number: paymentRef || null,
-    });
+    if (editingPayment) {
+      const { error: editError } = await supabase
+        .from("purchase_payments")
+        .update({
+          amount,
+          payment_date: date,
+          payment_method: paymentMethod,
+          reference_number: paymentRef || null,
+          notes: paymentNotes || null,
+        })
+        .eq("id", editingPayment.id);
 
-    // Update purchase invoice
-    const newAmountPaid = purchase.amount_paid + amount;
-    const newStatus = newAmountPaid >= purchase.total ? "paid" : "partial";
+      if (editError) {
+        alert("Failed to update payment record: " + editError.message);
+        setUpdating(false);
+        return;
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from("purchase_payments")
+        .insert({
+          purchase_invoice_id: purchase.id,
+          amount,
+          payment_date: date,
+          payment_method: paymentMethod,
+          reference_number: paymentRef || null,
+          notes: paymentNotes || null,
+        });
+
+      if (insertError) {
+        alert("Failed to record payment: " + insertError.message);
+        setUpdating(false);
+        return;
+      }
+    }
+
+    // Recalculate amount paid and status
+    const { data: updatedPayments } = await supabase
+      .from("purchase_payments")
+      .select("amount")
+      .eq("purchase_invoice_id", purchase.id);
+
+    const totalPaid = (updatedPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const newStatus = totalPaid >= purchase.total ? "paid" : (totalPaid > 0 ? "partial" : "pending");
 
     await supabase
       .from("purchase_invoices")
       .update({
-        amount_paid: newAmountPaid,
+        amount_paid: totalPaid,
         status: newStatus,
       })
       .eq("id", purchase.id);
@@ -104,8 +151,68 @@ export default function PurchaseDetailPage() {
     setShowPaymentModal(false);
     setPaymentAmount("");
     setPaymentRef("");
+    setPaymentNotes("");
+    setEditingPayment(null);
     fetchPurchase();
     setUpdating(false);
+  };
+
+  const handleDeletePayment = async (payment: PurchasePayment) => {
+    if (!purchase || !confirm("Are you sure you want to delete this payment record? This will update the invoice's outstanding balance.")) return;
+
+    setUpdating(true);
+    const supabase = createClient();
+    
+    const { error: deleteError } = await supabase
+      .from("purchase_payments")
+      .delete()
+      .eq("id", payment.id);
+
+    if (deleteError) {
+      alert("Failed to delete payment: " + deleteError.message);
+      setUpdating(false);
+      return;
+    }
+
+    // Recalculate amount paid and status
+    const { data: updatedPayments } = await supabase
+      .from("purchase_payments")
+      .select("amount")
+      .eq("purchase_invoice_id", purchase.id);
+
+    const totalPaid = (updatedPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const newStatus = totalPaid >= purchase.total ? "paid" : (totalPaid > 0 ? "partial" : "pending");
+
+    await supabase
+      .from("purchase_invoices")
+      .update({
+        amount_paid: totalPaid,
+        status: newStatus,
+      })
+      .eq("id", purchase.id);
+
+    fetchPurchase();
+    setUpdating(false);
+  };
+
+  const handleStartEditPayment = (payment: PurchasePayment) => {
+    setEditingPayment(payment);
+    setPaymentAmount(payment.amount.toString());
+    setPaymentDate(payment.payment_date);
+    setPaymentMethod(payment.payment_method);
+    setPaymentRef(payment.reference_number || "");
+    setPaymentNotes(payment.notes || "");
+    setShowPaymentModal(true);
+  };
+
+  const openRecordPaymentModal = () => {
+    setEditingPayment(null);
+    setPaymentAmount(balance.toString());
+    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentMethod("bank_transfer");
+    setPaymentRef("");
+    setPaymentNotes("");
+    setShowPaymentModal(true);
   };
 
   const deletePurchase = async () => {
@@ -180,7 +287,7 @@ export default function PurchaseDetailPage() {
         <div className="flex gap-2">
           {purchase.status !== "paid" && purchase.status !== "cancelled" && (
             <button
-              onClick={() => setShowPaymentModal(true)}
+              onClick={openRecordPaymentModal}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
             >
               <CreditCard className="w-4 h-4" />
@@ -408,20 +515,96 @@ export default function PurchaseDetailPage() {
                 <span className="font-semibold">Total</span>
                 <span className="font-bold text-lg">₹{purchase.total.toLocaleString("en-IN")}</span>
               </div>
-              {purchase.amount_paid > 0 && (
-                <>
-                  <div className="flex justify-between text-sm text-emerald-600">
-                    <span>Paid</span>
-                    <span>-₹{purchase.amount_paid.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-amber-600">Balance Due</span>
-                    <span className="text-amber-600">₹{balance.toLocaleString("en-IN")}</span>
-                  </div>
-                </>
-              )}
+              <div className="flex justify-between text-sm text-emerald-600">
+                <span>Paid</span>
+                <span>₹{purchase.amount_paid.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span className="text-amber-600">Balance Due</span>
+                <span className="text-amber-600">₹{balance.toLocaleString("en-IN")}</span>
+              </div>
             </div>
           </div>
+
+          {/* Payment Status */}
+          <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Payment Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Bill Total</span>
+                <span>₹{purchase.total.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid</span>
+                <span className="text-emerald-600">₹{purchase.amount_paid.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="border-t pt-3 flex justify-between">
+                <span className="font-semibold">Balance Due</span>
+                <span className={`font-bold ${balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  ₹{balance.toLocaleString("en-IN")}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${Math.min((purchase.amount_paid / purchase.total) * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                {((purchase.amount_paid / purchase.total) * 100).toFixed(0)}% paid
+              </p>
+            </div>
+          </div>
+
+          {/* Payment History */}
+          {payments.length > 0 && (
+            <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Payment History</h3>
+              <div className="space-y-3">
+                {payments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-xl"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">₹{payment.amount.toLocaleString("en-IN")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(payment.payment_date).toLocaleDateString("en-IN")} •{" "}
+                        {payment.payment_method.replace("_", " ")}
+                      </p>
+                      {payment.reference_number && (
+                        <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                          Ref: {payment.reference_number}
+                        </p>
+                      )}
+                      {payment.notes && (
+                        <p className="text-xs text-muted-foreground mt-1 bg-muted px-2 py-1 rounded italic">
+                          {payment.notes}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleStartEditPayment(payment)}
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+                        title="Edit Payment"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePayment(payment)}
+                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-muted rounded-lg transition-colors"
+                        title="Delete Payment"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ITC Info */}
           <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-4">
@@ -440,7 +623,23 @@ export default function PurchaseDetailPage() {
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Record Payment</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {editingPayment ? "Edit Payment Record" : "Record Payment"}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setEditingPayment(null);
+                  setPaymentAmount("");
+                  setPaymentRef("");
+                  setPaymentNotes("");
+                }}
+                className="p-1 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">Amount *</label>
@@ -449,10 +648,18 @@ export default function PurchaseDetailPage() {
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   placeholder={balance.toString()}
-                  max={balance}
                   className="w-full px-4 py-3 bg-secondary border-none rounded-xl text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
                 />
                 <p className="text-xs text-muted-foreground">Balance: ₹{balance.toLocaleString("en-IN")}</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Payment Date</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-secondary border-none rounded-xl text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">Payment Method</label>
@@ -466,6 +673,7 @@ export default function PurchaseDetailPage() {
                   <option value="cash">Cash</option>
                   <option value="cheque">Cheque</option>
                   <option value="card">Card</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -478,10 +686,26 @@ export default function PurchaseDetailPage() {
                   className="w-full px-4 py-3 bg-secondary border-none rounded-xl text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Notes</label>
+                <textarea
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  placeholder="Additional payment details..."
+                  rows={2}
+                  className="w-full px-4 py-3 bg-secondary border-none rounded-xl text-foreground focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                />
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowPaymentModal(false)}
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setEditingPayment(null);
+                  setPaymentAmount("");
+                  setPaymentRef("");
+                  setPaymentNotes("");
+                }}
                 className="flex-1 py-2.5 text-muted-foreground hover:text-foreground font-medium transition-colors"
               >
                 Cancel
@@ -492,7 +716,7 @@ export default function PurchaseDetailPage() {
                 className="flex-1 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Record Payment
+                {editingPayment ? "Save Changes" : "Record Payment"}
               </button>
             </div>
           </div>
