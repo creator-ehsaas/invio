@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld("electron", {
   isElectron: true,
   getVersion: () => ipcRenderer.invoke("get-app-version"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  gemScan: (opts) => ipcRenderer.invoke("gem-scan", opts),
 });

@@ -22,3 +22,11 @@ export const getAppVersion = async (): Promise<string> => {
   }
   return "web";
 };
+
+export const gemScan = async (opts: {
+  keywords?: string[];
+  maxPages?: number;
+}): Promise<{ docs?: any[]; error?: string } | null> => {
+  if (!isElectron()) return null;
+  return (window as any).electron.gemScan(opts);
+};

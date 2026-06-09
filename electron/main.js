@@ -213,3 +213,87 @@ app.on("before-quit", () => {
 
 ipcMain.handle("get-app-version", () => app.getVersion());
 ipcMain.handle("open-external", (_, url) => shell.openExternal(url));
+
+// GeM scraper — runs in Node.js main process (no CORS, Indian IP from user's machine)
+const https = require("https");
+
+function gemHttpGet(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-IN,en;q=0.9",
+      },
+    }, (res) => {
+      let body = "";
+      const cookies = (res.headers["set-cookie"] ?? [])
+        .map((c) => c.split(";")[0].trim())
+        .join("; ");
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => resolve({ body, cookies, status: res.statusCode }));
+    });
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error("timeout")); });
+    req.on("error", reject);
+  });
+}
+
+function gemHttpPost(cookie, csrf, payload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const req = https.request(
+      {
+        hostname: "bidplus.gem.gov.in",
+        path: "/all-bids-data",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRF-TOKEN": csrf,
+          "Cookie": cookie,
+          "Referer": "https://bidplus.gem.gov.in/all-bids",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json",
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try { resolve(JSON.parse(data)); } catch { resolve(null); }
+        });
+      }
+    );
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error("timeout")); });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+ipcMain.handle("gem-scan", async (_, { keywords, maxPages } = {}) => {
+  try {
+    const sessionRes = await gemHttpGet("https://bidplus.gem.gov.in/all-bids");
+    const csrfMatch = sessionRes.body.match(/csrf_bd_gem_nk["']\s*:\s*["']([^"']+)["']/);
+    const csrf = csrfMatch?.[1];
+    if (!csrf) return { error: "Could not read session from GeM portal. Try again." };
+
+    const kws = keywords?.length ? keywords.slice(0, 5) : [""];
+    const pages = maxPages ?? 3;
+    const docs = [];
+
+    for (const kw of kws) {
+      for (let page = 1; page <= pages; page++) {
+        const data = await gemHttpPost(sessionRes.cookies, csrf, { searchedBid: kw, page });
+        const items = data?.data ?? data?.bids ?? (Array.isArray(data) ? data : []);
+        if (!items.length) break;
+        docs.push(...items);
+      }
+    }
+
+    return { docs };
+  } catch (err) {
+    return { error: err.message || "Scan failed" };
+  }
+});

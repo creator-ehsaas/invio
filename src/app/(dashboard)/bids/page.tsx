@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { GemBid, GemBidStatus } from "@/types/gem";
+import { isElectron, gemScan } from "@/lib/electron";
 
 const STATUS_CONFIG: Record<
   GemBidStatus,
@@ -96,22 +97,42 @@ export default function BidsPage() {
   }, []);
 
   const handleScan = async () => {
+    if (!isElectron()) {
+      setScanResult("⚠️ GeM scanning requires the Invio desktop app. Download it to scan bids from your Indian network.");
+      return;
+    }
+
     setScanning(true);
     setScanResult(null);
     try {
-      const res = await fetch("/api/gem-scraper/scan", {
+      // Fetch keywords from settings
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      let keywords: string[] = [];
+      if (user) {
+        const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
+        if (userData?.business_id) {
+          const { data: cfg } = await supabase.from("gem_configs").select("keywords").eq("business_id", userData.business_id).single();
+          keywords = cfg?.keywords ?? [];
+        }
+      }
+
+      const result = await gemScan({ keywords, maxPages: 3 });
+      if (!result) { setScanResult("❌ Native scan unavailable."); setScanning(false); return; }
+      if (result.error) { setScanResult(`❌ Scan failed: ${result.error}`); setScanning(false); return; }
+
+      // Save raw docs via API
+      const saveRes = await fetch("/api/gem-scraper/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ maxPages: 3 }),
+        body: JSON.stringify({ docs: result.docs ?? [] }),
       });
-      const result = await res.json();
-      if (result.status === "captcha_blocked") {
-        setScanResult("⚠️ CAPTCHA detected on GeM portal. Please try again later.");
-      } else if (result.status === "completed") {
-        setScanResult(`✅ Scan complete! Found ${result.bids_found} bids, ${result.bids_new} new.`);
-        fetchBids();
+      const saved = await saveRes.json();
+      if (saved.error) {
+        setScanResult(`❌ Scan failed to save: ${saved.error}`);
       } else {
-        setScanResult(`❌ Scan failed: ${result.error || "Unknown error"}`);
+        setScanResult(`✅ Scan complete! Found ${saved.bids_found} bids, ${saved.bids_new} new.`);
+        fetchBids();
       }
     } catch (err: any) {
       setScanResult(`❌ Error: ${err.message}`);
