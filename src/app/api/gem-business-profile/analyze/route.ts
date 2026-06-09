@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/ai-client";
 
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -16,6 +16,10 @@ export async function POST(_request: NextRequest) {
     if (!userData?.business_id) return NextResponse.json({ error: "No business" }, { status: 400 });
 
     const businessId = userData.business_id;
+
+    const body = await request.json().catch(() => ({}));
+    const userDescription: string = body.user_description || "";
+    const userCategories: string[] = body.user_categories || [];
 
     const { data: business } = await supabase
       .from("businesses")
@@ -73,13 +77,17 @@ ${invoiceItems.slice(0, 50).map((i: any) =>
 - Suppliers: ${purchaseInvoices.slice(0, 10).map((i: any) => i.supplier_name).filter(Boolean).join(", ")}`
       : "No purchase data available.";
 
+    const userContext = userDescription || userCategories.length > 0
+      ? `\n--- Business Owner's Own Description ---\n${userDescription ? `Products/Services: ${userDescription}` : ""}${userCategories.length > 0 ? `\nSelected categories: ${userCategories.join(", ")}` : ""}`
+      : "";
+
     const prompt = `You are an expert at analyzing Indian SME businesses for Government e-Marketplace (GeM) bid suitability.
 
 Analyze the following business data and return a JSON capability profile.
 
 Company: ${business?.name || "Unknown"}
 GSTIN: ${business?.gstin || "Not provided"}
-State: ${business?.address || "Not provided"}
+State: ${business?.address || "Not provided"}${userContext}
 
 --- Sales Data ---
 ${invoiceSummary}

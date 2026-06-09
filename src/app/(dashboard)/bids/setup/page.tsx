@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, ArrowRight, Loader2, CheckCircle2, Sparkles,
-  Building2, Award, Tag,
+  Building2, Award, Tag, Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,9 +32,22 @@ const GEM_CATEGORIES = [
   "Agriculture & Allied Products", "Others",
 ];
 
-type Step = 1 | 2 | 3 | 4;
+// Quick-pick category tiles shown in Step 1 so users can tap their domain
+const QUICK_CATEGORIES = [
+  "IT & Software", "Hardware & Electronics", "Office Supplies",
+  "Construction & Civil", "Medical & Healthcare", "Security Services",
+  "Facility Management", "Printing & Packaging", "Consulting & Training",
+  "Manufacturing", "Textiles & Uniforms", "Catering & Food",
+  "Transport & Logistics", "Agriculture", "Others",
+];
+
+type Step = 1 | 2 | 3 | 4 | 5;
 
 interface ProfileDraft {
+  // Step 1 — user-provided context
+  user_description: string;
+  user_quick_categories: string[];
+  // Step 2 — AI analysis results
   msme_category: "micro" | "small" | "medium" | "none";
   udyam_number: string;
   years_in_business: string;
@@ -43,8 +56,10 @@ interface ProfileDraft {
   turnover_fy1: string;
   turnover_fy2: string;
   turnover_fy3: string;
+  // Step 3 — certs & reach
   certifications: string[];
   supply_states: string[];
+  // AI-generated
   ai_capability_summary: string;
   ai_recommended_categories: AIRecommendedCategory[];
   confirmed_categories: string[];
@@ -55,6 +70,8 @@ interface ProfileDraft {
 }
 
 const EMPTY_DRAFT: ProfileDraft = {
+  user_description: "",
+  user_quick_categories: [],
   msme_category: "none",
   udyam_number: "",
   years_in_business: "",
@@ -81,17 +98,55 @@ export default function BidSetupPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const updateDraft = (fields: Partial<ProfileDraft>) =>
+    setDraft((prev) => ({ ...prev, ...fields }));
+
+  const toggleQuickCat = (cat: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      user_quick_categories: prev.user_quick_categories.includes(cat)
+        ? prev.user_quick_categories.filter((c) => c !== cat)
+        : [...prev.user_quick_categories, cat],
+    }));
+  };
+
+  const toggleItem = (
+    field: "certifications" | "supply_states" | "confirmed_categories",
+    value: string
+  ) => {
+    setDraft((prev) => {
+      const arr = prev[field] as string[];
+      return {
+        ...prev,
+        [field]: arr.includes(value)
+          ? arr.filter((v) => v !== value)
+          : [...arr, value],
+      };
+    });
+  };
+
+  // Called when user submits Step 1 — runs AI analysis with their context
   const runAnalysis = useCallback(async () => {
     setAnalyzing(true);
+    setStep(2);
     try {
-      const res = await fetch("/api/gem-business-profile/analyze", { method: "POST" });
+      const res = await fetch("/api/gem-business-profile/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_description: draft.user_description,
+          user_categories: draft.user_quick_categories,
+        }),
+      });
       if (!res.ok) throw new Error("Analysis failed");
       const data = await res.json();
       setDraft((prev) => ({
         ...prev,
         ai_capability_summary: data.ai_capability_summary || "",
         ai_recommended_categories: data.ai_recommended_categories || [],
-        confirmed_categories: (data.ai_recommended_categories || []).map((c: AIRecommendedCategory) => c.category),
+        confirmed_categories: (data.ai_recommended_categories || []).map(
+          (c: AIRecommendedCategory) => c.category
+        ),
         ai_typical_bid_min: String(data.ai_typical_bid_min || ""),
         ai_typical_bid_max: String(data.ai_typical_bid_max || ""),
         ai_eligibility_gaps: data.ai_eligibility_gaps || [],
@@ -101,20 +156,7 @@ export default function BidSetupPage() {
       toast.error("Auto-analysis failed. You can still fill in details manually.");
     }
     setAnalyzing(false);
-  }, []);
-
-  useEffect(() => {
-    runAnalysis();
-  }, [runAnalysis]);
-
-  const updateDraft = (fields: Partial<ProfileDraft>) => setDraft((prev) => ({ ...prev, ...fields }));
-
-  const toggleItem = (field: "certifications" | "supply_states" | "confirmed_categories", value: string) => {
-    setDraft((prev) => {
-      const arr = prev[field] as string[];
-      return { ...prev, [field]: arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value] };
-    });
-  };
+  }, [draft.user_description, draft.user_quick_categories]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -122,7 +164,9 @@ export default function BidSetupPage() {
       const payload = {
         msme_category: draft.msme_category,
         udyam_number: draft.udyam_number || null,
-        years_in_business: draft.years_in_business ? parseInt(draft.years_in_business) : null,
+        years_in_business: draft.years_in_business
+          ? parseInt(draft.years_in_business)
+          : null,
         gem_seller_registered: draft.gem_seller_registered,
         gem_seller_id: draft.gem_seller_id || null,
         turnover_fy1: draft.turnover_fy1 ? parseFloat(draft.turnover_fy1) : null,
@@ -134,8 +178,12 @@ export default function BidSetupPage() {
         ai_capability_summary: draft.ai_capability_summary,
         ai_recommended_categories: draft.ai_recommended_categories,
         ai_product_categories: draft.confirmed_categories,
-        ai_typical_bid_min: draft.ai_typical_bid_min ? parseFloat(draft.ai_typical_bid_min) : null,
-        ai_typical_bid_max: draft.ai_typical_bid_max ? parseFloat(draft.ai_typical_bid_max) : null,
+        ai_typical_bid_min: draft.ai_typical_bid_min
+          ? parseFloat(draft.ai_typical_bid_min)
+          : null,
+        ai_typical_bid_max: draft.ai_typical_bid_max
+          ? parseFloat(draft.ai_typical_bid_max)
+          : null,
         ai_eligibility_gaps: draft.ai_eligibility_gaps,
         setup_completed: true,
       };
@@ -150,18 +198,27 @@ export default function BidSetupPage() {
       if (draft.suggested_keywords.length > 0) {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
-          const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
+          const { data: userData } = await supabase
+            .from("users")
+            .select("business_id")
+            .eq("id", user.id)
+            .single();
           if (userData?.business_id) {
-            await supabase.from("gem_config").upsert({
-              business_id: userData.business_id,
-              categories: draft.confirmed_categories,
-              keywords: draft.suggested_keywords,
-              scan_frequency: "manual",
-              notifications_enabled: false,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "business_id" });
+            await supabase.from("gem_config").upsert(
+              {
+                business_id: userData.business_id,
+                categories: draft.confirmed_categories,
+                keywords: draft.suggested_keywords,
+                scan_frequency: "manual",
+                notifications_enabled: false,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "business_id" }
+            );
           }
         }
       }
@@ -175,16 +232,21 @@ export default function BidSetupPage() {
   };
 
   const STEP_LABELS: Record<Step, string> = {
-    1: "Business Intelligence",
-    2: "MSME & Financials",
-    3: "Certifications & Reach",
-    4: "Confirm Categories",
+    1: "Your Business",
+    2: "AI Insights",
+    3: "MSME & Financials",
+    4: "Certs & Reach",
+    5: "Confirm Categories",
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
+      {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/bids" className="p-2 rounded-xl hover:bg-muted transition-colors">
+        <Link
+          href="/bids"
+          className="p-2 rounded-xl hover:bg-muted transition-colors"
+        >
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
@@ -195,59 +257,171 @@ export default function BidSetupPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        {([1, 2, 3, 4] as Step[]).map((s) => (
-          <div key={s} className="flex items-center gap-2 flex-1">
-            <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold border-2 transition-colors ${
-              s < step ? "bg-primary border-primary text-white" :
-              s === step ? "border-primary text-primary" :
-              "border-muted-foreground/30 text-muted-foreground/50"
-            }`}>
+      {/* Progress */}
+      <div className="flex items-center gap-1">
+        {([1, 2, 3, 4, 5] as Step[]).map((s) => (
+          <div key={s} className="flex items-center gap-1 flex-1">
+            <div
+              className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold border-2 transition-colors shrink-0 ${
+                s < step
+                  ? "bg-primary border-primary text-white"
+                  : s === step
+                  ? "border-primary text-primary"
+                  : "border-muted-foreground/30 text-muted-foreground/50"
+              }`}
+            >
               {s < step ? <CheckCircle2 className="w-3.5 h-3.5" /> : s}
             </div>
-            <span className={`text-xs hidden sm:block ${s === step ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+            <span
+              className={`text-xs hidden sm:block truncate ${
+                s === step
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground"
+              }`}
+            >
               {STEP_LABELS[s]}
             </span>
-            {s < 4 && <div className={`h-px flex-1 ${s < step ? "bg-primary" : "bg-border"}`} />}
+            {s < 5 && (
+              <div
+                className={`h-px flex-1 mx-1 ${
+                  s < step ? "bg-primary" : "bg-border"
+                }`}
+              />
+            )}
           </div>
         ))}
       </div>
 
+      {/* ── Step 1: What does your business do? ───────────────────────── */}
       {step === 1 && (
+        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-950/30">
+              <Package className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">
+                What does your business sell or offer?
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                This helps us find the most relevant government bids for you
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Free-text description */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
+                Describe your products / services
+              </label>
+              <textarea
+                rows={3}
+                placeholder="e.g. We manufacture and supply IT hardware — laptops, desktops, printers. We also provide AMC and IT support services to corporates and government offices."
+                value={draft.user_description}
+                onChange={(e) =>
+                  updateDraft({ user_description: e.target.value })
+                }
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+              />
+            </div>
+
+            {/* Quick category pills */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground">
+                Which categories apply to you?{" "}
+                <span className="text-muted-foreground font-normal">
+                  (select all that fit)
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleQuickCat(cat)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      draft.user_quick_categories.includes(cat)
+                        ? "bg-primary text-white border-primary"
+                        : "border-border hover:border-primary/50 text-foreground"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={runAnalysis}
+              disabled={
+                !draft.user_description.trim() &&
+                draft.user_quick_categories.length === 0
+              }
+              className="rounded-full px-6 shadow-lg shadow-primary/20"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5" />
+              Analyze & Continue
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: AI Analysis Results ───────────────────────────────── */}
+      {step === 2 && (
         <div className="bg-card border border-border rounded-xl p-6 space-y-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-950/30">
               <Sparkles className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Analyzing Your Business</h2>
+              <h2 className="font-semibold text-foreground">
+                AI Business Insights
+              </h2>
               <p className="text-xs text-muted-foreground">
-                We're reading your invoices and purchase history to understand what you supply
+                Based on your description and invoice history
               </p>
             </div>
           </div>
 
           {analyzing ? (
-            <div className="flex flex-col items-center gap-4 py-8">
+            <div className="flex flex-col items-center gap-4 py-10">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Analyzing your invoices and POs...</p>
+              <p className="text-sm text-muted-foreground">
+                Analyzing your business and invoices...
+              </p>
             </div>
           ) : draft.ai_capability_summary ? (
             <div className="space-y-4">
               <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-xl border border-purple-200 dark:border-purple-800/50">
-                <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1.5">Business Summary</p>
-                <p className="text-sm text-foreground leading-relaxed">{draft.ai_capability_summary}</p>
+                <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1.5">
+                  Business Summary
+                </p>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {draft.ai_capability_summary}
+                </p>
               </div>
 
               {draft.ai_recommended_categories.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-foreground mb-2">Suggested GeM Categories</p>
+                  <p className="text-xs font-semibold text-foreground mb-2">
+                    Recommended GeM Categories
+                  </p>
                   <div className="space-y-1.5">
                     {draft.ai_recommended_categories.map((cat) => (
-                      <div key={cat.category} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-muted/50 text-xs">
-                        <div className="shrink-0 mt-0.5 font-bold text-primary">{cat.confidence}%</div>
+                      <div
+                        key={cat.category}
+                        className="flex items-start gap-2.5 p-2.5 rounded-lg bg-muted/50 text-xs"
+                      >
+                        <div className="shrink-0 mt-0.5 font-bold text-primary">
+                          {cat.confidence}%
+                        </div>
                         <div>
-                          <p className="font-medium text-foreground">{cat.category}</p>
+                          <p className="font-medium text-foreground">
+                            {cat.category}
+                          </p>
                           <p className="text-muted-foreground">{cat.reasoning}</p>
                         </div>
                       </div>
@@ -258,20 +432,47 @@ export default function BidSetupPage() {
 
               {draft.ai_eligibility_gaps.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-foreground mb-2">Eligibility Gaps to Watch</p>
+                  <p className="text-xs font-semibold text-foreground mb-2">
+                    Eligibility Gaps to Watch
+                  </p>
                   <ul className="space-y-1">
                     {draft.ai_eligibility_gaps.map((gap, i) => (
-                      <li key={i} className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
-                        <span className="mt-0.5">⚠</span>{gap}
+                      <li
+                        key={i}
+                        className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5"
+                      >
+                        <span className="mt-0.5">⚠</span>
+                        {gap}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
+
+              {draft.ai_typical_bid_min && draft.ai_typical_bid_max && (
+                <div className="p-3 bg-muted/40 rounded-lg text-xs">
+                  <span className="font-medium text-foreground">
+                    Suggested bid range:{" "}
+                  </span>
+                  <span className="text-muted-foreground">
+                    ₹
+                    {parseFloat(draft.ai_typical_bid_min).toLocaleString(
+                      "en-IN"
+                    )}{" "}
+                    – ₹
+                    {parseFloat(draft.ai_typical_bid_max).toLocaleString(
+                      "en-IN"
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-6 space-y-3">
-              <p className="text-sm text-muted-foreground">Analysis could not complete. No invoice data found yet, or there was an error.</p>
+              <p className="text-sm text-muted-foreground">
+                Analysis could not complete. No invoice data found or an error
+                occurred.
+              </p>
               <Button variant="outline" size="sm" onClick={runAnalysis}>
                 <Sparkles className="w-4 h-4 mr-1.5" />
                 Retry Analysis
@@ -279,29 +480,47 @@ export default function BidSetupPage() {
             </div>
           )}
 
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => setStep(2)} className="rounded-full px-6">
+          <div className="flex justify-between pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setStep(1)}
+              className="rounded-md"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+            </Button>
+            <Button
+              onClick={() => setStep(3)}
+              disabled={analyzing}
+              className="rounded-full px-6"
+            >
               Next <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {step === 2 && (
+      {/* ── Step 3: MSME & Financials ─────────────────────────────────── */}
+      {step === 3 && (
         <div className="bg-card border border-border rounded-xl p-6 space-y-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-950/30">
               <Building2 className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">MSME & Financial Details</h2>
-              <p className="text-xs text-muted-foreground">Required for many government tenders</p>
+              <h2 className="font-semibold text-foreground">
+                MSME & Financial Details
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Required for many government tenders
+              </p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">MSME Category</label>
+              <label className="text-xs font-medium text-foreground">
+                MSME Category
+              </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {(["none", "micro", "small", "medium"] as const).map((cat) => (
                   <button
@@ -321,7 +540,9 @@ export default function BidSetupPage() {
 
             {draft.msme_category !== "none" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">Udyam Registration Number</label>
+                <label className="text-xs font-medium text-foreground">
+                  Udyam Registration Number
+                </label>
                 <Input
                   placeholder="UDYAM-XX-00-0000000"
                   value={draft.udyam_number}
@@ -331,7 +552,9 @@ export default function BidSetupPage() {
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground">Annual Turnover (₹ Lakhs)</label>
+              <label className="text-xs font-medium text-foreground">
+                Annual Turnover (₹ Lakhs)
+              </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: "FY 2024-25", key: "turnover_fy1" },
@@ -339,12 +562,16 @@ export default function BidSetupPage() {
                   { label: "FY 2022-23", key: "turnover_fy3" },
                 ].map(({ label, key }) => (
                   <div key={key} className="space-y-1">
-                    <label className="text-[10px] text-muted-foreground">{label}</label>
+                    <label className="text-[10px] text-muted-foreground">
+                      {label}
+                    </label>
                     <Input
                       type="number"
                       placeholder="0.00"
                       value={(draft as any)[key]}
-                      onChange={(e) => updateDraft({ [key]: e.target.value } as any)}
+                      onChange={(e) =>
+                        updateDraft({ [key]: e.target.value } as any)
+                      }
                     />
                   </div>
                 ))}
@@ -353,67 +580,95 @@ export default function BidSetupPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">Years in Business</label>
+                <label className="text-xs font-medium text-foreground">
+                  Years in Business
+                </label>
                 <Input
                   type="number"
                   placeholder="e.g. 5"
                   value={draft.years_in_business}
-                  onChange={(e) => updateDraft({ years_in_business: e.target.value })}
+                  onChange={(e) =>
+                    updateDraft({ years_in_business: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">GeM Seller Registration</label>
+                <label className="text-xs font-medium text-foreground">
+                  GeM Seller Registration
+                </label>
                 <div className="flex items-center gap-3 pt-2">
                   <input
                     type="checkbox"
                     id="gem_seller"
                     checked={draft.gem_seller_registered}
-                    onChange={(e) => updateDraft({ gem_seller_registered: e.target.checked })}
+                    onChange={(e) =>
+                      updateDraft({ gem_seller_registered: e.target.checked })
+                    }
                     className="w-4 h-4 rounded"
                   />
-                  <label htmlFor="gem_seller" className="text-xs text-foreground">Registered on GeM portal</label>
+                  <label
+                    htmlFor="gem_seller"
+                    className="text-xs text-foreground"
+                  >
+                    Registered on GeM portal
+                  </label>
                 </div>
               </div>
             </div>
 
             {draft.gem_seller_registered && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">GeM Seller ID</label>
+                <label className="text-xs font-medium text-foreground">
+                  GeM Seller ID
+                </label>
                 <Input
                   placeholder="e.g. SEL12345678"
                   value={draft.gem_seller_id}
-                  onChange={(e) => updateDraft({ gem_seller_id: e.target.value })}
+                  onChange={(e) =>
+                    updateDraft({ gem_seller_id: e.target.value })
+                  }
                 />
               </div>
             )}
           </div>
 
           <div className="flex justify-between pt-2">
-            <Button variant="outline" onClick={() => setStep(1)} className="rounded-md">
+            <Button
+              variant="outline"
+              onClick={() => setStep(2)}
+              className="rounded-md"
+            >
               <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
             </Button>
-            <Button onClick={() => setStep(3)} className="rounded-full px-6">
+            <Button onClick={() => setStep(4)} className="rounded-full px-6">
               Next <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {step === 3 && (
+      {/* ── Step 4: Certifications & Supply States ────────────────────── */}
+      {step === 4 && (
         <div className="bg-card border border-border rounded-xl p-6 space-y-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/30">
               <Award className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Certifications & Supply Reach</h2>
-              <p className="text-xs text-muted-foreground">Determines which bids you qualify for</p>
+              <h2 className="font-semibold text-foreground">
+                Certifications & Supply Reach
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Determines which bids you qualify for
+              </p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground">Certifications you hold</label>
+              <label className="text-xs font-medium text-foreground">
+                Certifications you hold
+              </label>
               <div className="flex flex-wrap gap-2">
                 {CERTIFICATIONS.map((cert) => (
                   <button
@@ -432,15 +687,22 @@ export default function BidSetupPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground">States you can supply to</label>
-              <p className="text-[11px] text-muted-foreground">Select all that apply. PAN India = select all.</p>
+              <label className="text-xs font-medium text-foreground">
+                States you can supply to
+              </label>
+              <p className="text-[11px] text-muted-foreground">
+                Select all that apply. PAN India = select all.
+              </p>
               <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2.5 grid grid-cols-2 sm:grid-cols-3 gap-1">
                 <button
-                  onClick={() => updateDraft({
-                    supply_states: draft.supply_states.length === INDIAN_STATES.length
-                      ? []
-                      : INDIAN_STATES.map((s) => s.name),
-                  })}
+                  onClick={() =>
+                    updateDraft({
+                      supply_states:
+                        draft.supply_states.length === INDIAN_STATES.length
+                          ? []
+                          : INDIAN_STATES.map((s) => s.name),
+                    })
+                  }
                   className={`col-span-full text-xs px-2 py-1.5 rounded-md border font-semibold text-left mb-1 transition-colors ${
                     draft.supply_states.length === INDIAN_STATES.length
                       ? "bg-primary text-white border-primary"
@@ -463,31 +725,41 @@ export default function BidSetupPage() {
                   </button>
                 ))}
               </div>
-              {draft.supply_states.length > 0 && draft.supply_states.length < INDIAN_STATES.length && (
-                <p className="text-[11px] text-muted-foreground">{draft.supply_states.length} states selected</p>
-              )}
+              {draft.supply_states.length > 0 &&
+                draft.supply_states.length < INDIAN_STATES.length && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {draft.supply_states.length} states selected
+                  </p>
+                )}
             </div>
           </div>
 
           <div className="flex justify-between pt-2">
-            <Button variant="outline" onClick={() => setStep(2)} className="rounded-md">
+            <Button
+              variant="outline"
+              onClick={() => setStep(3)}
+              className="rounded-md"
+            >
               <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
             </Button>
-            <Button onClick={() => setStep(4)} className="rounded-full px-6">
+            <Button onClick={() => setStep(5)} className="rounded-full px-6">
               Next <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {step === 4 && (
+      {/* ── Step 5: Confirm Categories ────────────────────────────────── */}
+      {step === 5 && (
         <div className="bg-card border border-border rounded-xl p-6 space-y-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-950/30">
               <Tag className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Confirm Bid Categories</h2>
+              <h2 className="font-semibold text-foreground">
+                Confirm Bid Categories
+              </h2>
               <p className="text-xs text-muted-foreground">
                 These will be used to scan GeM and rank matching bids
               </p>
@@ -496,7 +768,8 @@ export default function BidSetupPage() {
 
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              AI suggested the categories below. Select all that apply to your business.
+              AI suggested the categories below based on your description and
+              invoice history. Select all that apply.
             </p>
             <div className="flex flex-wrap gap-2">
               {GEM_CATEGORIES.map((cat) => (
@@ -510,30 +783,40 @@ export default function BidSetupPage() {
                   }`}
                 >
                   {cat}
-                  {draft.ai_recommended_categories.some((r) => r.category === cat) && (
-                    <span className="ml-1 opacity-60">★</span>
-                  )}
+                  {draft.ai_recommended_categories.some(
+                    (r) => r.category === cat
+                  ) && <span className="ml-1 opacity-60">★</span>}
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">★ = AI-recommended based on your invoices</p>
+            <p className="text-[11px] text-muted-foreground">
+              ★ = AI-recommended based on your invoices and description
+            </p>
           </div>
 
           {draft.ai_typical_bid_min && draft.ai_typical_bid_max && (
             <div className="p-3 bg-muted/50 rounded-lg text-xs">
-              <p className="font-medium text-foreground mb-1">Suggested Bid Value Range</p>
+              <p className="font-medium text-foreground mb-1">
+                Suggested Bid Value Range
+              </p>
               <p className="text-muted-foreground">
-                ₹{parseFloat(draft.ai_typical_bid_min).toLocaleString("en-IN")} –{" "}
-                ₹{parseFloat(draft.ai_typical_bid_max).toLocaleString("en-IN")}
+                ₹{parseFloat(draft.ai_typical_bid_min).toLocaleString("en-IN")}{" "}
+                – ₹
+                {parseFloat(draft.ai_typical_bid_max).toLocaleString("en-IN")}
               </p>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Based on your invoice history. You can target bids within this range to maximize win probability.
+                Based on your invoice history. Target bids within this range to
+                maximize win probability.
               </p>
             </div>
           )}
 
           <div className="flex justify-between pt-2">
-            <Button variant="outline" onClick={() => setStep(3)} className="rounded-md">
+            <Button
+              variant="outline"
+              onClick={() => setStep(4)}
+              className="rounded-md"
+            >
               <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
             </Button>
             <Button
