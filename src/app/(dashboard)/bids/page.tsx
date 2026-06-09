@@ -105,9 +105,8 @@ export default function BidsPage() {
         body: JSON.stringify({ maxPages: 3 }),
       });
       const result = await res.json();
-
       if (result.status === "captcha_blocked") {
-        setScanResult("⚠️ CAPTCHA detected on GeM portal. Please try again later or solve manually.");
+        setScanResult("⚠️ CAPTCHA detected on GeM portal. Please try again later.");
       } else if (result.status === "completed") {
         setScanResult(`✅ Scan complete! Found ${result.bids_found} bids, ${result.bids_new} new.`);
         fetchBids();
