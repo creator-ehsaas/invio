@@ -10,26 +10,51 @@ import {
   Loader2,
   Sparkles,
   Tag,
-  Bell,
-  Clock,
-  Briefcase,
+  Info,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const AVAILABLE_CATEGORIES = [
-  "IT Services",
-  "Software Development",
-  "Office Stationery & Furniture",
-  "Computer Hardware",
-  "Catering Services",
-  "Security Services",
-  "Housekeeping Services",
-  "Medical Equipment",
-  "Vehicle Renting / Leasing",
-  "Management Consulting",
+// Broad GeM categories covering most Indian SME product/service types
+const GEM_CATEGORIES = [
+  // IT & Electronics
+  "Computer Hardware & Peripherals",
+  "IT Software & Services",
+  "Networking & Communication Equipment",
+  "Electronic Components",
+  // Office & Stationery
+  "Office Furniture & Fixtures",
+  "Office Stationery & Supplies",
+  "Printing & Imaging Equipment",
+  // Industrial & Manufacturing
+  "Steel & Metal Products",
+  "Electrical Equipment & Supplies",
+  "Industrial Machinery & Equipment",
+  "Tools & Hardware",
+  "Chemicals & Consumables",
+  "Pipes, Fittings & Plumbing",
+  "Construction Materials",
+  // Services
+  "Facility Management Services",
+  "Security & Surveillance Services",
+  "Housekeeping & Sanitation Services",
+  "IT AMC & Support Services",
+  "Printing & Packaging Services",
+  "Consulting & Advisory Services",
+  "Training & Skill Development",
+  "Manpower & Staffing Services",
+  // Healthcare & Safety
+  "Medical Devices & Equipment",
+  "PPE & Safety Equipment",
+  "Lab Equipment & Supplies",
+  // Vehicles & Logistics
+  "Vehicle Hiring & Leasing",
+  "Logistics & Courier Services",
+  // Food & Hospitality
+  "Catering & Food Services",
+  "Uniforms & Textiles",
 ];
 
 export default function BidSettingsPage() {
@@ -40,11 +65,8 @@ export default function BidSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
 
-  // Form states
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [keywords, setKeywords] = useState("");
-  const [scanFrequency, setScanFrequency] = useState("manual");
-  const [notifications, setNotifications] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -70,37 +92,26 @@ export default function BidSettingsPage() {
 
       setBusinessId(userData.business_id);
 
-      // Fetch GeM config
-      const { data: config, error: configError } = await supabase
+      const { data: config } = await supabase
         .from("gem_config")
-        .select("*")
+        .select("categories, keywords")
         .eq("business_id", userData.business_id)
         .maybeSingle();
-
-      if (configError) {
-        // Table might not exist or other error, fallback to defaults
-        console.warn("Could not load GeM settings from database:", configError.message);
-      }
 
       if (config) {
         setSelectedCategories(config.categories || []);
         setKeywords(config.keywords?.join(", ") || "");
-        setScanFrequency(config.scan_frequency || "manual");
-        setNotifications(config.notifications_enabled || false);
       }
     } catch (err: any) {
-      console.error("Error loading settings:", err);
-      setError("Failed to load settings. Please make sure the SQL migration is applied.");
+      setError("Failed to load settings.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCategoryToggle = (category: string) => {
+  const toggleCategory = (cat: string) => {
     setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
     );
   };
 
@@ -117,32 +128,17 @@ export default function BidSettingsPage() {
 
     try {
       const supabase = createClient();
-      
-      // Upsert gem_config
       const { error: saveError } = await supabase
         .from("gem_config")
-        .upsert({
-          business_id: businessId,
-          categories: selectedCategories,
-          keywords: keywordList,
-          scan_frequency: scanFrequency,
-          notifications_enabled: notifications,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "business_id" });
-
+        .upsert(
+          { business_id: businessId, categories: selectedCategories, keywords: keywordList, scan_frequency: "manual", updated_at: new Date().toISOString() },
+          { onConflict: "business_id" }
+        );
       if (saveError) throw saveError;
-
-      setSuccess("GeM Bid Finder settings saved successfully!");
-      
-      // Auto dismiss success toast after 3 seconds
+      setSuccess("Settings saved.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      console.error("Error saving settings:", err);
-      setError(
-        err.message?.includes("relation \"gem_config\" does not exist")
-          ? "Database table 'gem_config' is missing. Please run the SQL migration `20260608_create_gem_config.sql` in your Supabase SQL editor."
-          : err.message || "Failed to save settings."
-      );
+      setError(err.message || "Failed to save.");
     } finally {
       setSaving(false);
     }
@@ -168,9 +164,9 @@ export default function BidSettingsPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Bid Finder Settings</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Bid Scanner Settings</h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Configure scraping preferences, credentials, and notification schedules
+              Tell Invio what to look for when scanning GeM for new bids
             </p>
           </div>
         </div>
@@ -179,12 +175,8 @@ export default function BidSettingsPage() {
           disabled={saving}
           className="rounded-full px-5 shadow-lg shadow-primary/20"
         >
-          {saving ? (
-            <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4 mr-1.5" />
-          )}
-          {saving ? "Saving..." : "Save Settings"}
+          {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+          {saving ? "Saving…" : "Save"}
         </Button>
       </div>
 
@@ -194,7 +186,6 @@ export default function BidSettingsPage() {
           <span>{error}</span>
         </div>
       )}
-
       {success && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-700 dark:text-emerald-400 text-sm flex items-start gap-2.5">
           <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
@@ -202,133 +193,104 @@ export default function BidSettingsPage() {
         </div>
       )}
 
-      {/* Setup Wizard Banner */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-4 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Business Capability Profile</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Complete the setup wizard to enable AI-powered bid shortlisting.
-          </p>
-        </div>
-        <Link href="/bids/setup">
-          <Button size="sm" className="rounded-full shrink-0">
-            <Sparkles className="w-4 h-4 mr-1.5" />
-            Open Setup
-          </Button>
-        </Link>
+      {/* How it works */}
+      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 flex gap-3">
+        <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+        <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+          When you click <strong>Scan Now</strong> on the Bids page, Invio searches the GeM portal for live government tenders matching your keywords and categories. New bids are saved to your dashboard automatically. The AI shortlisting then scores them against your business profile.
+        </p>
       </div>
 
       <div className="grid gap-6">
-        {/* Categories Monitor */}
+        {/* Keywords */}
         <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Briefcase className="w-4 h-4 text-primary" />
-            Categories to Monitor
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Select specific GeM categories to discover. Only tenders matching these categories will be scraped.
+          <div>
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Tag className="w-4 h-4 text-primary" />
+              Search Keywords
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter the products or services your business supplies — comma separated. These are used as search terms on GeM.
+            </p>
+          </div>
+          <Input
+            type="text"
+            placeholder="e.g. steel furniture, powder coating, office chairs, fabrication"
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Tip: Use specific product names (e.g. <em>"steel almirah"</em>) rather than broad terms (e.g. <em>"steel"</em>) to get more relevant results.
           </p>
+        </div>
+
+        {/* Categories */}
+        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              Categories to Watch
+              {selectedCategories.length > 0 && (
+                <span className="ml-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  {selectedCategories.length} selected
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              These are used for filtering and AI shortlisting. Select all that apply to your business.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            {AVAILABLE_CATEGORIES.map((category) => {
-              const active = selectedCategories.includes(category);
+            {GEM_CATEGORIES.map((cat) => {
+              const active = selectedCategories.includes(cat);
               return (
                 <button
-                  key={category}
-                  onClick={() => handleCategoryToggle(category)}
-                  className={`text-xs px-3.5 py-2 rounded-full transition-all border ${
+                  key={cat}
+                  onClick={() => toggleCategory(cat)}
+                  className={`text-xs px-3 py-1.5 rounded-full transition-all border ${
                     active
                       ? "bg-primary text-white border-primary shadow-sm"
                       : "bg-muted hover:bg-muted/80 text-muted-foreground border-border"
                   }`}
                 >
-                  {category}
+                  {cat}
                 </button>
               );
             })}
           </div>
+          {selectedCategories.length === 0 && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              No categories selected — all GeM bids will be scanned (may include irrelevant results).
+            </p>
+          )}
         </div>
 
-        {/* Keywords Filter */}
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Tag className="w-4 h-4 text-primary" />
-            Search Keywords
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Comma-separated list of keywords. The scraper will use these to search the GeM portal (e.g., "laptop, facility management, steel fabrication").
-          </p>
-          <div className="space-y-1.5">
-            <Input
-              type="text"
-              placeholder="e.g. software development, IT services, workstation"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-            />
+        {/* AI Profile banner */}
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">AI Shortlisting</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Complete your business capability profile to let AI rank bids by fit score and flag the best opportunities.
+            </p>
           </div>
-        </div>
-
-        {/* Scan Schedule & Alerts */}
-        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            Scan Schedule & Notifications
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-6">
-            {/* Frequency */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Scraping Schedule</label>
-              <select
-                value={scanFrequency}
-                onChange={(e) => setScanFrequency(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg border border-input bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="manual">Manual Scan Only</option>
-                <option value="30min">Every 30 Minutes</option>
-                <option value="1hr">Every Hour</option>
-                <option value="6hr">Every 6 Hours</option>
-                <option value="daily">Once a Day</option>
-              </select>
-            </div>
-
-            {/* Notifications Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Bell className="w-3.5 h-3.5 text-muted-foreground" />
-                  New Bid Alerts
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  Get browser notifications when matching bids are discovered.
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifications}
-                onChange={(e) => setNotifications(e.target.checked)}
-                className="w-4 h-4 rounded text-primary border-input focus:ring-primary"
-              />
-            </div>
-          </div>
+          <Link href="/bids/setup">
+            <Button size="sm" className="rounded-full shrink-0 whitespace-nowrap">
+              <Sparkles className="w-4 h-4 mr-1.5" />
+              Setup Profile
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Bottom Save bar */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border mt-4">
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
         <Link href="/bids">
-          <Button variant="outline" className="rounded-md">
-            Cancel
-          </Button>
+          <Button variant="outline" className="rounded-md">Cancel</Button>
         </Link>
         <Button
           onClick={handleSave}
           disabled={saving}
           className="rounded-full px-6 shadow-lg shadow-primary/20"
         >
-          {saving ? (
-            <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4 mr-1.5" />
-          )}
+          {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
           Save Settings
         </Button>
       </div>

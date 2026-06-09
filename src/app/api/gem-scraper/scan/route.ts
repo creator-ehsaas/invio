@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Vercel Hobby hard limit: 10 s. Budget:
+//   getSession  ≤ 3 s
+//   fetchBidsPage ≤ 4 s  (one call, one keyword)
+//   DB work     ≤ 2 s
+//   Total       ≤ 9 s
+
 const GEM_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 const PAGE_URL = "https://bidplus.gem.gov.in/all-bids";
 const API_URL = "https://bidplus.gem.gov.in/all-bids-data";
 
-// Fetch the page to get session cookie + CSRF token
 async function getSession(): Promise<{ cookie: string; csrf: string } | null> {
   try {
     const res = await fetch(PAGE_URL, {
@@ -16,22 +21,16 @@ async function getSession(): Promise<{ cookie: string; csrf: string } | null> {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
 
     const html = await res.text();
-
-    // Extract CSRF token embedded in JS: csrf_bd_gem_nk': '...'
     const csrfMatch = html.match(/csrf_bd_gem_nk['":\s,]+['"]([a-f0-9]{32})['"]/);
     if (!csrfMatch) return null;
 
-    // Collect Set-Cookie headers
     const rawCookies = res.headers.getSetCookie?.() ?? [];
-    const cookie = rawCookies
-      .map((c: string) => c.split(";")[0])
-      .filter(Boolean)
-      .join("; ");
+    const cookie = rawCookies.map((c: string) => c.split(";")[0]).filter(Boolean).join("; ");
 
     return { csrf: csrfMatch[1], cookie };
   } catch {
@@ -55,19 +54,14 @@ interface GemApiDoc {
 }
 
 function docToBid(doc: GemApiDoc) {
-  const bidNumber =
-    doc.b_bid_number?.[0] ?? doc.b_bid_number_parent?.[0] ?? null;
+  const bidNumber = doc.b_bid_number?.[0] ?? doc.b_bid_number_parent?.[0] ?? null;
   if (!bidNumber) return null;
 
   const parentBidNumber = doc.b_bid_number_parent?.[0] ?? null;
   const numericId = doc.b_id?.[0] ?? null;
   const parentNumericId = doc.b_id_parent?.[0] ?? null;
-
-  // Use parent ID for the doc URL (returns bid spec PDF)
   const docId = parentNumericId ?? numericId;
-  const bidUrl = docId
-    ? `https://bidplus.gem.gov.in/showbidDocument/${docId}`
-    : null;
+  const bidUrl = docId ? `https://bidplus.gem.gov.in/showbidDocument/${docId}` : null;
 
   const ministry = doc.ba_official_details_minName?.[0] ?? null;
   const dept = doc.ba_official_details_deptName?.[0] ?? null;
@@ -78,7 +72,6 @@ function docToBid(doc: GemApiDoc) {
   const startDate = doc.final_start_date_sort?.[0]?.split("T")[0] ?? null;
   const endDate = doc.final_end_date_sort?.[0]?.split("T")[0] ?? null;
 
-  // Build a rich text summary from listing data so AI can work without needing full PDF
   const rawText = [
     `Bid Number: ${bidNumber}`,
     parentBidNumber && parentBidNumber !== bidNumber ? `Parent Bid: ${parentBidNumber}` : null,
@@ -90,24 +83,13 @@ function docToBid(doc: GemApiDoc) {
     doc.is_high_value?.[0] ? "High Value Bid: Yes" : null,
   ].filter(Boolean).join("\n");
 
-  return {
-    gem_bid_id: bidNumber,
-    title,
-    department,
-    quantity,
-    start_date: startDate,
-    end_date: endDate,
-    estimated_value: null,
-    bid_url: bidUrl,
-    raw_full_text: rawText,
-  };
+  return { gem_bid_id: bidNumber, title, department, quantity, start_date: startDate, end_date: endDate, estimated_value: null, bid_url: bidUrl, raw_full_text: rawText };
 }
 
 async function fetchBidsPage(
   session: { cookie: string; csrf: string },
-  keyword: string,
-  page: number
-): Promise<{ docs: GemApiDoc[]; total: number } | null> {
+  keyword: string
+): Promise<GemApiDoc[]> {
   const payload = {
     param: { searchBid: keyword, searchType: "fullText" },
     filter: {
@@ -117,7 +99,6 @@ async function fetchBidsPage(
       byEndDate: { from: "", to: "" },
       sort: "Bid-End-Date-Oldest",
     },
-    page: page > 1 ? page : undefined,
   };
 
   const body = new URLSearchParams();
@@ -137,20 +118,15 @@ async function fetchBidsPage(
         Cookie: session.cookie,
       },
       body: body.toString(),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const data = await res.json();
-    if (data?.code !== 200) return null;
-
-    const solrResp = data?.response?.response;
-    return {
-      docs: solrResp?.docs ?? [],
-      total: solrResp?.numFound ?? 0,
-    };
+    if (data?.code !== 200) return [];
+    return data?.response?.response?.docs ?? [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -180,7 +156,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const keywords: string[] = body.keywords ?? savedConfig?.keywords ?? [];
-    const maxPages: number = Math.min(body.maxPages ?? 2, 5);
 
     const { data: scanLog } = await supabase
       .from("gem_scan_logs")
@@ -189,42 +164,40 @@ export async function POST(request: NextRequest) {
       .single();
     scanLogId = scanLog?.id || null;
 
-    // Step 1: get session
+    // Get GeM session (3 s budget)
     const session = await getSession();
     if (!session) {
       if (scanLogId) {
         await supabase
           .from("gem_scan_logs")
-          .update({ status: "failed", error_message: "Could not establish GeM session", duration_ms: Date.now() - startTime })
+          .update({ status: "portal_unreachable", duration_ms: Date.now() - startTime })
           .eq("id", scanLogId);
       }
-      return NextResponse.json({ status: "failed", error: "Could not reach GeM portal", bids_found: 0, bids_new: 0 }, { status: 502 });
+      return NextResponse.json({
+        status: "portal_unreachable",
+        error: "GeM portal did not respond. Try again in a few minutes.",
+        bids_found: 0,
+        bids_new: 0,
+      });
     }
 
-    // Step 2: fetch bids for each keyword (or one blank search if no keywords)
-    const searchTerms = keywords.length > 0 ? keywords.slice(0, 3) : [""];
+    // Fetch one page per keyword (4 s budget per call — use only first keyword to stay within 10 s)
+    const searchTerms = keywords.length > 0 ? keywords.slice(0, 1) : [""];
     const allDocs: GemApiDoc[] = [];
 
     for (const term of searchTerms) {
-      for (let page = 1; page <= maxPages; page++) {
-        const result = await fetchBidsPage(session, term, page);
-        if (!result || result.docs.length === 0) break;
-        allDocs.push(...result.docs);
-        // No more pages if we got fewer than 10 results
-        if (result.docs.length < 10) break;
-      }
+      const docs = await fetchBidsPage(session, term);
+      allDocs.push(...docs);
     }
 
-    // Step 3: convert docs → bid rows, deduplicate
+    // Deduplicate by bid number
     const uniqueBids = new Map<string, ReturnType<typeof docToBid>>();
     for (const doc of allDocs) {
       const bid = docToBid(doc);
-      if (bid && !uniqueBids.has(bid.gem_bid_id)) {
-        uniqueBids.set(bid.gem_bid_id, bid);
-      }
+      if (bid && !uniqueBids.has(bid.gem_bid_id)) uniqueBids.set(bid.gem_bid_id, bid);
     }
 
-    // Step 4: filter out already-saved bids
+    // Filter already-saved bids
     const existingIds: string[] = [];
     if (uniqueBids.size > 0) {
       const { data: existing } = await supabase
@@ -254,10 +227,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let insertedBids: any[] = [];
     if (newBids.length > 0) {
-      const { data } = await supabase.from("gem_bids").insert(newBids).select("id");
-      insertedBids = data || [];
+      await supabase.from("gem_bids").insert(newBids);
     }
 
     const durationMs = Date.now() - startTime;
