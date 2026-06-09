@@ -282,6 +282,47 @@ function gemHttpPost(cookie, csrf, keyword, page) {
   });
 }
 
+ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
+  try {
+    if (!bidUrl) return { error: "No bid URL provided" };
+    const res = await gemHttpGet(bidUrl);
+    if (res.status !== 200) return { error: `GeM returned HTTP ${res.status}` };
+
+    const html = res.body;
+
+    // Extract clean readable text from HTML
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    // Find downloadable document links (PDFs, tender docs)
+    const docLinks = [];
+    const seen = new Set();
+    const linkRegex = /<a[^>]+href="([^"]*)"[^>]*>([^<]{3,80})<\/a>/gi;
+    let match;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const href = match[1];
+      const label = match[2].trim();
+      if (!href || seen.has(href)) continue;
+      if (href.match(/\.(pdf|docx?|xlsx?|zip)/i) || href.includes("download") || href.includes("BidDocument") || href.includes("corrigendum")) {
+        seen.add(href);
+        const url = href.startsWith("http") ? href : `https://bidplus.gem.gov.in${href}`;
+        docLinks.push({ url, name: label || "Document" });
+      }
+    }
+
+    return { text: text.substring(0, 30000), docLinks };
+  } catch (err) {
+    return { error: err.message || "Failed to fetch bid document" };
+  }
+});
+
 ipcMain.handle("gem-scan", async (_, { keywords, maxPages } = {}) => {
   try {
     const sessionRes = await gemHttpGet("https://bidplus.gem.gov.in/all-bids");

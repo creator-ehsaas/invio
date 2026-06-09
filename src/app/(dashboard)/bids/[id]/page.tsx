@@ -32,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { GemBid, GemBidDocument, GemBidStatus, AIRequirement, AIDocChecklistItem } from "@/types/gem";
+import { isElectron, gemFetchDoc, openExternal } from "@/lib/electron";
 
 const STATUS_OPTIONS: { value: GemBidStatus; label: string; color: string }[] = [
   { value: "new", label: "New", color: "bg-blue-500" },
@@ -125,20 +126,40 @@ export default function BidDetailPage() {
 
   const handleFetchDetails = async () => {
     if (!bid) return;
+    if (!isElectron()) {
+      toast.error("Fetching bid documents requires the Invio desktop app.");
+      return;
+    }
     setFetchingDetails(true);
     try {
-      const res = await fetch("/api/gem-scraper/fetch-detail", {
+      const result = await gemFetchDoc({ bidUrl: bid.bid_url ?? `https://bidplus.gem.gov.in/showbidDocument/${bid.gem_bid_id}` });
+      if (!result || result.error) {
+        toast.error(result?.error || "Failed to fetch bid document");
+        setFetchingDetails(false);
+        return;
+      }
+
+      await fetch("/api/gem-scraper/save-doc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bid_id: bid.id, text: result.text, doc_links: result.docLinks }),
+      });
+
+      await fetchBid();
+      toast.success("Bid document fetched. Running AI analysis...");
+
+      // Auto-trigger analyze with the fresh content
+      setAnalyzing(true);
+      const analyzeRes = await fetch("/api/gem-scraper/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bid_id: bid.id }),
       });
-      if (res.ok) {
+      if (analyzeRes.ok) {
         await fetchBid();
-        toast.success("Full bid details fetched");
-      } else {
-        const err = await res.json();
-        toast.error(err.error || "Failed to fetch details");
+        toast.success("AI analysis complete.");
       }
+      setAnalyzing(false);
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -298,25 +319,34 @@ export default function BidDetailPage() {
             ))}
           </select>
 
-          {!bid.raw_full_text && (
+          {bid.bid_url && (
             <Button
-              onClick={handleFetchDetails}
-              disabled={fetchingDetails}
+              onClick={() => openExternal(bid.bid_url!)}
               variant="outline"
               size="sm"
               className="rounded-md"
             >
-              {fetchingDetails ? (
-                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-              ) : (
-                <Eye className="w-4 h-4 mr-1.5" />
-              )}
-              {fetchingDetails ? "Fetching..." : "Fetch Full Spec"}
+              <ArrowUpRight className="w-4 h-4 mr-1.5" />
+              View on GeM
             </Button>
           )}
-          {bid.raw_full_text && (
+          <Button
+            onClick={handleFetchDetails}
+            disabled={fetchingDetails || analyzing}
+            variant="outline"
+            size="sm"
+            className="rounded-md"
+          >
+            {fetchingDetails || analyzing ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <Eye className="w-4 h-4 mr-1.5" />
+            )}
+            {fetchingDetails ? "Fetching..." : analyzing ? "Analyzing..." : bid.raw_full_text ? "Refresh & Analyze" : "Fetch & Analyze"}
+          </Button>
+          {bid.ai_summary && (
             <span className="text-[11px] text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Full spec loaded
+              <CheckCircle2 className="w-3.5 h-3.5" /> Analyzed
             </span>
           )}
           <Button
@@ -529,38 +559,31 @@ export default function BidDetailPage() {
                 Tender Documents ({tenderDocs.length})
               </h3>
               <div className="space-y-2">
-                {tenderDocs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <span className="text-xs font-medium text-foreground truncate">
-                        {doc.file_name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <a
-                        href={doc.file_url.startsWith("http") ? doc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center"
+                {tenderDocs.map((doc) => {
+                  const fileUrl = doc.file_url.startsWith("http")
+                    ? doc.file_url
+                    : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`;
+                  return (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-medium text-foreground truncate">
+                          {doc.file_name}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => openExternal(fileUrl)}
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 text-xs"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                      </a>
-                      <a
-                        href={doc.file_url.startsWith("http") ? doc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`}
-                        download={doc.file_name}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </a>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                        Open
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

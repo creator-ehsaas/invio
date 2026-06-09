@@ -30,3 +30,10 @@ export const gemScan = async (opts: {
   if (!isElectron()) return null;
   return (window as any).electron.gemScan(opts);
 };
+
+export const gemFetchDoc = async (opts: {
+  bidUrl: string;
+}): Promise<{ text?: string; docLinks?: { url: string; name: string }[]; error?: string } | null> => {
+  if (!isElectron()) return null;
+  return (window as any).electron.gemFetchDoc(opts);
+};
