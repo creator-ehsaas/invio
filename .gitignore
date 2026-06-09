@@ -82,3 +82,5 @@ skills-lock.json
 # but don't commit generated build artifacts inside it
 installer-assets/*.exe
 installer-assets/*.msi
+
+.vercel
