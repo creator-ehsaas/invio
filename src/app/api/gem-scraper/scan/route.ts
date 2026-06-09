@@ -40,6 +40,7 @@ async function getSession(): Promise<{ cookie: string; csrf: string } | null> {
 }
 
 interface GemApiDoc {
+  b_id?: number[];
   b_bid_number?: string[];
   b_id_parent?: number[];
   b_bid_number_parent?: string[];
@@ -58,25 +59,47 @@ function docToBid(doc: GemApiDoc) {
     doc.b_bid_number?.[0] ?? doc.b_bid_number_parent?.[0] ?? null;
   if (!bidNumber) return null;
 
-  const parentId = doc.b_bid_number_parent?.[0];
-  const bidUrl = bidNumber
-    ? `https://bidplus.gem.gov.in/bid/index/${bidNumber}`
+  const parentBidNumber = doc.b_bid_number_parent?.[0] ?? null;
+  const numericId = doc.b_id?.[0] ?? null;
+  const parentNumericId = doc.b_id_parent?.[0] ?? null;
+
+  // Use parent ID for the doc URL (returns bid spec PDF)
+  const docId = parentNumericId ?? numericId;
+  const bidUrl = docId
+    ? `https://bidplus.gem.gov.in/showbidDocument/${docId}`
     : null;
 
   const ministry = doc.ba_official_details_minName?.[0] ?? null;
   const dept = doc.ba_official_details_deptName?.[0] ?? null;
   const department = [ministry, dept].filter(Boolean).join(" – ") || null;
 
+  const title = doc.bd_category_name?.[0] ?? doc.b_category_name?.[0] ?? bidNumber;
+  const quantity = doc.b_total_quantity?.[0]?.toString() ?? null;
+  const startDate = doc.final_start_date_sort?.[0]?.split("T")[0] ?? null;
+  const endDate = doc.final_end_date_sort?.[0]?.split("T")[0] ?? null;
+
+  // Build a rich text summary from listing data so AI can work without needing full PDF
+  const rawText = [
+    `Bid Number: ${bidNumber}`,
+    parentBidNumber && parentBidNumber !== bidNumber ? `Parent Bid: ${parentBidNumber}` : null,
+    `Category: ${title}`,
+    department ? `Department: ${department}` : null,
+    quantity ? `Quantity: ${quantity}` : null,
+    startDate ? `Start Date: ${startDate}` : null,
+    endDate ? `End Date: ${endDate}` : null,
+    doc.is_high_value?.[0] ? "High Value Bid: Yes" : null,
+  ].filter(Boolean).join("\n");
+
   return {
     gem_bid_id: bidNumber,
-    title: doc.bd_category_name?.[0] ?? doc.b_category_name?.[0] ?? bidNumber,
+    title,
     department,
-    quantity: doc.b_total_quantity?.[0]?.toString() ?? null,
-    start_date: doc.final_start_date_sort?.[0]?.split("T")[0] ?? null,
-    end_date: doc.final_end_date_sort?.[0]?.split("T")[0] ?? null,
-    estimated_value: null, // not in listing response; fetched on detail page
+    quantity,
+    start_date: startDate,
+    end_date: endDate,
+    estimated_value: null,
     bid_url: bidUrl,
-    parent_bid_number: parentId ?? null,
+    raw_full_text: rawText,
   };
 }
 
@@ -225,6 +248,7 @@ export async function POST(request: NextRequest) {
           start_date: bid.start_date,
           end_date: bid.end_date,
           bid_url: bid.bid_url,
+          raw_full_text: bid.raw_full_text,
           status: "new",
         });
       }
@@ -242,19 +266,6 @@ export async function POST(request: NextRequest) {
         .from("gem_scan_logs")
         .update({ status: "completed", bids_found: uniqueBids.size, bids_new: newBids.length, duration_ms: durationMs })
         .eq("id", scanLogId);
-    }
-
-    // Enqueue fetch-detail for new bids (fire & forget)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    for (const inserted of insertedBids.slice(0, 10)) {
-      fetch(`${baseUrl}/api/gem-scraper/fetch-detail`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: request.headers.get("cookie") || "",
-        },
-        body: JSON.stringify({ bid_id: inserted.id }),
-      }).catch(() => {});
     }
 
     return NextResponse.json({
