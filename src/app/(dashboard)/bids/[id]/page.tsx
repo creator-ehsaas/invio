@@ -74,6 +74,8 @@ export default function BidDetailPage() {
   const [poModalOpen, setPoModalOpen] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<Set<string>>(new Set());
+  const [priceSuggestion, setPriceSuggestion] = useState<any | null>(null);
+  const [fetchingPrice, setFetchingPrice] = useState(false);
 
   useEffect(() => {
     fetchBid();
@@ -219,6 +221,25 @@ export default function BidDetailPage() {
 
     setPurchaseOrders(pos || []);
     setPoModalOpen(true);
+  };
+
+  const handleSuggestPrice = async () => {
+    if (!bid) return;
+    setFetchingPrice(true);
+    setPriceSuggestion(null);
+    try {
+      const res = await fetch("/api/gem-scraper/suggest-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bid_id: bid.id }),
+      });
+      const data = await res.json();
+      if (res.ok) setPriceSuggestion(data);
+      else toast.error(data.error || "Failed to get price suggestion");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setFetchingPrice(false);
   };
 
   const toggleSection = (section: string) => {
@@ -648,6 +669,14 @@ export default function BidDetailPage() {
                     : "—"}
                 </span>
               </div>
+              {bid.ai_emd_amount && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">EMD Amount</span>
+                  <span className="font-medium text-foreground">
+                    ₹{bid.ai_emd_amount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
               {bid.quantity && (
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Quantity</span>
@@ -657,7 +686,100 @@ export default function BidDetailPage() {
                 </div>
               )}
             </div>
+            <Button
+              onClick={handleSuggestPrice}
+              disabled={fetchingPrice}
+              size="sm"
+              className="w-full mt-3 rounded-lg text-xs"
+            >
+              {fetchingPrice ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {fetchingPrice ? "Calculating..." : "Suggest Winning Bid Price"}
+            </Button>
           </div>
+
+          {/* Price Suggestion */}
+          {priceSuggestion && (
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <IndianRupee className="w-4 h-4 text-emerald-600" />
+                  Recommended Bid Price
+                </h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  priceSuggestion.strategy?.includes("Aggressive")
+                    ? "bg-amber-100 dark:bg-amber-950/30 text-amber-700"
+                    : "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700"
+                }`}>
+                  {priceSuggestion.strategy || "Balanced"}
+                </span>
+              </div>
+
+              <div className="text-center py-2">
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                  ₹{priceSuggestion.recommended_price?.toLocaleString("en-IN") ?? "—"}
+                </p>
+                {priceSuggestion.unit_price && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    ≈ ₹{priceSuggestion.unit_price.toLocaleString("en-IN")} {priceSuggestion.unit_price_label}
+                  </p>
+                )}
+                {priceSuggestion.discount_from_estimate != null && (
+                  <p className="text-xs text-emerald-600 font-medium mt-1">
+                    {priceSuggestion.discount_from_estimate}% below buyer's estimate
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-white/60 dark:bg-white/5 rounded-lg p-2 text-center">
+                  <p className="text-muted-foreground text-[10px] mb-0.5">Aggressive Low</p>
+                  <p className="font-semibold text-foreground">
+                    ₹{priceSuggestion.price_range?.aggressive?.toLocaleString("en-IN") ?? "—"}
+                  </p>
+                </div>
+                <div className="bg-white/60 dark:bg-white/5 rounded-lg p-2 text-center">
+                  <p className="text-muted-foreground text-[10px] mb-0.5">Comfortable High</p>
+                  <p className="font-semibold text-foreground">
+                    ₹{priceSuggestion.price_range?.comfortable?.toLocaleString("en-IN") ?? "—"}
+                  </p>
+                </div>
+              </div>
+
+              {priceSuggestion.profit_margin_estimate && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Est. Profit Margin</span>
+                  <span className="font-medium text-emerald-600">{priceSuggestion.profit_margin_estimate}</span>
+                </div>
+              )}
+
+              {priceSuggestion.reasoning && (
+                <p className="text-xs text-muted-foreground leading-relaxed border-t border-emerald-200/50 dark:border-emerald-800/30 pt-2">
+                  {priceSuggestion.reasoning}
+                </p>
+              )}
+
+              {priceSuggestion.market_context && (
+                <p className="text-xs text-muted-foreground/80 italic">
+                  {priceSuggestion.market_context}
+                </p>
+              )}
+
+              {priceSuggestion.cautions?.length > 0 && (
+                <div className="space-y-1">
+                  {priceSuggestion.cautions.map((c: string, i: number) => (
+                    <p key={i} className="text-xs text-amber-600 flex items-start gap-1.5">
+                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                      {c}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Risk & Evaluation */}
           {(bid.ai_risk_assessment || bid.ai_evaluation_method) && (

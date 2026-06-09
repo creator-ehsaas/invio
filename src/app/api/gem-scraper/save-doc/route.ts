@@ -29,6 +29,15 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // Verify bid belongs to this user's business (prevent IDOR)
+    const { data: ownBid } = await serviceSupabase
+      .from("gem_bids")
+      .select("id")
+      .eq("id", bid_id)
+      .eq("business_id", userData.business_id)
+      .single();
+    if (!ownBid) return NextResponse.json({ error: "Bid not found" }, { status: 404 });
+
     // Update raw_full_text with the richer page content
     if (text) {
       await serviceSupabase

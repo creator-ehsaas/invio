@@ -285,6 +285,15 @@ function gemHttpPost(cookie, csrf, keyword, page) {
 ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
   try {
     if (!bidUrl) return { error: "No bid URL provided" };
+    // Only allow requests to GeM's domain to prevent SSRF
+    try {
+      const u = new URL(bidUrl);
+      if (u.protocol !== "https:" || u.hostname.replace(/\.$/, "") !== "bidplus.gem.gov.in") {
+        return { error: "Invalid host — only bidplus.gem.gov.in is allowed" };
+      }
+    } catch {
+      return { error: "Invalid URL" };
+    }
     const res = await gemHttpGet(bidUrl);
     if (res.status !== 200) return { error: `GeM returned HTTP ${res.status}` };
 
