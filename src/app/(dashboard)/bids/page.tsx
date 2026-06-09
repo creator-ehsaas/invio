@@ -32,6 +32,7 @@ const STATUS_CONFIG: Record<
   { label: string; color: string; bgColor: string; icon: any }
 > = {
   new: { label: "New", color: "text-blue-700 dark:text-blue-400", bgColor: "bg-blue-50 dark:bg-blue-950/30", icon: Sparkles },
+  shortlisted: { label: "Shortlisted", color: "text-violet-700 dark:text-violet-400", bgColor: "bg-violet-50 dark:bg-violet-950/30", icon: Sparkles },
   analyzing: { label: "Analyzing", color: "text-amber-700 dark:text-amber-400", bgColor: "bg-amber-50 dark:bg-amber-950/30", icon: Loader2 },
   analyzed: { label: "Analyzed", color: "text-purple-700 dark:text-purple-400", bgColor: "bg-purple-50 dark:bg-purple-950/30", icon: CheckCircle2 },
   interested: { label: "Interested", color: "text-emerald-700 dark:text-emerald-400", bgColor: "bg-emerald-50 dark:bg-emerald-950/30", icon: Star },
@@ -42,16 +43,18 @@ const STATUS_CONFIG: Record<
 };
 
 const STATUS_TABS: (GemBidStatus | "all")[] = [
-  "all", "new", "analyzed", "interested", "applied", "won", "lost", "expired",
+  "all", "shortlisted", "new", "analyzed", "interested", "applied", "won", "lost", "expired",
 ];
 
 export default function BidsPage() {
   const [bids, setBids] = useState<GemBid[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [shortlisting, setShortlisting] = useState(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<GemBidStatus | "all">("all");
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
 
   const fetchBids = useCallback(async () => {
     const supabase = createClient();
@@ -85,6 +88,13 @@ export default function BidsPage() {
     fetchBids();
   }, [fetchBids]);
 
+  useEffect(() => {
+    fetch("/api/gem-business-profile/save")
+      .then((r) => r.json())
+      .then((data) => setHasProfile(!!data?.setup_completed))
+      .catch(() => setHasProfile(false));
+  }, []);
+
   const handleScan = async () => {
     setScanning(true);
     setScanResult(null);
@@ -108,6 +118,24 @@ export default function BidsPage() {
       setScanResult(`❌ Error: ${err.message}`);
     }
     setScanning(false);
+  };
+
+  const handleShortlist = async () => {
+    setShortlisting(true);
+    setScanResult(null);
+    try {
+      const res = await fetch("/api/gem-scraper/shortlist", { method: "POST" });
+      const result = await res.json();
+      if (res.ok) {
+        setScanResult(`✅ Shortlisting complete! ${result.shortlisted} of ${result.scored} bids matched your profile.`);
+        fetchBids();
+      } else {
+        setScanResult(`❌ Shortlisting failed: ${result.error}`);
+      }
+    } catch (err: any) {
+      setScanResult(`❌ Error: ${err.message}`);
+    }
+    setShortlisting(false);
   };
 
   const filteredBids = bids.filter((bid) => {
@@ -165,6 +193,21 @@ export default function BidsPage() {
               Settings
             </Button>
           </Link>
+          {hasProfile && (
+            <Button
+              onClick={handleShortlist}
+              disabled={shortlisting}
+              variant="outline"
+              className="rounded-full px-5"
+            >
+              {shortlisting ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-1.5" />
+              )}
+              {shortlisting ? "Ranking..." : "Shortlist Now"}
+            </Button>
+          )}
           <Button
             onClick={handleScan}
             disabled={scanning}
@@ -198,6 +241,23 @@ export default function BidsPage() {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* No profile banner */}
+      {hasProfile === false && (
+        <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50 dark:bg-purple-950/20 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Set up your business profile to get AI shortlisting</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Takes 3 minutes — we'll auto-analyze your invoices and suggest matching bids.
+            </p>
+          </div>
+          <Link href="/bids/setup">
+            <Button size="sm" className="rounded-full shrink-0">
+              <Sparkles className="w-4 h-4 mr-1.5" /> Complete Setup
+            </Button>
+          </Link>
         </div>
       )}
 
@@ -346,6 +406,22 @@ export default function BidsPage() {
                       <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
                         {bid.ai_summary}
                       </p>
+                    )}
+                    {bid.ai_match_score !== null && bid.ai_match_score !== undefined && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                          bid.ai_match_score >= 70
+                            ? "bg-violet-100 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                          {bid.ai_match_score}% match
+                        </div>
+                        {bid.ai_match_reason && (
+                          <span className="text-[11px] text-muted-foreground line-clamp-1">
+                            {bid.ai_match_reason}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
