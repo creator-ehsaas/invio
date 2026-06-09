@@ -1,9 +1,22 @@
 // GeM Bid Finder — Type Definitions
 
+// ── Status ────────────────────────────────────────────────────────────────────
+export type GemBidStatus =
+  | "new"
+  | "shortlisted"
+  | "analyzing"
+  | "analyzed"
+  | "interested"
+  | "applied"
+  | "won"
+  | "lost"
+  | "expired";
+
+// ── Bid ───────────────────────────────────────────────────────────────────────
 export interface GemBid {
   id: string;
   business_id: string;
-  gem_bid_id: string; // e.g. "GEM/2026/B/12345"
+  gem_bid_id: string;
   title: string;
   category: string | null;
   quantity: string | null;
@@ -13,54 +26,49 @@ export interface GemBid {
   start_date: string | null;
   end_date: string | null;
   estimated_value: number | null;
-  bid_type: string | null; // "open" | "limited" | "RA"
+  bid_type: string | null;
   status: GemBidStatus;
   ai_summary: string | null;
   ai_eligibility: AIEligibility | null;
   ai_requirements: AIRequirement[] | null;
   ai_doc_checklist: AIDocChecklistItem[] | null;
+  ai_match_score: number | null;
+  ai_match_reason: string | null;
   raw_html: string | null;
+  raw_full_text: string | null;
   bid_url: string | null;
   scraped_at: string;
   created_at: string;
   updated_at: string;
 }
 
-export type GemBidStatus =
-  | "new"
-  | "analyzing"
-  | "analyzed"
-  | "interested"
-  | "applied"
-  | "won"
-  | "lost"
-  | "expired";
-
+// ── AI Sub-types ──────────────────────────────────────────────────────────────
 export interface AIEligibility {
   eligible: boolean;
-  confidence: number; // 0-100
+  confidence: number;
   reasons: string[];
   missing_docs: string[];
   missing_criteria: string[];
 }
 
 export interface AIRequirement {
-  category: string; // "Technical" | "Financial" | "Documentation" | "Delivery" | "Penalty"
+  category: string;
   title: string;
   description: string;
   mandatory: boolean;
-  met: boolean | null; // null = unknown, true = met, false = not met
+  met: boolean | null;
 }
 
 export interface AIDocChecklistItem {
   doc_name: string;
   doc_type: "mandatory" | "optional" | "conditional";
   description: string;
-  can_generate: boolean; // true = AI can auto-generate this
+  can_generate: boolean;
   generated: boolean;
   notes: string | null;
 }
 
+// ── Document ──────────────────────────────────────────────────────────────────
 export interface GemBidDocument {
   id: string;
   gem_bid_id: string;
@@ -74,8 +82,8 @@ export interface GemBidDocument {
 
 export type GemDocType =
   | "tender_document"
-  | "atc" // Additional Terms & Conditions
-  | "bot" // Bid Opening Terms
+  | "atc"
+  | "bot"
   | "corrigendum"
   | "cover_letter"
   | "compliance_matrix"
@@ -83,6 +91,7 @@ export type GemDocType =
   | "undertaking"
   | "other";
 
+// ── Scan Log ──────────────────────────────────────────────────────────────────
 export interface GemScanLog {
   id: string;
   business_id: string;
@@ -95,16 +104,47 @@ export interface GemScanLog {
   created_at: string;
 }
 
+// ── Config (credentials removed) ─────────────────────────────────────────────
 export interface GemConfig {
-  gem_username: string;
-  gem_password: string;
   categories: string[];
   keywords: string[];
   scan_frequency: "manual" | "30min" | "1hr" | "6hr" | "daily";
   notifications_enabled: boolean;
 }
 
-// Scraper response types
+// ── Business Capability Profile ───────────────────────────────────────────────
+export interface GemBusinessProfile {
+  id: string;
+  business_id: string;
+  msme_category: "micro" | "small" | "medium" | "none" | null;
+  udyam_number: string | null;
+  turnover_fy1: number | null;
+  turnover_fy2: number | null;
+  turnover_fy3: number | null;
+  turnover_fy_labels: string[] | null;
+  years_in_business: number | null;
+  gem_seller_registered: boolean;
+  gem_seller_id: string | null;
+  certifications: string[] | null;
+  supply_states: string[] | null;
+  ai_capability_summary: string | null;
+  ai_recommended_categories: AIRecommendedCategory[] | null;
+  ai_typical_bid_min: number | null;
+  ai_typical_bid_max: number | null;
+  ai_eligibility_gaps: string[] | null;
+  ai_product_categories: string[] | null;
+  setup_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIRecommendedCategory {
+  category: string;
+  confidence: number;
+  reasoning: string;
+}
+
+// ── API response shapes ───────────────────────────────────────────────────────
 export interface ScanResult {
   scan_id: string;
   status: "completed" | "failed" | "captcha_blocked";
@@ -112,7 +152,7 @@ export interface ScanResult {
   bids_new: number;
   duration_ms: number;
   error?: string;
-  captcha_screenshot?: string; // base64 if captcha blocked
+  captcha_screenshot?: string;
 }
 
 export interface AnalyzeResult {
@@ -128,4 +168,9 @@ export interface GenerateDocResult {
   doc_type: GemDocType;
   file_name: string;
   file_url: string;
+}
+
+export interface ShortlistResult {
+  shortlisted: number;
+  scored: number;
 }
