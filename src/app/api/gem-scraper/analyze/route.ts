@@ -228,6 +228,10 @@ Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?
         ai_eligibility: analysis.eligibility || null,
         ai_requirements: analysis.requirements || null,
         ai_doc_checklist: analysis.doc_checklist || null,
+        ai_risk_assessment: analysis.risk_assessment || null,
+        ai_evaluation_method: analysis.evaluation_method || null,
+        ai_emd_amount: analysis.financials?.emd_amount || null,
+        ai_delivery_date: analysis.key_dates?.delivery_date || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", bid_id);

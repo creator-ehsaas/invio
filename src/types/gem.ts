@@ -34,6 +34,10 @@ export interface GemBid {
   ai_doc_checklist: AIDocChecklistItem[] | null;
   ai_match_score: number | null;
   ai_match_reason: string | null;
+  ai_risk_assessment: string | null;
+  ai_evaluation_method: string | null;
+  ai_emd_amount: number | null;
+  ai_delivery_date: string | null;
   raw_html: string | null;
   raw_full_text: string | null;
   bid_url: string | null;

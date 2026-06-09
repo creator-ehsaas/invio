@@ -30,10 +30,12 @@ import {
   Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { GemBid, GemBidDocument, GemBidStatus, AIRequirement, AIDocChecklistItem } from "@/types/gem";
 
 const STATUS_OPTIONS: { value: GemBidStatus; label: string; color: string }[] = [
   { value: "new", label: "New", color: "bg-blue-500" },
+  { value: "shortlisted", label: "Shortlisted", color: "bg-violet-500" },
   { value: "analyzed", label: "Analyzed", color: "bg-purple-500" },
   { value: "interested", label: "Interested", color: "bg-emerald-500" },
   { value: "applied", label: "Applied", color: "bg-sky-500" },
@@ -65,6 +67,7 @@ export default function BidDetailPage() {
   const [documents, setDocuments] = useState<GemBidDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["summary", "eligibility"]));
   const [poModalOpen, setPoModalOpen] = useState(false);
@@ -118,6 +121,28 @@ export default function BidDetailPage() {
       console.error(err);
     }
     setAnalyzing(false);
+  };
+
+  const handleFetchDetails = async () => {
+    if (!bid) return;
+    setFetchingDetails(true);
+    try {
+      const res = await fetch("/api/gem-scraper/fetch-detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bid_id: bid.id }),
+      });
+      if (res.ok) {
+        await fetchBid();
+        toast.success("Full bid details fetched");
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to fetch details");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setFetchingDetails(false);
   };
 
   const handleGenerateDoc = async (docType: string) => {
@@ -273,6 +298,27 @@ export default function BidDetailPage() {
             ))}
           </select>
 
+          {!bid.raw_full_text && (
+            <Button
+              onClick={handleFetchDetails}
+              disabled={fetchingDetails}
+              variant="outline"
+              size="sm"
+              className="rounded-md"
+            >
+              {fetchingDetails ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Eye className="w-4 h-4 mr-1.5" />
+              )}
+              {fetchingDetails ? "Fetching..." : "Fetch Full Spec"}
+            </Button>
+          )}
+          {bid.raw_full_text && (
+            <span className="text-[11px] text-emerald-600 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Full spec loaded
+            </span>
+          )}
           <Button
             onClick={handleAnalyze}
             disabled={analyzing}
@@ -495,12 +541,23 @@ export default function BidDetailPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      <a
+                        href={doc.file_url.startsWith("http") ? doc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center"
+                      >
                         <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      </a>
+                      <a
+                        href={doc.file_url.startsWith("http") ? doc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`}
+                        download={doc.file_name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center"
+                      >
                         <Download className="w-3.5 h-3.5" />
-                      </button>
+                      </a>
                     </div>
                   </div>
                 ))}
@@ -579,6 +636,47 @@ export default function BidDetailPage() {
             </div>
           </div>
 
+          {/* Risk & Evaluation */}
+          {(bid.ai_risk_assessment || bid.ai_evaluation_method) && (
+            <div className="bg-card border border-border rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Risk & Evaluation
+              </h3>
+              <div className="space-y-2.5">
+                {bid.ai_evaluation_method && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Evaluation</span>
+                    <span className="font-medium text-foreground">{bid.ai_evaluation_method}</span>
+                  </div>
+                )}
+                {bid.ai_emd_amount && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">EMD Amount</span>
+                    <span className="font-medium text-foreground">₹{bid.ai_emd_amount.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                {bid.ai_delivery_date && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Delivery By</span>
+                    <span className="font-medium text-foreground">{bid.ai_delivery_date}</span>
+                  </div>
+                )}
+                {bid.ai_risk_assessment && (
+                  <div className="pt-1 border-t border-border">
+                    <p className="text-[10px] font-semibold text-muted-foreground mb-1">RISK</p>
+                    <p className={`text-xs font-medium ${
+                      bid.ai_risk_assessment.startsWith("Low") ? "text-emerald-600" :
+                      bid.ai_risk_assessment.startsWith("Medium") ? "text-amber-600" : "text-red-600"
+                    }`}>
+                      {bid.ai_risk_assessment}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* AI Document Generator */}
           <div className="bg-card border border-border rounded-xl p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
@@ -610,7 +708,15 @@ export default function BidDetailPage() {
                     {existingDoc && (
                       <div className="ml-6 mb-1 flex items-center gap-2">
                         <span className="text-[10px] text-emerald-600 font-medium">Generated</span>
-                        <button className="text-[10px] text-primary underline">Download</button>
+                        <a
+                          href={existingDoc.file_url.startsWith("http") ? existingDoc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${existingDoc.file_url}`}
+                          download={existingDoc.file_name}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-primary underline"
+                        >
+                          Download
+                        </a>
                       </div>
                     )}
                   </div>
@@ -654,9 +760,15 @@ export default function BidDetailPage() {
                     <span className="flex-1 font-medium text-foreground truncate">
                       {doc.file_name}
                     </span>
-                    <button className="p-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700">
+                    <a
+                      href={doc.file_url.startsWith("http") ? doc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`}
+                      download={doc.file_name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 flex items-center"
+                    >
                       <Download className="w-3 h-3" />
-                    </button>
+                    </a>
                   </div>
                 ))}
               </div>

@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
 
         const main = document.querySelector(
           "main, #main-content, .bid-detail, .container, body"
-        );
-        return (main?.innerText || document.body.innerText || "")
+        ) as HTMLElement | null;
+        return ((main?.innerText) || document.body.innerText || "")
           .replace(/\s{3,}/g, "\n\n")
           .trim()
           .substring(0, 30000);
