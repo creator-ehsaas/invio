@@ -217,11 +217,13 @@ ipcMain.handle("open-external", (_, url) => shell.openExternal(url));
 // GeM scraper — runs in Node.js main process (no CORS, Indian IP from user's machine)
 const https = require("https");
 
+const GEM_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 function gemHttpGet(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": GEM_UA,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-IN,en;q=0.9",
       },
@@ -238,23 +240,31 @@ function gemHttpGet(url) {
   });
 }
 
-function gemHttpPost(cookie, csrf, payload) {
+function gemHttpPost(cookie, csrf, keyword, page) {
+  const payload = {
+    param: { searchBid: keyword, searchType: "fullText" },
+    filter: { bidStatusType: "ongoing_bids", byType: "all", highBidValue: "", byEndDate: { from: "", to: "" }, sort: "Bid-End-Date-Oldest" },
+    ...(page > 1 ? { page } : {}),
+  };
+  const formBody = new URLSearchParams();
+  formBody.set("payload", JSON.stringify(payload));
+  formBody.set("csrf_bd_gem_nk", csrf);
+  const bodyStr = formBody.toString();
+
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify(payload);
     const req = https.request(
       {
         hostname: "bidplus.gem.gov.in",
         path: "/all-bids-data",
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body),
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "Content-Length": Buffer.byteLength(bodyStr),
           "X-Requested-With": "XMLHttpRequest",
-          "X-CSRF-TOKEN": csrf,
           "Cookie": cookie,
           "Referer": "https://bidplus.gem.gov.in/all-bids",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Accept": "application/json",
+          "User-Agent": GEM_UA,
+          "Accept": "application/json, text/javascript, */*; q=0.01",
         },
       },
       (res) => {
@@ -267,7 +277,7 @@ function gemHttpPost(cookie, csrf, payload) {
     );
     req.setTimeout(15000, () => { req.destroy(); reject(new Error("timeout")); });
     req.on("error", reject);
-    req.write(body);
+    req.write(bodyStr);
     req.end();
   });
 }
@@ -275,7 +285,7 @@ function gemHttpPost(cookie, csrf, payload) {
 ipcMain.handle("gem-scan", async (_, { keywords, maxPages } = {}) => {
   try {
     const sessionRes = await gemHttpGet("https://bidplus.gem.gov.in/all-bids");
-    const csrfMatch = sessionRes.body.match(/csrf_bd_gem_nk["']\s*:\s*["']([^"']+)["']/);
+    const csrfMatch = sessionRes.body.match(/csrf_bd_gem_nk['":\s,]+['"]([a-f0-9]{32})['"]/);
     const csrf = csrfMatch?.[1];
     if (!csrf) return { error: "Could not read session from GeM portal. Try again." };
 
@@ -285,10 +295,12 @@ ipcMain.handle("gem-scan", async (_, { keywords, maxPages } = {}) => {
 
     for (const kw of kws) {
       for (let page = 1; page <= pages; page++) {
-        const data = await gemHttpPost(sessionRes.cookies, csrf, { searchedBid: kw, page });
-        const items = data?.data ?? data?.bids ?? (Array.isArray(data) ? data : []);
+        const data = await gemHttpPost(sessionRes.cookies, csrf, kw, page);
+        if (data?.code !== 200) break;
+        const items = data?.response?.response?.docs ?? [];
         if (!items.length) break;
         docs.push(...items);
+        if (items.length < 10) break; // last page
       }
     }
 
