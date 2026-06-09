@@ -8,7 +8,7 @@ import {
   ArrowLeft,
   Save,
   Loader2,
-  Lock,
+  Sparkles,
   Tag,
   Bell,
   Clock,
@@ -41,8 +41,6 @@ export default function BidSettingsPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
 
   // Form states
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [keywords, setKeywords] = useState("");
   const [scanFrequency, setScanFrequency] = useState("manual");
@@ -85,8 +83,6 @@ export default function BidSettingsPage() {
       }
 
       if (config) {
-        setUsername(config.gem_username || "");
-        setPassword(config.gem_password || "");
         setSelectedCategories(config.categories || []);
         setKeywords(config.keywords?.join(", ") || "");
         setScanFrequency(config.scan_frequency || "manual");
@@ -127,8 +123,6 @@ export default function BidSettingsPage() {
         .from("gem_config")
         .upsert({
           business_id: businessId,
-          gem_username: username || null,
-          gem_password: password || null,
           categories: selectedCategories,
           keywords: keywordList,
           scan_frequency: scanFrequency,
@@ -208,38 +202,23 @@ export default function BidSettingsPage() {
         </div>
       )}
 
-      <div className="grid gap-6">
-        {/* GeM Portal Credentials */}
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Lock className="w-4 h-4 text-primary" />
-            GeM Portal Login
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Optional. Provide your Government e-Marketplace credentials to enable authenticated scraping. This allows the bot to download full tender specification documents.
+      {/* Setup Wizard Banner */}
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Business Capability Profile</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Complete the setup wizard to enable AI-powered bid shortlisting.
           </p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">GeM User ID / Username</label>
-              <Input
-                type="text"
-                placeholder="Enter GeM username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">GeM Password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
         </div>
+        <Link href="/bids/setup">
+          <Button size="sm" className="rounded-full shrink-0">
+            <Sparkles className="w-4 h-4 mr-1.5" />
+            Open Setup
+          </Button>
+        </Link>
+      </div>
 
+      <div className="grid gap-6">
         {/* Categories Monitor */}
         <div className="bg-card border border-border rounded-xl p-6 space-y-4">
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
