@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { launchBrowser } from "@/lib/browser";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const randomDelay = (min: number, max: number) => delay(min + Math.random() * (max - min));
@@ -43,23 +44,7 @@ export async function POST(request: NextRequest) {
       .single();
     scanLogId = scanLog?.id || null;
 
-    let browser: any;
-    try {
-      const puppeteerExtra = await import("puppeteer-extra");
-      const StealthPlugin = await import("puppeteer-extra-plugin-stealth");
-      const puppeteer = puppeteerExtra.default;
-      puppeteer.use(StealthPlugin.default());
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--window-size=1920,1080"],
-      });
-    } catch {
-      const puppeteer = await import("puppeteer");
-      browser = await puppeteer.default.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--window-size=1920,1080"],
-      });
-    }
+    const browser = await launchBrowser();
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });

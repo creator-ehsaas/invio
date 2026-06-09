@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { launchBrowser } from "@/lib/browser";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const randomDelay = (min: number, max: number) => delay(min + Math.random() * (max - min));
@@ -37,23 +38,7 @@ export async function POST(request: NextRequest) {
     // e.g. GEM/2026/B/12345 → https://bidplus.gem.gov.in/bid/index/GEM/2026/B/12345
     const detailUrl = `https://bidplus.gem.gov.in/bid/index/${bid.gem_bid_id}`;
 
-    let browser: any;
-    try {
-      const puppeteerExtra = await import("puppeteer-extra");
-      const StealthPlugin = await import("puppeteer-extra-plugin-stealth");
-      const puppeteer = puppeteerExtra.default;
-      puppeteer.use(StealthPlugin.default());
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-      });
-    } catch {
-      const puppeteer = await import("puppeteer");
-      browser = await puppeteer.default.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-      });
-    }
+    const browser = await launchBrowser();
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 900 });
