@@ -9,6 +9,7 @@ export interface Business {
   email: string | null;
   logo_url: string | null;
   signature_url: string | null;
+  stamp_url: string | null;
   bank_account_number: string | null;
   bank_ifsc: string | null;
   bank_name: string | null;
@@ -54,6 +55,7 @@ export interface BusinessUpdate {
   email?: string | null;
   logo_url?: string | null;
   signature_url?: string | null;
+  stamp_url?: string | null;
   bank_account_number?: string | null;
   bank_ifsc?: string | null;
   bank_name?: string | null;

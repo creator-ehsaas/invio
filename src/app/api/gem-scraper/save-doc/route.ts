@@ -16,10 +16,12 @@ export async function POST(request: NextRequest) {
     if (!userData?.business_id) return NextResponse.json({ error: "No business" }, { status: 400 });
 
     const body = await request.json();
-    const { bid_id, text, doc_links } = body as {
+    const { bid_id, text, doc_links, pdfText, financials } = body as {
       bid_id: string;
       text: string;
       doc_links: { url: string; name: string }[];
+      pdfText?: string;
+      financials?: { estimated_value?: number; emd_amount?: number };
     };
 
     if (!bid_id) return NextResponse.json({ error: "bid_id required" }, { status: 400 });
@@ -32,17 +34,32 @@ export async function POST(request: NextRequest) {
     // Verify bid belongs to this user's business (prevent IDOR)
     const { data: ownBid } = await serviceSupabase
       .from("gem_bids")
-      .select("id")
+      .select("id, estimated_value, ai_emd_amount")
       .eq("id", bid_id)
       .eq("business_id", userData.business_id)
       .single();
     if (!ownBid) return NextResponse.json({ error: "Bid not found" }, { status: 404 });
 
-    // Update raw_full_text with the richer page content
-    if (text) {
+    // Combine page text and PDF spec text for richer analysis
+    const combinedText = [text, pdfText].filter(Boolean).join("\n\n");
+
+    if (combinedText) {
+      const updateData: Record<string, any> = {
+        raw_full_text: combinedText.substring(0, 60000),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update financial values if extracted from actual tender doc
+      if (financials?.estimated_value && financials.estimated_value > 0) {
+        updateData.estimated_value = financials.estimated_value;
+      }
+      if (financials?.emd_amount && financials.emd_amount > 0) {
+        updateData.ai_emd_amount = financials.emd_amount;
+      }
+
       await serviceSupabase
         .from("gem_bids")
-        .update({ raw_full_text: text, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("id", bid_id)
         .eq("business_id", userData.business_id);
     }

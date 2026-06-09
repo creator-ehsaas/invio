@@ -21,6 +21,7 @@ import {
   Search,
   Keyboard,
   Gavel,
+  ChevronDown,
 } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -31,19 +32,26 @@ interface NavbarProps {
   business: Business | null;
 }
 
-const navLinks = [
+// Primary nav — always visible on desktop
+const primaryLinks = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/invoices", label: "Sales", icon: FileText },
-  { href: "/estimates", label: "Estimates", icon: ClipboardList },
   { href: "/purchases", label: "Purchases", icon: ShoppingCart },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/customers", label: "Customers", icon: Users },
+];
+
+// Secondary nav — in "More" dropdown on desktop
+const secondaryLinks = [
+  { href: "/estimates", label: "Estimates", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/bids", label: "Bids", icon: Gavel },
 ];
 
-// Mobile bottom nav - show most used items
+const allNavLinks = [...primaryLinks, ...secondaryLinks];
+
+// Mobile bottom nav
 const mobileNavLinks = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/invoices", label: "Sales", icon: FileText },
@@ -52,9 +60,9 @@ const mobileNavLinks = [
 ];
 
 export function Navbar({ user, business }: NavbarProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -66,35 +74,77 @@ export function Navbar({ user, business }: NavbarProps) {
   };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const isSecondaryActive = secondaryLinks.some((l) => isActive(l.href));
 
   return (
     <>
       {/* Desktop Header */}
       <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm">
-        <div className="hidden md:flex items-center justify-between px-6 h-16 w-full max-w-7xl mx-auto">
-          <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="text-xl font-bold tracking-tight text-foreground">
+        <div className="hidden md:flex items-center justify-between px-4 lg:px-6 h-16 w-full max-w-7xl mx-auto min-w-0">
+          {/* Left: Logo + Nav */}
+          <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+            <Link href="/dashboard" className="text-xl font-bold tracking-tight text-foreground shrink-0">
               Invio
             </Link>
-            <nav className="flex items-center gap-6 text-sm font-medium">
-              {navLinks.map((link) => (
+            <nav className="flex items-center gap-1 text-sm font-medium min-w-0">
+              {primaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`transition-colors ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm whitespace-nowrap transition-colors ${
                     isActive(link.href)
-                      ? "text-primary font-semibold border-b-2 border-primary pb-1"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
                   {link.label}
                 </Link>
               ))}
+
+              {/* More dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                  className={`flex items-center gap-1 px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm whitespace-nowrap transition-colors ${
+                    isSecondaryActive
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  More
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${moreMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {moreMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
+                    <div className="absolute left-0 top-full mt-1 w-44 rounded-xl border bg-card shadow-lg z-50 py-1">
+                      {secondaryLinks.map((link) => {
+                        const Icon = link.icon;
+                        return (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setMoreMenuOpen(false)}
+                            className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                              isActive(link.href)
+                                ? "text-primary font-medium bg-primary/5"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <Icon className="w-4 h-4 shrink-0" />
+                            {link.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
             </nav>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Command palette trigger */}
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))}
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-muted/50 hover:bg-muted text-muted-foreground text-xs transition-colors"
@@ -110,7 +160,7 @@ export function Navbar({ user, business }: NavbarProps) {
 
             <button
               onClick={() => document.dispatchEvent(new CustomEvent("show-shortcuts"))}
-              className="p-2 rounded-full hover:bg-muted transition-colors hidden md:flex"
+              className="p-2 rounded-full hover:bg-muted transition-colors hidden lg:flex"
               title="Keyboard shortcuts (?)"
             >
               <Keyboard className="w-4 h-4 text-muted-foreground" />
@@ -128,17 +178,12 @@ export function Navbar({ user, business }: NavbarProps) {
 
               {dropdownOpen && (
                 <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setDropdownOpen(false)}
-                  />
+                  <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-card shadow-lg z-50">
                     <div className="px-4 py-3 border-b">
                       <p className="text-sm font-semibold">{user.name || "User"}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                      {business && (
-                        <p className="text-xs text-primary mt-1">{business.name}</p>
-                      )}
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      {business && <p className="text-xs text-primary mt-1 truncate">{business.name}</p>}
                     </div>
                     <div className="py-1">
                       <Link
@@ -158,10 +203,7 @@ export function Navbar({ user, business }: NavbarProps) {
                         Settings
                       </Link>
                       <button
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          handleSignOut();
-                        }}
+                        onClick={() => { setDropdownOpen(false); handleSignOut(); }}
                         className="flex w-full items-center px-4 py-2 text-sm text-destructive hover:bg-muted transition-colors"
                       >
                         <LogOut className="mr-3 h-4 w-4" />
@@ -181,6 +223,7 @@ export function Navbar({ user, business }: NavbarProps) {
             Invio
           </Link>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
               className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center text-sm font-medium"
@@ -202,29 +245,24 @@ export function Navbar({ user, business }: NavbarProps) {
                 key={link.href}
                 href={link.href}
                 className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 ${
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                  active ? "text-primary" : "text-muted-foreground"
                 }`}
               >
                 <div className={`p-1.5 rounded-xl transition-colors ${active ? "bg-primary/10" : ""}`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-medium mt-0.5">
-                  {link.label}
-                </span>
+                <span className="text-[10px] font-medium mt-0.5">{link.label}</span>
               </Link>
             );
           })}
 
-          {/* More Menu Button */}
           <button
-            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+            onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
             className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 ${
-              moreMenuOpen ? "text-primary" : "text-muted-foreground"
+              mobileMoreOpen ? "text-primary" : "text-muted-foreground"
             }`}
           >
-            <div className={`p-1.5 rounded-xl transition-colors ${moreMenuOpen ? "bg-primary/10" : ""}`}>
+            <div className={`p-1.5 rounded-xl transition-colors ${mobileMoreOpen ? "bg-primary/10" : ""}`}>
               <Menu className="w-5 h-5" />
             </div>
             <span className="text-[10px] font-medium mt-0.5">More</span>
@@ -233,10 +271,10 @@ export function Navbar({ user, business }: NavbarProps) {
       </nav>
 
       {/* Mobile More Menu Overlay */}
-      {moreMenuOpen && (
+      {mobileMoreOpen && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/50"
-          onClick={() => setMoreMenuOpen(false)}
+          onClick={() => setMobileMoreOpen(false)}
         >
           <div
             className="absolute bottom-20 left-4 right-4 bg-card rounded-2xl shadow-xl border overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
@@ -252,13 +290,13 @@ export function Navbar({ user, business }: NavbarProps) {
                 { href: "/bids", label: "Bids", icon: Gavel },
                 { href: "/subscription", label: "Plans", icon: CreditCard },
                 { href: "/settings", label: "Settings", icon: Settings },
-              ].map(link => {
+              ].map((link) => {
                 const Icon = link.icon;
                 return (
                   <Link
                     key={link.href}
                     href={link.href}
-                    onClick={() => setMoreMenuOpen(false)}
+                    onClick={() => setMobileMoreOpen(false)}
                     className={`flex flex-col items-center p-4 rounded-xl transition-colors ${
                       isActive(link.href) ? "bg-primary/10 text-primary" : "hover:bg-muted"
                     }`}
@@ -269,10 +307,7 @@ export function Navbar({ user, business }: NavbarProps) {
                 );
               })}
               <button
-                onClick={() => {
-                  setMoreMenuOpen(false);
-                  handleSignOut();
-                }}
+                onClick={() => { setMobileMoreOpen(false); handleSignOut(); }}
                 className="flex flex-col items-center p-4 rounded-xl hover:bg-muted text-destructive"
               >
                 <LogOut className="w-6 h-6 mb-1.5" />
@@ -283,7 +318,7 @@ export function Navbar({ user, business }: NavbarProps) {
         </div>
       )}
 
-      {/* Mobile dropdown menu */}
+      {/* Mobile user dropdown */}
       {dropdownOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setDropdownOpen(false)}>
           <div
@@ -292,33 +327,20 @@ export function Navbar({ user, business }: NavbarProps) {
           >
             <div className="px-4 py-3 border-b">
               <p className="text-sm font-semibold">{user.name || "User"}</p>
-              <p className="text-xs text-muted-foreground">{user.email}</p>
-              {business && (
-                <p className="text-xs text-primary mt-1">{business.name}</p>
-              )}
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              {business && <p className="text-xs text-primary mt-1 truncate">{business.name}</p>}
             </div>
             <div className="py-1">
-              <Link
-                href="/subscription"
-                className="flex items-center px-4 py-3 text-sm hover:bg-muted"
-                onClick={() => setDropdownOpen(false)}
-              >
+              <Link href="/subscription" className="flex items-center px-4 py-3 text-sm hover:bg-muted" onClick={() => setDropdownOpen(false)}>
                 <CreditCard className="mr-3 h-4 w-4 text-muted-foreground" />
                 Subscription
               </Link>
-              <Link
-                href="/settings"
-                className="flex items-center px-4 py-3 text-sm hover:bg-muted"
-                onClick={() => setDropdownOpen(false)}
-              >
+              <Link href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-muted" onClick={() => setDropdownOpen(false)}>
                 <Settings className="mr-3 h-4 w-4 text-muted-foreground" />
                 Settings
               </Link>
               <button
-                onClick={() => {
-                  setDropdownOpen(false);
-                  handleSignOut();
-                }}
+                onClick={() => { setDropdownOpen(false); handleSignOut(); }}
                 className="flex w-full items-center px-4 py-3 text-sm text-destructive hover:bg-muted"
               >
                 <LogOut className="mr-3 h-4 w-4" />

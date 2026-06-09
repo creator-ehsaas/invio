@@ -33,7 +33,13 @@ export const gemScan = async (opts: {
 
 export const gemFetchDoc = async (opts: {
   bidUrl: string;
-}): Promise<{ text?: string; docLinks?: { url: string; name: string }[]; error?: string } | null> => {
+}): Promise<{
+  text?: string;
+  docLinks?: { url: string; name: string }[];
+  pdfText?: string;
+  financials?: { estimated_value?: number; emd_amount?: number };
+  error?: string;
+} | null> => {
   if (!isElectron()) return null;
   return (window as any).electron.gemFetchDoc(opts);
 };

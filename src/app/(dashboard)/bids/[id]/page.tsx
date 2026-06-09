@@ -70,7 +70,7 @@ export default function BidDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["summary", "eligibility"]));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["summary", "eligibility", "spec"]));
   const [poModalOpen, setPoModalOpen] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<Set<string>>(new Set());
@@ -144,7 +144,13 @@ export default function BidDetailPage() {
       await fetch("/api/gem-scraper/save-doc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bid_id: bid.id, text: result.text, doc_links: result.docLinks }),
+        body: JSON.stringify({
+          bid_id: bid.id,
+          text: result.text,
+          doc_links: result.docLinks,
+          pdfText: result.pdfText,
+          financials: result.financials,
+        }),
       });
 
       await fetchBid();
@@ -181,11 +187,26 @@ export default function BidDetailPage() {
           po_ids: Array.from(selectedPOs),
         }),
       });
+      const data = await res.json();
       if (res.ok) {
+        const label = GEN_DOC_TYPES.find(d => d.type === docType)?.label || "Document";
+        toast.success(`${label} generated!`);
+        // Trigger download immediately if we have content
+        if (data.content && data.file_name) {
+          const blob = new Blob([data.content], { type: "application/msword" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = data.file_name;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
         await fetchBid();
+      } else {
+        toast.error(data.error || "Document generation failed");
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.message || "Document generation failed");
     }
     setGeneratingDoc(null);
   };
@@ -211,15 +232,16 @@ export default function BidDetailPage() {
       .single();
     if (!userData?.business_id) return;
 
-    const { data: pos } = await supabase
-      .from("purchase_invoices")
-      .select("id, bill_number, bill_date, total, supplier_name, status")
+    // Sales invoices = work done for clients = valid work experience proof
+    const { data: invoices } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, invoice_date, total, customer_name, status")
       .eq("business_id", userData.business_id)
-      .eq("status", "paid")
+      .in("status", ["paid", "sent"])
       .order("total", { ascending: false })
       .limit(20);
 
-    setPurchaseOrders(pos || []);
+    setPurchaseOrders(invoices || []);
     setPoModalOpen(true);
   };
 
@@ -390,18 +412,78 @@ export default function BidDetailPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Panel - 2/3 width */}
         <div className="lg:col-span-2 space-y-4">
+          {/* Bid Overview — always shown */}
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-primary" />
+              Bid Overview
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
+              {[
+                { label: "Bid Number", value: bid.gem_bid_id },
+                { label: "Category", value: bid.category },
+                { label: "Organization", value: bid.organization },
+                { label: "Department", value: bid.department },
+                { label: "Bid Type", value: bid.bid_type },
+                { label: "Quantity", value: bid.quantity ? `${bid.quantity} ${bid.uom || ""}`.trim() : null },
+                { label: "Estimated Value", value: bid.estimated_value ? `₹${bid.estimated_value.toLocaleString("en-IN")}` : null },
+                { label: "EMD Amount", value: bid.ai_emd_amount ? `₹${bid.ai_emd_amount.toLocaleString("en-IN")}` : null },
+                { label: "Delivery By", value: bid.ai_delivery_date || null },
+                { label: "Evaluation Method", value: bid.ai_evaluation_method || null },
+                { label: "Start Date", value: bid.start_date ? new Date(bid.start_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null },
+                { label: "Closing Date", value: bid.end_date ? new Date(bid.end_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null },
+              ].filter(item => item.value).map((item) => (
+                <div key={item.label} className="flex flex-col">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{item.label}</span>
+                  <span className="text-xs font-medium text-foreground mt-0.5">{item.value}</span>
+                </div>
+              ))}
+            </div>
+            {(bid.ai_match_score != null || bid.ai_match_reason) && (
+              <div className="mt-3 pt-3 border-t border-border flex items-start gap-3">
+                {bid.ai_match_score != null && (
+                  <div className="shrink-0 flex flex-col items-center bg-primary/10 rounded-lg px-3 py-1.5">
+                    <span className="text-lg font-bold text-primary">{bid.ai_match_score}</span>
+                    <span className="text-[9px] text-muted-foreground uppercase tracking-wide">Match</span>
+                  </div>
+                )}
+                {bid.ai_match_reason && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">{bid.ai_match_reason}</p>
+                )}
+              </div>
+            )}
+            {!bid.raw_full_text && (
+              <div className="mt-1 pt-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Click <span className="font-medium text-foreground">"Fetch &amp; Analyze"</span> to download the full tender document and run AI analysis.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* AI Summary */}
           {bid.ai_summary && (
             <CollapsibleCard
-              title="AI Summary"
+              title="Tender Analysis"
               icon={<Sparkles className="w-4 h-4 text-purple-600" />}
               expanded={expandedSections.has("summary")}
               onToggle={() => toggleSection("summary")}
               gradient
             >
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                {bid.ai_summary}
-              </p>
+              <SummaryDisplay content={bid.ai_summary} />
+            </CollapsibleCard>
+          )}
+
+          {/* Bid Specification */}
+          {bid.raw_full_text && (
+            <CollapsibleCard
+              title="Bid Specification"
+              icon={<FileText className="w-4 h-4 text-sky-600" />}
+              expanded={expandedSections.has("spec")}
+              onToggle={() => toggleSection("spec")}
+              badge={<span className="text-[10px] text-muted-foreground">From tender document</span>}
+            >
+              <SpecDisplay content={bid.raw_full_text} />
             </CollapsibleCard>
           )}
 
@@ -609,13 +691,30 @@ export default function BidDetailPage() {
             </div>
           )}
 
-          {/* No analysis prompt */}
-          {!bid.ai_summary && !analyzing && (
+          {/* No spec + no analysis prompt */}
+          {!bid.raw_full_text && !bid.ai_summary && !analyzing && !fetchingDetails && (
+            <div className="bg-gradient-to-br from-sky-50 to-purple-50 dark:from-sky-950/20 dark:to-purple-950/20 border border-sky-200 dark:border-sky-800/50 rounded-xl p-6 text-center">
+              <Eye className="w-8 h-8 text-sky-600 mx-auto mb-3" />
+              <h3 className="font-semibold text-foreground mb-1">Full Specifications Not Loaded</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-4">
+                Click "Fetch &amp; Analyze" to download the complete tender document including all technical specifications, EMD, eligibility criteria, and AI analysis.
+              </p>
+              {isElectron() ? (
+                <Button onClick={handleFetchDetails} className="rounded-full px-6">
+                  <Eye className="w-4 h-4 mr-1.5" />
+                  Fetch &amp; Analyze Tender
+                </Button>
+              ) : (
+                <p className="text-xs text-amber-600 font-medium">Requires the Invio desktop app</p>
+              )}
+            </div>
+          )}
+          {bid.raw_full_text && !bid.ai_summary && !analyzing && (
             <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-6 text-center">
               <Sparkles className="w-8 h-8 text-purple-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-foreground mb-1">AI Analysis Not Run Yet</h3>
+              <h3 className="font-semibold text-foreground mb-1">Spec Loaded — Run AI Analysis</h3>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-4">
-                Run AI analysis to get a comprehensive breakdown of eligibility, requirements, document checklist, and risk assessment.
+                Tender document fetched. Run AI analysis to get eligibility, requirements, document checklist, and risk assessment.
               </p>
               <Button onClick={handleAnalyze} className="rounded-full px-6">
                 <Sparkles className="w-4 h-4 mr-1.5" />
@@ -651,6 +750,12 @@ export default function BidDetailPage() {
                   </span>
                 </div>
               ))}
+              {bid.ai_delivery_date && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Delivery By</span>
+                  <span className="font-medium text-amber-600">{bid.ai_delivery_date}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -781,44 +886,19 @@ export default function BidDetailPage() {
             </div>
           )}
 
-          {/* Risk & Evaluation */}
-          {(bid.ai_risk_assessment || bid.ai_evaluation_method) && (
+          {/* Risk Assessment */}
+          {bid.ai_risk_assessment && (
             <div className="bg-card border border-border rounded-xl p-4">
               <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
-                Risk & Evaluation
+                Risk Assessment
               </h3>
-              <div className="space-y-2.5">
-                {bid.ai_evaluation_method && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Evaluation</span>
-                    <span className="font-medium text-foreground">{bid.ai_evaluation_method}</span>
-                  </div>
-                )}
-                {bid.ai_emd_amount && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">EMD Amount</span>
-                    <span className="font-medium text-foreground">₹{bid.ai_emd_amount.toLocaleString("en-IN")}</span>
-                  </div>
-                )}
-                {bid.ai_delivery_date && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Delivery By</span>
-                    <span className="font-medium text-foreground">{bid.ai_delivery_date}</span>
-                  </div>
-                )}
-                {bid.ai_risk_assessment && (
-                  <div className="pt-1 border-t border-border">
-                    <p className="text-[10px] font-semibold text-muted-foreground mb-1">RISK</p>
-                    <p className={`text-xs font-medium ${
-                      bid.ai_risk_assessment.startsWith("Low") ? "text-emerald-600" :
-                      bid.ai_risk_assessment.startsWith("Medium") ? "text-amber-600" : "text-red-600"
-                    }`}>
-                      {bid.ai_risk_assessment}
-                    </p>
-                  </div>
-                )}
-              </div>
+              <p className={`text-xs font-medium ${
+                bid.ai_risk_assessment.startsWith("Low") ? "text-emerald-600" :
+                bid.ai_risk_assessment.startsWith("Medium") ? "text-amber-600" : "text-red-600"
+              }`}>
+                {bid.ai_risk_assessment}
+              </p>
             </div>
           )}
 
@@ -877,13 +957,13 @@ export default function BidDetailPage() {
               >
                 <Receipt className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="flex-1 font-medium text-foreground">
-                  Attach PO (Work Experience)
+                  Attach Sales Invoices (Work Experience)
                 </span>
                 <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               </button>
               {selectedPOs.size > 0 && (
                 <p className="text-[10px] text-emerald-600 ml-6 font-medium">
-                  {selectedPOs.size} PO(s) selected
+                  {selectedPOs.size} invoice(s) selected
                 </p>
               )}
             </div>
@@ -953,7 +1033,7 @@ export default function BidDetailPage() {
           <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-border p-4">
               <h3 className="text-sm font-bold text-foreground">
-                Select Purchase Orders (Work Experience Proof)
+                Select Sales Invoices (Work Experience Proof)
               </h3>
               <button
                 onClick={() => setPoModalOpen(false)}
@@ -965,26 +1045,26 @@ export default function BidDetailPage() {
             <div className="max-h-80 overflow-y-auto p-4 space-y-1.5">
               {purchaseOrders.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-8">
-                  No completed purchase orders found.
+                  No paid or sent sales invoices found. Create sales invoices from the Invoices section to use as work experience proof.
                 </p>
               ) : (
-                purchaseOrders.map((po) => (
+                purchaseOrders.map((inv) => (
                   <label
-                    key={po.id}
+                    key={inv.id}
                     className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
-                      selectedPOs.has(po.id)
+                      selectedPOs.has(inv.id)
                         ? "bg-primary/10 border border-primary/30"
                         : "hover:bg-muted border border-transparent"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedPOs.has(po.id)}
+                      checked={selectedPOs.has(inv.id)}
                       onChange={() => {
                         setSelectedPOs((prev) => {
                           const next = new Set(prev);
-                          if (next.has(po.id)) next.delete(po.id);
-                          else next.add(po.id);
+                          if (next.has(inv.id)) next.delete(inv.id);
+                          else next.add(inv.id);
                           return next;
                         });
                       }}
@@ -992,12 +1072,13 @@ export default function BidDetailPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-foreground">
-                        {po.bill_number}
-                        <span className="text-muted-foreground ml-2">{po.supplier_name}</span>
+                        {inv.invoice_number}
+                        {inv.customer_name && (
+                          <span className="text-muted-foreground ml-2 font-normal">{inv.customer_name}</span>
+                        )}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {new Date(po.bill_date).toLocaleDateString("en-IN")} •{" "}
-                        ₹{po.total?.toLocaleString("en-IN")}
+                        {new Date(inv.invoice_date).toLocaleDateString("en-IN")} • ₹{inv.total?.toLocaleString("en-IN")}
                       </p>
                     </div>
                   </label>
@@ -1006,7 +1087,7 @@ export default function BidDetailPage() {
             </div>
             <div className="border-t border-border p-4 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
-                {selectedPOs.size} selected
+                {selectedPOs.size} invoice{selectedPOs.size !== 1 ? "s" : ""} selected
               </span>
               <Button
                 onClick={() => setPoModalOpen(false)}
@@ -1020,6 +1101,97 @@ export default function BidDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Renders extracted spec text — detects [Section] headers and Key: Value pairs
+function SpecDisplay({ content }: { content: string }) {
+  const lines = content.split("\n").filter(Boolean);
+  return (
+    <div className="max-h-[500px] overflow-y-auto space-y-0.5">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return null;
+        // Section header like [Generic Parameters]
+        if (/^\[.+\]$/.test(trimmed)) {
+          return (
+            <p key={i} className="text-[11px] font-bold text-foreground mt-3 mb-1 first:mt-0">
+              {trimmed.slice(1, -1)}
+            </p>
+          );
+        }
+        // Key: value pair
+        const colonIdx = trimmed.indexOf(": ");
+        if (colonIdx > 0 && colonIdx < 60 && !trimmed.startsWith("http")) {
+          const key = trimmed.slice(0, colonIdx);
+          const val = trimmed.slice(colonIdx + 2);
+          return (
+            <div key={i} className="flex gap-2 text-[11px] py-0.5 border-b border-border/30">
+              <span className="text-muted-foreground shrink-0 w-44 truncate">{key}</span>
+              <span className="font-medium text-foreground flex-1">{val}</span>
+            </div>
+          );
+        }
+        // Pipe-separated multi-column
+        if (trimmed.includes(" | ")) {
+          const cols = trimmed.split(" | ");
+          return (
+            <div key={i} className="flex gap-3 text-[11px] py-0.5 border-b border-border/30 flex-wrap">
+              {cols.map((c, ci) => (
+                <span key={ci} className={ci === 0 ? "font-medium text-foreground" : "text-muted-foreground"}>{c}</span>
+              ))}
+            </div>
+          );
+        }
+        // Plain text
+        return (
+          <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">{trimmed}</p>
+        );
+      })}
+    </div>
+  );
+}
+
+const SECTION_LABELS: Record<string, string> = {
+  overview: "Overview",
+  items_and_specs: "Items & Specifications",
+  financial_details: "Financial Details",
+  delivery_and_logistics: "Delivery & Logistics",
+  eligibility_criteria: "Eligibility Criteria",
+  terms_and_conditions: "Terms & Conditions",
+  key_risks: "Key Risks",
+};
+
+function SummaryDisplay({ content }: { content: string }) {
+  // Try to parse as JSON (new format with sections)
+  let parsed: { summary?: string; sections?: Record<string, string> } | null = null;
+  try { parsed = JSON.parse(content); } catch {}
+
+  if (parsed?.sections && Object.keys(parsed.sections).length > 0) {
+    return (
+      <div className="space-y-4">
+        {parsed.summary && (
+          <p className="text-sm text-foreground leading-relaxed font-medium border-b border-border pb-3">
+            {parsed.summary}
+          </p>
+        )}
+        {Object.entries(parsed.sections).map(([key, value]) => {
+          if (!value || value.trim() === "N/A" || value.trim() === "null") return null;
+          const label = SECTION_LABELS[key] || key.replace(/_/g, " ");
+          return (
+            <div key={key}>
+              <p className="text-xs font-semibold text-foreground mb-1">{label}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{value}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Fallback: plain text or old markdown format
+  return (
+    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{content}</p>
   );
 }
 

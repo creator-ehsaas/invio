@@ -240,6 +240,65 @@ function gemHttpGet(url) {
   });
 }
 
+function isGemHost(hostname) {
+  return hostname.replace(/\.$/, "").toLowerCase().endsWith(".gem.gov.in");
+}
+
+function gemHttpGetBinary(url, redirectsLeft = 3) {
+  return new Promise((resolve, reject) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:" || !isGemHost(parsed.hostname)) {
+        return reject(new Error("Binary fetch blocked: not a gem.gov.in HTTPS URL"));
+      }
+      const req = https.request(
+        {
+          hostname: parsed.hostname,
+          port: parsed.port || 443,
+          path: parsed.pathname + (parsed.search || ""),
+          method: "GET",
+          headers: {
+            "User-Agent": GEM_UA,
+            "Accept": "*/*",
+            "Referer": "https://bidplus.gem.gov.in/",
+          },
+        },
+        (res) => {
+          if ((res.statusCode === 301 || res.statusCode === 302) && redirectsLeft > 0) {
+            const location = res.headers["location"];
+            if (location) {
+              // Re-validate redirect target before following
+              try {
+                const redir = new URL(location, url);
+                if (redir.protocol !== "https:" || !isGemHost(redir.hostname)) {
+                  return reject(new Error("Redirect blocked: target is not a gem.gov.in HTTPS URL"));
+                }
+                res.resume(); // discard body
+                gemHttpGetBinary(redir.href, redirectsLeft - 1).then(resolve).catch(reject);
+              } catch {
+                reject(new Error("Invalid redirect URL"));
+              }
+              return;
+            }
+          }
+          const chunks = [];
+          res.on("data", (chunk) => chunks.push(chunk));
+          res.on("end", () => resolve({
+            buffer: Buffer.concat(chunks),
+            status: res.statusCode,
+            contentType: res.headers["content-type"] || "",
+          }));
+        }
+      );
+      req.setTimeout(25000, () => { req.destroy(); reject(new Error("PDF download timeout")); });
+      req.on("error", reject);
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 function gemHttpPost(cookie, csrf, keyword, page) {
   const payload = {
     param: { searchBid: keyword, searchType: "fullText" },
@@ -282,14 +341,99 @@ function gemHttpPost(cookie, csrf, keyword, page) {
   });
 }
 
+function decodeHtmlEntities(s) {
+  return s
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+function stripTags(s) {
+  return decodeHtmlEntities(s.replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, " ").trim());
+}
+
+function htmlToText(html) {
+  // Remove scripts, styles, comments
+  let h = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+
+  const lines = [];
+
+  // Process tables into structured key: value lines
+  const tableRegex = /<table[\s\S]*?<\/table>/gi;
+  const tableMatches = [];
+  let tm;
+  while ((tm = tableRegex.exec(h)) !== null) {
+    tableMatches.push({ index: tm.index, end: tm.index + tm[0].length, text: tm[0] });
+  }
+
+  // Build a list of (position, text) segments — non-table HTML + structured table text
+  let cursor = 0;
+  for (const t of tableMatches) {
+    // Text before this table
+    if (t.index > cursor) {
+      const pre = stripTags(h.substring(cursor, t.index));
+      if (pre.trim()) lines.push(pre.trim());
+    }
+    // Convert table to structured text
+    lines.push(tableToText(t.text));
+    cursor = t.end;
+  }
+  // Text after last table
+  if (cursor < h.length) {
+    const rest = stripTags(h.substring(cursor));
+    if (rest.trim()) lines.push(rest.trim());
+  }
+
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function tableToText(tableHtml) {
+  const out = [];
+  // Extract rows
+  const rowRegex = /<tr[\s\S]*?<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRegex.exec(tableHtml)) !== null) {
+    const row = rowMatch[0];
+    const cells = [];
+    const cellRegex = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(row)) !== null) {
+      cells.push(stripTags(cellMatch[1]).trim());
+    }
+    if (cells.length === 0) continue;
+    const nonEmpty = cells.filter(Boolean);
+    if (nonEmpty.length === 0) continue;
+
+    if (cells.length === 1) {
+      // Single cell — likely a header/group label
+      const val = nonEmpty[0];
+      if (val) out.push(`\n[${val}]`);
+    } else if (cells.length === 2) {
+      // Two columns — treat as key: value pair
+      out.push(`${cells[0]}: ${cells[1]}`);
+    } else {
+      // Multi-column — join with pipes
+      out.push(nonEmpty.join(" | "));
+    }
+  }
+  return out.join("\n");
+}
+
 ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
   try {
     if (!bidUrl) return { error: "No bid URL provided" };
     // Only allow requests to GeM's domain to prevent SSRF
     try {
       const u = new URL(bidUrl);
-      if (u.protocol !== "https:" || u.hostname.replace(/\.$/, "") !== "bidplus.gem.gov.in") {
-        return { error: "Invalid host — only bidplus.gem.gov.in is allowed" };
+      if (u.protocol !== "https:" || !u.hostname.replace(/\.$/, "").endsWith(".gem.gov.in")) {
+        return { error: "Invalid host — only gem.gov.in domains are allowed" };
       }
     } catch {
       return { error: "Invalid URL" };
@@ -299,34 +443,77 @@ ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
 
     const html = res.body;
 
-    // Extract clean readable text from HTML
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<!--[\s\S]*?-->/g, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    // Convert HTML to structured readable text, preserving tables
+    const text = htmlToText(html);
 
-    // Find downloadable document links (PDFs, tender docs)
+    // Find all downloadable / spec document links
     const docLinks = [];
     const seen = new Set();
-    const linkRegex = /<a[^>]+href="([^"]*)"[^>]*>([^<]{3,80})<\/a>/gi;
+    const linkRegex = /<a[^>]+href="([^"#][^"]*)"[^>]*>([\s\S]{1,200}?)<\/a>/gi;
     let match;
+    const DOC_PATTERNS = /\.(pdf|docx?|xlsx?|zip|pptx?)/i;
+    const DOC_KEYWORDS = /download|BidDocument|showDocument|specification|Specification|corrigendum|atc|tender_doc|tenderDoc|SpecDocument|getSpec|viewDoc|attachment/i;
     while ((match = linkRegex.exec(html)) !== null) {
-      const href = match[1];
-      const label = match[2].trim();
-      if (!href || seen.has(href)) continue;
-      if (href.match(/\.(pdf|docx?|xlsx?|zip)/i) || href.includes("download") || href.includes("BidDocument") || href.includes("corrigendum")) {
+      const href = match[1].trim();
+      const label = match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().substring(0, 150);
+      if (!href || href.startsWith("javascript:") || href.startsWith("mailto:")) continue;
+      if (seen.has(href)) continue;
+      if (DOC_PATTERNS.test(href) || DOC_KEYWORDS.test(href)) {
         seen.add(href);
-        const url = href.startsWith("http") ? href : `https://bidplus.gem.gov.in${href}`;
+        const url = href.startsWith("http") ? href : `https://bidplus.gem.gov.in${href.startsWith("/") ? "" : "/"}${href}`;
         docLinks.push({ url, name: label || "Document" });
       }
     }
 
-    return { text: text.substring(0, 30000), docLinks };
+    // Parse financial values from the structured text
+    const financials = {};
+    const estPatterns = [
+      /(?:estimated\s+(?:total\s+)?(?:bid\s+)?value|bid\s+value|budget|total\s+value)[^:\d\n]{0,20}:?\s*(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i,
+      /(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)\s*(?:lakh|lac|L|crore|cr)?\s*(?:estimated|estimate|budget|value)/i,
+    ];
+    for (const pat of estPatterns) {
+      const m = text.match(pat);
+      if (m) {
+        const val = parseFloat(m[1].replace(/,/g, ""));
+        if (val > 100) { financials.estimated_value = val; break; }
+      }
+    }
+    // EMD — look for "EMD: 25000" or "Earnest Money Deposit: 25,000"
+    const emdMatch = text.match(/(?:EMD|Earnest\s+Money(?:\s+Deposit)?)\s*:?\s*(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i);
+    if (emdMatch) {
+      const val = parseFloat(emdMatch[1].replace(/,/g, ""));
+      if (val > 0) financials.emd_amount = val;
+    }
+
+    // Download PDF spec documents and extract text (only gem.gov.in HTTPS URLs)
+    const pdfLinks = docLinks.filter(l => {
+      try {
+        const u = new URL(l.url);
+        return u.protocol === "https:" && isGemHost(u.hostname) && l.url.match(/\.pdf($|\?|&)/i);
+      } catch { return false; }
+    }).slice(0, 3);
+    let pdfText = "";
+    for (const link of pdfLinks) {
+      try {
+        const pdfRes = await gemHttpGetBinary(link.url);
+        if (pdfRes.status === 200 && pdfRes.buffer.length > 500) {
+          const pdfParse = require("pdf-parse");
+          const data = await pdfParse(pdfRes.buffer);
+          if (data.text && data.text.length > 100) {
+            pdfText += `\n\n=== Specification Document: ${link.name} ===\n${data.text.substring(0, 15000)}`;
+          }
+        }
+      } catch (pdfErr) {
+        console.error(`PDF extract failed for ${link.url}:`, pdfErr.message);
+      }
+    }
+
+    return {
+      text: text.substring(0, 25000),
+      docLinks,
+      pdfText: pdfText.substring(0, 20000),
+      financials,
+    };
   } catch (err) {
     return { error: err.message || "Failed to fetch bid document" };
   }
