@@ -112,7 +112,7 @@ export default function BidsPage() {
       if (user) {
         const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
         if (userData?.business_id) {
-          const { data: cfg } = await supabase.from("gem_configs").select("keywords").eq("business_id", userData.business_id).single();
+          const { data: cfg } = await supabase.from("gem_config").select("keywords").eq("business_id", userData.business_id).single();
           keywords = cfg?.keywords ?? [];
         }
       }
