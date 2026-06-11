@@ -38,6 +38,7 @@ export interface GemBid {
   ai_evaluation_method: string | null;
   ai_emd_amount: number | null;
   ai_delivery_date: string | null;
+  ai_price_suggestion: Record<string, any> | null;
   raw_html: string | null;
   raw_full_text: string | null;
   bid_url: string | null;
@@ -77,6 +78,7 @@ export interface GemBidDocument {
   id: string;
   gem_bid_id: string;
   doc_type: GemDocType;
+  category: "specification" | "boq" | "other" | null;
   file_name: string;
   file_url: string;
   ai_analysis: string | null;
@@ -146,6 +148,88 @@ export interface AIRecommendedCategory {
   category: string;
   confidence: number;
   reasoning: string;
+}
+
+// ── Bid Participation ─────────────────────────────────────────────────────────
+export type GemParticipationStatus =
+  | "draft"
+  | "preparing"
+  | "awaiting_consent"
+  | "approved"
+  | "in_session"
+  | "awaiting_final_submit"
+  | "submitted"
+  | "failed"
+  | "cancelled";
+
+export interface GemParticipationSession {
+  id: string;
+  business_id: string;
+  bid_id: string;
+  status: GemParticipationStatus;
+  created_by: string;
+  consent_given_at: string | null;
+  consent_given_by: string | null;
+  final_submit_confirmed_at: string | null;
+  submission_ref: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GemParticipationField {
+  id: string;
+  session_id: string;
+  field_key: string;
+  field_label: string;
+  input_type: "text" | "number" | "textarea" | "boolean";
+  ai_suggested_value: string | null;
+  ai_source: string | null;
+  ai_reasoning: string | null;
+  user_value: string | null;
+  status: "suggested" | "approved" | "edited" | "rejected";
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface GemParticipationDocument {
+  id: string;
+  session_id: string;
+  source_doc_id: string | null;
+  file_name: string;
+  purpose: string | null;
+  sha256: string | null;
+  status: "proposed" | "approved" | "rejected" | "uploaded";
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface GemAuditLog {
+  id: string;
+  actor: "ai" | "user" | "system";
+  actor_user_id: string | null;
+  action: string;
+  payload: Record<string, unknown> | null;
+  payload_hash: string;
+  prev_hash: string | null;
+  created_at: string;
+}
+
+export interface GemCredsStatus {
+  encryptionAvailable: boolean;
+  hasGem: boolean;
+  gemUserId?: string | null;
+  hasGmail: boolean;
+  gmailEmail?: string | null;
+  deviceLabel?: string;
+  error?: string;
+}
+
+export interface GemParticipationEvent {
+  sessionId: string;
+  type: string;
+  payload: Record<string, unknown>;
+  ts: string;
 }
 
 // ── API response shapes ───────────────────────────────────────────────────────

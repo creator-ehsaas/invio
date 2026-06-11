@@ -242,8 +242,17 @@ li {
 }
 `;
 
+function escapeHtml(value: string | null | undefined): string {
+  return (value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   if (!url) return null;
+  if (url.startsWith("data:")) return url; // already embedded (storage fallback)
   try {
     const response = await fetch(url);
     if (!response.ok) return null;
@@ -310,24 +319,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Business profile not found" }, { status: 400 });
     }
 
-    // Check for missing required fields and return them for dynamic form
+    // Merge user-supplied form values over the stored profile, then check
+    // what is still missing. Anything missing goes back as a dynamic form.
+    const profile = {
+      name: (business.name || form_data.name || "").trim(),
+      address: (business.address || form_data.address || "").trim(),
+      gstin: (business.gstin || form_data.gstin || "").trim(),
+      pan: (business.pan || form_data.pan || "").trim(),
+      phone: business.phone || "",
+      email: business.email || "",
+    };
+    const signatoryName = (form_data.signatory_name || "").trim();
+    const signatoryDesignation = (form_data.signatory_designation || "").trim();
+
     const missingFields: { field: string; label: string; type: string }[] = [];
+    if (!profile.name) missingFields.push({ field: "name", label: "Company Name", type: "text" });
+    if (!profile.address) missingFields.push({ field: "address", label: "Company Address", type: "textarea" });
+    if (!profile.gstin && !profile.pan) missingFields.push({ field: "gstin", label: "GSTIN or PAN", type: "text" });
+    // Every document carries a signature block — the signatory must be a real person
+    if (!signatoryName) missingFields.push({ field: "signatory_name", label: "Authorized Signatory Name", type: "text" });
+    if (!signatoryDesignation) missingFields.push({ field: "signatory_designation", label: "Signatory Designation (e.g. Proprietor, Director)", type: "text" });
 
-    if (!business.name) missingFields.push({ field: "name", label: "Company Name", type: "text" });
-    if (!business.address) missingFields.push({ field: "address", label: "Company Address", type: "textarea" });
-    if (!business.gstin && !business.pan) missingFields.push({ field: "gstin", label: "GSTIN or PAN", type: "text" });
-
-    if (doc_type === "cover_letter" || doc_type === "undertaking") {
-      if (!form_data.signatory_name && !business.name) {
-        missingFields.push({ field: "signatory_name", label: "Authorized Signatory Name", type: "text" });
-      }
-      if (!form_data.signatory_designation) {
-        missingFields.push({ field: "signatory_designation", label: "Signatory Designation", type: "text" });
-      }
-    }
-
-    // Return missing fields for frontend to collect via dynamic form
-    if (missingFields.length > 0 && Object.keys(form_data).length === 0) {
+    if (missingFields.length > 0) {
       return NextResponse.json({
         requires_input: true,
         missing_fields: missingFields,
@@ -362,22 +375,28 @@ export async function POST(request: NextRequest) {
       purchaseOrders = invs || [];
     }
 
+    // A work experience certificate must only reference real invoices —
+    // never let the AI invent past orders for a government submission.
+    if (doc_type === "experience_cert" && purchaseOrders.length === 0) {
+      return NextResponse.json(
+        { error: "No paid or sent sales invoices found. Attach sales invoices (Work Experience) or create invoices first — experience certificates can only be generated from real records." },
+        { status: 422 }
+      );
+    }
+
     // Build document components
     const docDate = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
     const bidIdSlug = bid.gem_bid_id.replace(/\//g, "_");
     const refNumber = `INV/${doc_type.toUpperCase()}/${new Date().getFullYear()}/${Math.floor(Math.random() * 9000) + 1000}`;
 
-    const signatoryName = form_data.signatory_name || "Authorized Signatory";
-    const signatoryDesignation = form_data.signatory_designation || "Proprietor / Director";
-
     // Generate letterhead HTML
     const letterheadHtml = `
       <div class="letterhead">
         ${logoBase64 ? `<div class="logo-container"><img src="${logoBase64}" alt="Company Logo" /></div>` : ""}
-        <p class="company-name">${business.name}</p>
-        ${business.address ? `<p class="company-details">${business.address}</p>` : ""}
-        ${business.phone || business.email ? `<p class="company-details">${[business.phone, business.email].filter(Boolean).join(" | ")}</p>` : ""}
-        ${business.gstin || business.pan ? `<p class="gstin-pan">${business.gstin ? `GSTIN: ${business.gstin}` : ""}${business.gstin && business.pan ? " | " : ""}${business.pan ? `PAN: ${business.pan}` : ""}</p>` : ""}
+        <p class="company-name">${escapeHtml(profile.name)}</p>
+        ${profile.address ? `<p class="company-details">${escapeHtml(profile.address)}</p>` : ""}
+        ${profile.phone || profile.email ? `<p class="company-details">${[profile.phone, profile.email].filter(Boolean).map(escapeHtml).join(" | ")}</p>` : ""}
+        ${profile.gstin || profile.pan ? `<p class="gstin-pan">${profile.gstin ? `GSTIN: ${escapeHtml(profile.gstin)}` : ""}${profile.gstin && profile.pan ? " | " : ""}${profile.pan ? `PAN: ${escapeHtml(profile.pan)}` : ""}</p>` : ""}
       </div>
     `;
 
@@ -387,7 +406,7 @@ export async function POST(request: NextRequest) {
         <div class="signature-area">
           <div class="signature-left">
             <div class="date-place">
-              <span><strong>Place:</strong> ${business.address?.split(",").pop()?.trim() || "_______________"}</span>
+              <span><strong>Place:</strong> ${escapeHtml(profile.address.split(",").pop()?.trim()) || "_______________"}</span>
               <span><strong>Date:</strong> ${docDate}</span>
             </div>
           </div>
@@ -397,21 +416,21 @@ export async function POST(request: NextRequest) {
             </div>
             <br/>
             ${signatureBase64 ? `<img src="${signatureBase64}" alt="Signature" class="signature-image" />` : '<div class="signature-line"></div>'}
-            <p class="signatory-name">${signatoryName}</p>
-            <p class="signatory-designation">${signatoryDesignation}</p>
-            <p class="signatory-designation">For ${business.name}</p>
+            <p class="signatory-name">${escapeHtml(signatoryName)}</p>
+            <p class="signatory-designation">${escapeHtml(signatoryDesignation)}</p>
+            <p class="signatory-designation">For ${escapeHtml(profile.name)}</p>
           </div>
         </div>
       </div>
     `;
 
     const companyInfo = `
-Company Name: ${business.name}
-GSTIN: ${business.gstin || "N/A"}
-PAN: ${business.pan || "N/A"}
-Address: ${business.address || "N/A"}
-Phone: ${business.phone || "N/A"}
-Email: ${business.email || "N/A"}
+Company Name: ${profile.name}
+GSTIN: ${profile.gstin || "N/A"}
+PAN: ${profile.pan || "N/A"}
+Address: ${profile.address || "N/A"}
+Phone: ${profile.phone || "N/A"}
+Email: ${profile.email || "N/A"}
 Authorized Signatory: ${signatoryName}
 Designation: ${signatoryDesignation}
     `.trim();
@@ -504,7 +523,9 @@ Reference Number: ${refNumber}
 Date: ${docDate}
 
 Past supply/service invoices (proof of prior experience):
-${poList || "No invoices provided. Create 3-4 placeholder rows with realistic sample data for a typical government supplier."}
+${poList}
+
+IMPORTANT: Use ONLY the invoices listed above. Do NOT invent, estimate, or add any additional orders, clients, or values.
 
 Generate ONLY the content including:
 1. Title: "CERTIFICATE OF PREVIOUS WORK EXPERIENCE" (use <h1>)
@@ -602,7 +623,6 @@ Return ONLY the HTML content, no code fences.`;
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    let fileUrl = "";
     const storagePath = `${businessId}/${bid_id}/${fileName}`;
     const fileBuffer = Buffer.from(htmlContent, "utf-8");
 
@@ -610,39 +630,33 @@ Return ONLY the HTML content, no code fences.`;
       .from("gem-documents")
       .upload(storagePath, fileBuffer, { contentType: "application/msword", upsert: true });
 
+    // Only record the document if it actually exists in storage — the bucket
+    // is private, so later downloads go through /api/gem-scraper/download.
+    let docRecord: { id: string } | null = null;
     if (!uploadError) {
-      const { data: urlData } = serviceSupabase.storage
-        .from("gem-documents")
-        .getPublicUrl(storagePath);
-      fileUrl = urlData?.publicUrl || storagePath;
+      const { data, error: docError } = await serviceSupabase
+        .from("gem_bid_documents")
+        .insert({
+          gem_bid_id: bid_id,
+          doc_type,
+          file_name: fileName,
+          file_url: storagePath,
+          is_generated: true,
+        })
+        .select("id")
+        .single();
+      if (docError) console.error("Doc record insert error:", docError);
+      docRecord = data;
     } else {
       console.warn("Storage upload failed:", uploadError.message);
-      const b64 = Buffer.from(htmlContent, "utf-8").toString("base64");
-      fileUrl = `data:application/msword;base64,${b64}`;
-    }
-
-    // Save document record
-    const { data: docRecord, error: docError } = await serviceSupabase
-      .from("gem_bid_documents")
-      .insert({
-        gem_bid_id: bid_id,
-        doc_type,
-        file_name: fileName,
-        file_url: uploadError ? `data:generated:${doc_type}` : storagePath,
-        is_generated: true,
-      })
-      .select()
-      .single();
-
-    if (docError) {
-      console.error("Doc record insert error:", docError);
     }
 
     return NextResponse.json({
       doc_id: docRecord?.id || null,
       doc_type,
       file_name: fileName,
-      file_url: fileUrl,
+      saved: !uploadError,
+      warning: uploadError ? "Document generated but could not be saved for later download." : undefined,
       content: htmlContent,
     });
   } catch (error: any) {

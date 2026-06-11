@@ -9,44 +9,51 @@ import { aiChat } from "@/lib/ai-client";
  * Body: { bid_id: string }
  */
 
-const TENDER_ANALYSIS_PROMPT = `You are an expert Indian government procurement analyst.
-Analyze the GeM (Government e-Marketplace) tender document thoroughly. A business owner's bid depends on your accuracy.
+const TENDER_ANALYSIS_PROMPT = `You are an expert Indian government procurement analyst specializing in GeM (Government e-Marketplace) tenders.
+Analyze the tender document THOROUGHLY. Extract EVERY specification detail. A business owner's bid success depends on your accuracy.
 
-Return ONLY valid JSON. CRITICAL RULE: All string values must be single-line — use a space instead of a newline. Do NOT include literal newline characters inside any string value.
+IMPORTANT: The tender may include SPECIFICATION DOCUMENTS (marked with === SPECIFICATION: ===). These contain CRITICAL technical details that MUST be extracted. Pay special attention to:
+- Item descriptions, makes, models, part numbers
+- Technical parameters (dimensions, capacity, power, materials)
+- Quality standards (BIS, ISO, NABL certifications)
+- Testing requirements and acceptance criteria
+- Brand/make restrictions or equivalents allowed
+
+Return ONLY valid JSON. CRITICAL: All string values must be single-line — use a space instead of newlines. Do NOT include literal newline characters inside any string value.
 
 {
-  "summary": "2-3 sentence plain-text executive overview of this tender. What is being purchased, from whom, estimated value, and closing date.",
+  "summary": "2-3 sentence executive overview: what is being purchased, buyer, estimated value, key specs, and deadline.",
   "sections": {
-    "overview": "Single paragraph: what is being procured, the buyer department, purpose, and scope.",
-    "items_and_specs": "Single paragraph: exact items or services, quantities, units, technical specifications, brand or make requirements, quality standards, certifications required for the product.",
-    "financial_details": "Single paragraph: estimated/budget value in rupees, EMD amount, performance security percentage, payment terms (advance, on delivery, milestone), price variation clause if any.",
-    "delivery_and_logistics": "Single paragraph: delivery location(s), delivery period in days/weeks from order, installation or commissioning requirements, FOB/CIF terms, packing requirements.",
-    "eligibility_criteria": "Single paragraph: minimum annual turnover, years of experience, MSME/OEM/NSIC registration requirements, prior supply experience requirements, financial criteria.",
-    "terms_and_conditions": "Single paragraph: warranty period, AMC requirements, after-sales service obligations, penalties for delay (LD clause), inspection and testing requirements, rejection policy.",
-    "key_risks": "Single paragraph: any tight deadlines, strict penalty clauses, unusual technical requirements, high EMD, short delivery period, or anything that makes this bid risky or challenging."
+    "overview": "Detailed paragraph: what is being procured, buyer department, organization, purpose, project context if mentioned, and overall scope.",
+    "items_and_specs": "DETAILED paragraph: exact items/services with quantities and units. Include ALL technical specifications: dimensions, capacity, power ratings, materials, colors, grades, makes/models allowed, part numbers, BIS/ISO standards required, testing certifications. This is the MOST IMPORTANT section - extract every specification detail from both the main document AND the specification PDFs.",
+    "financial_details": "Paragraph: estimated/budget value (exact figure in rupees), EMD amount and type (percentage or fixed), performance security percentage, payment terms (advance percentage, milestone payments, on delivery), price variation clause, GST treatment.",
+    "delivery_and_logistics": "Paragraph: ALL delivery locations with complete addresses, delivery period in days/weeks from PO date, installation/commissioning requirements, training requirements, FOB/FOR/CIF terms, packing specifications, transportation responsibility.",
+    "eligibility_criteria": "Paragraph: minimum annual turnover (last 3 years), years of business experience required, MSME/Startup/OEM/NSIC registration requirements, prior supply experience (quantity and value), similar order completion certificates needed, geographical restrictions, technical capability requirements.",
+    "terms_and_conditions": "Paragraph: warranty period and scope, AMC terms if any, after-sales service obligations, spare parts availability, penalties for delay (LD clause with percentage and cap), inspection procedure, testing at site, rejection and replacement policy, dispute resolution.",
+    "key_risks": "Paragraph: identify ALL risks - tight deadlines, high EMD, strict LD clauses, unusual specs, single-brand requirement, complex technical requirements, remote delivery locations, short delivery period, high penalty caps, unclear specifications."
   },
   "eligibility": {
     "eligible": true,
     "confidence": 75,
-    "reasons": ["reason 1", "reason 2"],
-    "missing_docs": ["missing doc 1"],
-    "missing_criteria": ["missing criteria 1"]
+    "reasons": ["Concrete reasons comparing THIS tender's stated criteria against OUR COMPANY PROFILE, quoting actual figures"],
+    "missing_docs": ["Exact document names THIS tender demands that the company profile shows no evidence of having; [] if none"],
+    "missing_criteria": ["Specific failed criteria WITH NUMBERS, e.g. 'Tender requires ₹50 lakh average annual turnover; company profile shows ₹12 lakh'; [] if none"]
   },
   "requirements": [
     {
       "category": "Technical",
-      "title": "Short title",
-      "description": "Full description on one line",
+      "title": "Short descriptive title",
+      "description": "Complete requirement with all details - specs, standards, certifications mentioned",
       "mandatory": true
     }
   ],
   "doc_checklist": [
     {
-      "doc_name": "Document Name",
+      "doc_name": "Exact Document Name as mentioned in tender",
       "doc_type": "mandatory",
-      "description": "What this document should contain, on one line",
+      "description": "What this document should contain, format requirements",
       "can_generate": true,
-      "notes": "Special instructions if any"
+      "notes": "Any special instructions - notarization, attestation, format"
     }
   ],
   "key_dates": {
@@ -57,22 +64,47 @@ Return ONLY valid JSON. CRITICAL RULE: All string values must be single-line —
   "financials": {
     "estimated_value": 500000,
     "emd_amount": 10000,
-    "performance_security_percent": 3
+    "performance_security_percent": 3,
+    "payment_terms": "Payment terms summary"
   },
+  "item_details": [
+    {
+      "item_name": "Item or service name",
+      "quantity": 100,
+      "unit": "Nos/Kg/Ltr/Set",
+      "specifications": "All technical specs for this item",
+      "make_model": "Allowed makes/models or 'Any' if not specified",
+      "unit_price_estimate": null
+    }
+  ],
   "evaluation_method": "L1",
-  "risk_assessment": "Low - standard procurement with clear specifications and reasonable timeline."
+  "risk_assessment": "Risk level (Low/Medium/High) with specific reasons based on the tender requirements."
 }
 
 RULES:
 - category must be exactly one of: Technical, Financial, Documentation, Delivery, Penalty, Compliance
 - doc_type must be exactly one of: mandatory, optional, conditional
 - evaluation_method must be exactly one of: L1, QCBS, Technical-Only, Other
-- Extract ALL requirements — do not skip any.
-- Include ALL documents required for submission in doc_checklist.
-- can_generate=true for: Cover Letters, Undertakings, Self-Declarations, Compliance Matrices, Authorization Letters.
-- can_generate=false for: Registration Certificates, Financial Statements, OEM Authorizations, Test Reports.
-- Use null for unavailable information (not "N/A" or empty string in numeric fields).
-- NEVER put a literal newline inside any string value.`;
+- Extract ALL requirements from BOTH main tender AND specification documents — do not skip any
+- Extract ALL items with their individual specifications in item_details array
+- Include ALL documents required for submission in doc_checklist
+- can_generate=true for: Cover Letters, Undertakings, Self-Declarations, Compliance Matrices, Authorization Letters, Technical Compliance Statements
+- can_generate=false for: Registration Certificates, Financial Statements, OEM Authorizations, Test Reports, Experience Certificates from third parties, Bank Guarantees
+- Use null for unavailable information (not "N/A" or empty string in numeric fields)
+- NEVER put a literal newline inside any string value
+- For items_and_specs: BE EXHAUSTIVE - this section should capture every technical detail that a bidder needs to know
+
+CRITICAL — NO FABRICATION:
+- financials.estimated_value: extract ONLY a figure explicitly stated in the tender text. If the tender does not state it, use null. NEVER estimate, compute, derive, or guess it — a fabricated figure leads to a wrong bid and changes between runs.
+- financials.emd_amount and performance_security_percent: same rule — stated figure or null.
+- key_dates: use only dates printed in the document; never infer.
+- unit_price_estimate in item_details: null unless a unit rate is printed in the document.
+- For any section where the document genuinely contains no information, write exactly "Not specified in the tender document." — do not pad with generic assumptions.
+
+ELIGIBILITY MUST BE SPECIFIC:
+- Compare the tender's stated eligibility criteria against the OUR COMPANY PROFILE section provided after the tender text. Every reason, missing document, and missing criterion must name something concrete from THIS tender (a document name, a turnover figure, a certification, an experience requirement).
+- If the tender states no restrictive eligibility criteria, set eligible=true, and reasons to ["No restrictive eligibility criteria stated in the tender"].
+- NEVER output generic placeholder text such as "Specific documents required for the tender" or "Specific criteria that may disqualify". If you have nothing concrete to list, return an empty array [].`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -111,11 +143,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Bid not found" }, { status: 404 });
     }
 
+    // Remember the pre-analysis status so a failure never strands the bid
+    // in "analyzing" or clobbers a user-set status like "shortlisted".
+    const prevStatus = bid.status === "analyzing" ? "new" : bid.status;
+
     // Mark as analyzing
     await supabase
       .from("gem_bids")
       .update({ status: "analyzing" })
       .eq("id", bid_id);
+
+    try {
 
     // Fetch any tender documents for this bid
     const { data: documents } = await supabase
@@ -124,37 +162,10 @@ export async function POST(request: NextRequest) {
       .eq("gem_bid_id", bid_id)
       .eq("is_generated", false);
 
-    let tenderText = "";
-
-    // Extract text from tender documents (PDFs)
-    if (documents && documents.length > 0) {
-      for (const doc of documents) {
-        try {
-          // Download the file from Supabase Storage
-          const { data: fileData } = await supabase.storage
-            .from("gem-documents")
-            .download(doc.file_url);
-
-          if (fileData) {
-            const buffer = Buffer.from(await fileData.arrayBuffer());
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-              const pdfData = await pdfParse(buffer);
-              tenderText += `\n\n--- Document: ${doc.file_name} ---\n${pdfData.text}`;
-            } catch (pdfErr) {
-              console.error(`PDF parse error for ${doc.file_name}:`, pdfErr);
-            }
-          }
-        } catch (docErr) {
-          console.error(`Failed to parse document ${doc.file_name}:`, docErr);
-        }
-      }
-    }
-
-    // If no documents, use the fetched full text or bid metadata for analysis
-    if (!tenderText.trim()) {
-      tenderText = `
+    // Always start from bid metadata, then layer in the fetched tender
+    // content (which already includes extracted spec PDF text) and any
+    // storage-hosted tender PDFs.
+    let tenderText = `
 Bid Number: ${bid.gem_bid_id}
 Title: ${bid.title}
 Department: ${bid.department || "N/A"}
@@ -165,50 +176,92 @@ Estimated Value: ₹${bid.estimated_value || "N/A"}
 Start Date: ${bid.start_date || "N/A"}
 End Date: ${bid.end_date || "N/A"}
 Bid Type: ${bid.bid_type || "N/A"}
-      `.trim();
+    `.trim();
 
-      if (bid.raw_full_text) {
-        tenderText += `\n\n--- Fetched Tender Content ---\n${bid.raw_full_text.substring(0, 20000)}`;
+    if (bid.raw_full_text) {
+      // Send more content to AI - specs are crucial
+      tenderText += `\n\n--- Fetched Tender Content (includes specification documents) ---\n${bid.raw_full_text.substring(0, 70000)}`;
+    }
+
+    // External tender links (https://...) can't be downloaded from storage —
+    // their text is already in raw_full_text. Only parse storage-hosted PDFs.
+    const storageDocs = (documents || []).filter((d) => !d.file_url.startsWith("http"));
+    for (const doc of storageDocs) {
+      try {
+        const { data: fileData } = await supabase.storage
+          .from("gem-documents")
+          .download(doc.file_url);
+
+        if (fileData) {
+          const buffer = Buffer.from(await fileData.arrayBuffer());
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+          const pdfData = await pdfParse(buffer);
+          if (pdfData.text?.trim()) {
+            tenderText += `\n\n--- Document: ${doc.file_name} ---\n${pdfData.text.substring(0, 15000)}`;
+          }
+        }
+      } catch (docErr) {
+        console.error(`Failed to parse document ${doc.file_name}:`, docErr);
       }
     }
 
-    // Fetch business profile for cross-referencing
-    const { data: business } = await supabase
-      .from("businesses")
-      .select("name, gstin, pan, address, phone, email")
-      .eq("id", userData.business_id)
-      .single();
+    // Fetch business + GeM capability profile for the eligibility comparison
+    const [{ data: business }, { data: gemProfile }, { data: recentSales }] = await Promise.all([
+      supabase
+        .from("businesses")
+        .select("name, gstin, pan, address, phone, email")
+        .eq("id", userData.business_id)
+        .single(),
+      supabase
+        .from("gem_business_profile")
+        .select("*")
+        .eq("business_id", userData.business_id)
+        .maybeSingle(),
+      supabase
+        .from("invoices")
+        .select("total")
+        .eq("business_id", userData.business_id)
+        .in("status", ["paid", "sent"])
+        .order("invoice_date", { ascending: false })
+        .limit(20),
+    ]);
 
-    // Fetch recent completed purchase orders for experience assessment
-    const { data: recentPOs } = await supabase
-      .from("purchase_invoices")
-      .select("bill_number, bill_date, total, supplier_name")
-      .eq("business_id", userData.business_id)
-      .eq("status", "paid")
-      .order("bill_date", { ascending: false })
-      .limit(10);
+    const turnovers = [gemProfile?.turnover_fy1, gemProfile?.turnover_fy2, gemProfile?.turnover_fy3]
+      .filter((t: any) => t != null)
+      .map((t: any) => `₹${Number(t).toLocaleString("en-IN")}`);
 
     const businessContext = business
-      ? `\n\n--- Our Company Profile ---
+      ? `\n\n--- OUR COMPANY PROFILE (compare eligibility against this) ---
 Company: ${business.name}
 GSTIN: ${business.gstin || "Not registered"}
 PAN: ${business.pan || "Not available"}
 Address: ${business.address || "Not available"}
-Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?.reduce((s: number, p: any) => s + p.total, 0)?.toLocaleString("en-IN") || "0"})`
+MSME Category: ${gemProfile?.msme_category || "Not registered as MSME"}
+Udyam Number: ${gemProfile?.udyam_number || "Not available"}
+Years in Business: ${gemProfile?.years_in_business ?? "Unknown"}
+Annual Turnover (last 3 FY): ${turnovers.length ? turnovers.join(", ") : "Not recorded"}
+Certifications: ${gemProfile?.certifications?.length ? gemProfile.certifications.join(", ") : "None recorded"}
+GeM Seller Registered: ${gemProfile?.gem_seller_registered ? `Yes (${gemProfile.gem_seller_id || "ID not recorded"})` : "Not recorded"}
+Known Eligibility Gaps: ${gemProfile?.ai_eligibility_gaps?.length ? gemProfile.ai_eligibility_gaps.join("; ") : "None recorded"}
+Completed Sales Orders: ${recentSales?.length || 0} recent (Total value: ₹${recentSales?.reduce((s: number, p: any) => s + (p.total || 0), 0)?.toLocaleString("en-IN") || "0"})`
       : "";
 
-    // Send to AI for deep analysis
+    // Send to AI for deep analysis - use larger context for comprehensive spec extraction
     const rawResult = await aiChat(
       [
         {
           role: "user",
-          content: `${TENDER_ANALYSIS_PROMPT}\n\n--- TENDER DOCUMENT TEXT ---\n${tenderText.substring(0, 25000)}${businessContext}`,
+          content: `${TENDER_ANALYSIS_PROMPT}\n\n--- TENDER DOCUMENT TEXT ---\n${tenderText.substring(0, 78000)}${businessContext}`,
         },
       ],
       {
         tier: "enhanced",
-        temperature: 0.15,
-        maxTokens: 4096,
+        // Extraction must be reproducible: same tender → same analysis
+        temperature: 0,
+        seed: 42,
+        jsonMode: true,
+        maxTokens: 8000,
       }
     );
 
@@ -218,7 +271,7 @@ Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?
     if (!analysis) {
       await supabase
         .from("gem_bids")
-        .update({ status: "new" })
+        .update({ status: prevStatus })
         .eq("id", bid_id);
 
       return NextResponse.json(
@@ -227,10 +280,24 @@ Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?
       );
     }
 
-    // Store summary + detailed sections as JSON in ai_summary field
+    // Strip placeholder echoes — generic schema-example strings must never
+    // reach the UI; an empty array renders better than fake specificity.
+    const PLACEHOLDER_RE = /^(specific|generic|typical|example|placeholder|clear reason|reason \d|criterion|document that|criteria that)/i;
+    const cleanList = (arr: unknown): string[] =>
+      Array.isArray(arr)
+        ? arr.filter((s): s is string => typeof s === "string" && !!s.trim() && !PLACEHOLDER_RE.test(s.trim()))
+        : [];
+    if (analysis.eligibility) {
+      analysis.eligibility.reasons = cleanList(analysis.eligibility.reasons);
+      analysis.eligibility.missing_docs = cleanList(analysis.eligibility.missing_docs);
+      analysis.eligibility.missing_criteria = cleanList(analysis.eligibility.missing_criteria);
+    }
+
+    // Store summary + detailed sections + item details as JSON in ai_summary field
     const summaryPayload = JSON.stringify({
       summary: analysis.summary || "",
       sections: analysis.sections || {},
+      item_details: analysis.item_details || [],
     });
 
     // Update estimated_value / emd if AI found them and DB doesn't have them
@@ -238,7 +305,9 @@ Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?
     if (analysis.financials?.estimated_value && !bid.estimated_value) {
       financialUpdates.estimated_value = analysis.financials.estimated_value;
     }
-    if (analysis.financials?.emd_amount) {
+    // Don't let the AI's guess overwrite an EMD already extracted from the
+    // actual tender document
+    if (analysis.financials?.emd_amount && !bid.ai_emd_amount) {
       financialUpdates.ai_emd_amount = analysis.financials.emd_amount;
     }
 
@@ -286,6 +355,15 @@ Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?
       evaluation_method: analysis.evaluation_method,
       risk_assessment: analysis.risk_assessment,
     });
+
+    } catch (innerErr) {
+      // Restore the pre-analysis status so the bid isn't stuck in "analyzing"
+      await supabase
+        .from("gem_bids")
+        .update({ status: prevStatus })
+        .eq("id", bid_id);
+      throw innerErr;
+    }
   } catch (error: any) {
     console.error("GeM analyze error:", error);
     return NextResponse.json(
@@ -293,15 +371,6 @@ Recent Completed Orders: ${recentPOs?.length || 0} (Total value: ₹${recentPOs?
       { status: 500 }
     );
   }
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 // Repair literal newlines/tabs that AI puts inside JSON string values

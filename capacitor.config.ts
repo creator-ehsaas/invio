@@ -35,9 +35,9 @@ const config: CapacitorConfig = {
     },
   },
   android: {
-    allowMixedContent: true,
+    allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: isDev, // Disable in production
   },
   ios: {
     contentInset: 'automatic',

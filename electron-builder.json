@@ -27,9 +27,7 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Invio",
-    "installerSidebar": "installer-assets/welcome.bmp",
-    "installerHeader": "installer-assets/header.bmp",
-    "license": null
+"license": null
   },
   "mac": {
     "target": ["dmg", "zip"],

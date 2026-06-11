@@ -25,6 +25,17 @@ interface AIOptions {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
+  /**
+   * Fixed sampling seed. Combine with temperature: 0 for extraction tasks so
+   * the same input always produces the same output (e.g. estimated values
+   * must not change between runs on the same tender).
+   */
+  seed?: number;
+  /**
+   * Constrain output to valid JSON (provider-enforced). The prompt must
+   * mention JSON and the root must be a JSON object (not a bare array).
+   */
+  jsonMode?: boolean;
 }
 
 /**
@@ -32,7 +43,7 @@ interface AIOptions {
  * Pass tier: "enhanced" for Pro-plan features (complex analysis, better reasoning).
  */
 export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): Promise<string> {
-  const { tier = "standard", temperature = 0.3, maxTokens = 1024, systemPrompt } = options;
+  const { tier = "standard", temperature = 0.3, maxTokens = 1024, systemPrompt, seed, jsonMode } = options;
 
   // Enhanced tier uses the most capable available model
   // When @anthropic-ai/sdk is installed and ANTHROPIC_API_KEY set,
@@ -45,14 +56,29 @@ export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): 
     ? [{ role: "system", content: systemPrompt }, ...messages]
     : messages;
 
-  const completion = await groq.chat.completions.create({
+  const params = {
     model,
     messages: allMessages,
     temperature,
     max_tokens: maxTokens,
-  });
+    ...(seed != null ? { seed } : {}),
+  };
 
-  return completion.choices[0]?.message?.content?.trim() || "";
+  try {
+    const completion = await groq.chat.completions.create({
+      ...params,
+      ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
+    });
+    return completion.choices[0]?.message?.content?.trim() || "";
+  } catch (err) {
+    // JSON mode can fail validation on very long outputs — fall back to a
+    // plain completion; callers already have tolerant JSON parsers.
+    if (jsonMode) {
+      const completion = await groq.chat.completions.create(params);
+      return completion.choices[0]?.message?.content?.trim() || "";
+    }
+    throw err;
+  }
 }
 
 /**

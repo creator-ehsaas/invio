@@ -67,23 +67,29 @@ Gaps: ${(profile.ai_eligibility_gaps || []).join("; ") || "none"}`.trim();
 ${profileSummary}
 
 Score each bid (0-100) for fit. 90-100=perfect, 70-89=good, 50-69=partial, 0-49=poor.
+Base scores ONLY on the profile and bid facts above — do not assume capabilities the profile does not state.
 
 ${bidsText}
 
-Return ONLY JSON array:
-[{"id":"uuid","score":85,"reason":"one line reason"}]`;
+Return ONLY JSON:
+{"scores":[{"id":"uuid","score":85,"reason":"one line reason"}]}`;
 
       const raw = await aiChat([{ role: "user", content: prompt }], {
         tier: "standard",
-        temperature: 0.1,
-        maxTokens: 1024,
+        // Same profile + same bids must always score the same
+        temperature: 0,
+        seed: 42,
+        jsonMode: true,
+        maxTokens: 1500,
       });
 
       let scores: { id: string; score: number; reason: string }[];
       try {
         const cleaned = raw.replace(/^```json?\s*/im, "").replace(/\n?```\s*$/im, "").trim();
-        const match = cleaned.match(/\[[\s\S]*\]/);
-        scores = JSON.parse(match ? match[0] : cleaned);
+        const objMatch = cleaned.match(/\{[\s\S]*\}/);
+        const parsed = JSON.parse(objMatch ? objMatch[0] : cleaned);
+        scores = Array.isArray(parsed) ? parsed : parsed.scores;
+        if (!Array.isArray(scores)) continue;
       } catch {
         continue;
       }

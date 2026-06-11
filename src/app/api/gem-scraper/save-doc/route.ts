@@ -16,12 +16,13 @@ export async function POST(request: NextRequest) {
     if (!userData?.business_id) return NextResponse.json({ error: "No business" }, { status: 400 });
 
     const body = await request.json();
-    const { bid_id, text, doc_links, pdfText, financials } = body as {
+    const { bid_id, text, doc_links, pdfText, financials, specDocs } = body as {
       bid_id: string;
       text: string;
-      doc_links: { url: string; name: string }[];
+      doc_links: { url: string; name: string; category?: string }[];
       pdfText?: string;
       financials?: { estimated_value?: number; emd_amount?: number };
+      specDocs?: { name: string; category: string; url: string; textLength: number }[];
     };
 
     if (!bid_id) return NextResponse.json({ error: "bid_id required" }, { status: 400 });
@@ -45,7 +46,8 @@ export async function POST(request: NextRequest) {
 
     if (combinedText) {
       const updateData: Record<string, any> = {
-        raw_full_text: combinedText.substring(0, 60000),
+        // 25k page text + 60k crawled document text — keep all of it
+        raw_full_text: combinedText.substring(0, 90000),
         updated_at: new Date().toISOString(),
       };
 
@@ -66,27 +68,41 @@ export async function POST(request: NextRequest) {
 
     // Save discovered document links as gem_bid_documents records
     if (doc_links?.length) {
-      for (const link of doc_links.slice(0, 10)) {
+      for (const link of doc_links.slice(0, 25)) {
         const { data: existing } = await serviceSupabase
           .from("gem_bid_documents")
-          .select("id")
+          .select("id, category")
           .eq("gem_bid_id", bid_id)
           .eq("file_url", link.url)
-          .single();
+          .maybeSingle();
 
         if (!existing) {
           await serviceSupabase.from("gem_bid_documents").insert({
             gem_bid_id: bid_id,
             doc_type: "tender_document",
+            category: link.category || "other",
             file_name: link.name.substring(0, 200),
             file_url: link.url,
             is_generated: false,
           });
+        } else if (link.category && existing.category !== link.category) {
+          await serviceSupabase
+            .from("gem_bid_documents")
+            .update({ category: link.category })
+            .eq("id", existing.id);
         }
       }
     }
 
-    return NextResponse.json({ ok: true });
+    // Log spec doc extraction stats
+    const specDocCount = specDocs?.length || 0;
+    const specCharCount = specDocs?.reduce((sum, d) => sum + d.textLength, 0) || 0;
+
+    return NextResponse.json({
+      ok: true,
+      spec_docs_extracted: specDocCount,
+      spec_text_chars: specCharCount,
+    });
   } catch (err: any) {
     console.error("save-doc error:", err);
     return NextResponse.json({ error: err.message || "Failed" }, { status: 500 });

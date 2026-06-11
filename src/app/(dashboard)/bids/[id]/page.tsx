@@ -76,6 +76,10 @@ export default function BidDetailPage() {
   const [selectedPOs, setSelectedPOs] = useState<Set<string>>(new Set());
   const [priceSuggestion, setPriceSuggestion] = useState<any | null>(null);
   const [fetchingPrice, setFetchingPrice] = useState(false);
+  const [docFormModalOpen, setDocFormModalOpen] = useState(false);
+  const [docFormFields, setDocFormFields] = useState<{ field: string; label: string; type: string }[]>([]);
+  const [docFormValues, setDocFormValues] = useState<Record<string, string>>({});
+  const [pendingDocType, setPendingDocType] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBid();
@@ -96,6 +100,8 @@ export default function BidDetailPage() {
     }
 
     setBid(bidData);
+    // Show the stored price suggestion — it only changes when regenerated
+    if (bidData.ai_price_suggestion) setPriceSuggestion(bidData.ai_price_suggestion);
 
     // Fetch documents
     const { data: docs } = await supabase
@@ -119,11 +125,35 @@ export default function BidDetailPage() {
       });
       if (res.ok) {
         await fetchBid();
+        toast.success("AI analysis complete.");
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "AI analysis failed. Try again.");
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.message || "AI analysis failed.");
     }
     setAnalyzing(false);
+  };
+
+  // Resolve a document to a downloadable URL — storage-hosted files live in a
+  // private bucket, so the download API issues a short-lived signed URL.
+  const handleOpenDocument = async (doc: GemBidDocument) => {
+    if (doc.file_url.startsWith("http")) {
+      openExternal(doc.file_url);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/gem-scraper/download?doc_id=${doc.id}`);
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        toast.error(data.error || "Could not download document");
+        return;
+      }
+      openExternal(data.url);
+    } catch (err: any) {
+      toast.error(err.message || "Could not download document");
+    }
   };
 
   const handleFetchDetails = async () => {
@@ -150,11 +180,17 @@ export default function BidDetailPage() {
           doc_links: result.docLinks,
           pdfText: result.pdfText,
           financials: result.financials,
+          specDocs: result.specDocs,
         }),
       });
 
       await fetchBid();
-      toast.success("Bid document fetched. Running AI analysis...");
+      const docCount = result.specDocs?.length || 0;
+      toast.success(
+        docCount > 0
+          ? `Fetched bid + ${docCount} linked document(s) (${result.crawl?.discovered || docCount} discovered). Running AI analysis...`
+          : "Bid document fetched. Running AI analysis..."
+      );
 
       // Auto-trigger analyze with the fresh content
       setAnalyzing(true);
@@ -166,6 +202,9 @@ export default function BidDetailPage() {
       if (analyzeRes.ok) {
         await fetchBid();
         toast.success("AI analysis complete.");
+      } else {
+        const data = await analyzeRes.json().catch(() => null);
+        toast.error(data?.error || "AI analysis failed. Try again.");
       }
       setAnalyzing(false);
     } catch (err: any) {
@@ -174,7 +213,7 @@ export default function BidDetailPage() {
     setFetchingDetails(false);
   };
 
-  const handleGenerateDoc = async (docType: string) => {
+  const handleGenerateDoc = async (docType: string, formData?: Record<string, string>) => {
     if (!bid) return;
     setGeneratingDoc(docType);
     try {
@@ -185,12 +224,25 @@ export default function BidDetailPage() {
           bid_id: bid.id,
           doc_type: docType,
           po_ids: Array.from(selectedPOs),
+          form_data: formData || {},
         }),
       });
       const data = await res.json();
+
+      // Handle dynamic form requirement
+      if (data.requires_input && data.missing_fields) {
+        setDocFormFields(data.missing_fields);
+        setDocFormValues({});
+        setPendingDocType(docType);
+        setDocFormModalOpen(true);
+        setGeneratingDoc(null);
+        return;
+      }
+
       if (res.ok) {
         const label = GEN_DOC_TYPES.find(d => d.type === docType)?.label || "Document";
-        toast.success(`${label} generated!`);
+        if (data.warning) toast.warning(data.warning);
+        else toast.success(`${label} generated!`);
         // Trigger download immediately if we have content
         if (data.content && data.file_name) {
           const blob = new Blob([data.content], { type: "application/msword" });
@@ -209,6 +261,15 @@ export default function BidDetailPage() {
       toast.error(err.message || "Document generation failed");
     }
     setGeneratingDoc(null);
+  };
+
+  const handleDocFormSubmit = async () => {
+    if (!pendingDocType) return;
+    setDocFormModalOpen(false);
+    await handleGenerateDoc(pendingDocType, docFormValues);
+    setPendingDocType(null);
+    setDocFormFields([]);
+    setDocFormValues({});
   };
 
   const handleStatusChange = async (newStatus: GemBidStatus) => {
@@ -243,6 +304,31 @@ export default function BidDetailPage() {
 
     setPurchaseOrders(invoices || []);
     setPoModalOpen(true);
+  };
+
+  // User-verified market rate: recompute subtotal, cost total and the
+  // recommended price locally when a component rate is edited
+  const updateBreakdownRate = (idx: number, rate: number) => {
+    setPriceSuggestion((prev: any) => {
+      if (!prev?.cost_breakdown?.length) return prev;
+      const breakdown = prev.cost_breakdown.map((row: any, i: number) =>
+        i === idx
+          ? { ...row, indicative_unit_rate: rate, subtotal: Math.round((row.qty || 1) * rate) }
+          : row
+      );
+      const overheadTotal = (prev.overheads || []).reduce((s: number, o: any) => s + (o.amount || 0), 0);
+      const costTotal = breakdown.reduce((s: number, r: any) => s + (r.subtotal || 0), 0) + overheadTotal;
+      const margin = prev.margin_percent ?? 15;
+      const recommended = Math.round(costTotal * (1 + margin / 100));
+      return {
+        ...prev,
+        cost_breakdown: breakdown,
+        estimated_cost_total: costTotal,
+        recommended_price: recommended,
+        price_range: { aggressive: Math.round(recommended * 0.93), comfortable: Math.round(recommended * 1.07) },
+        user_adjusted: true,
+      };
+    });
   };
 
   const handleSuggestPrice = async () => {
@@ -662,31 +748,36 @@ export default function BidDetailPage() {
                 Tender Documents ({tenderDocs.length})
               </h3>
               <div className="space-y-2">
-                {tenderDocs.map((doc) => {
-                  const fileUrl = doc.file_url.startsWith("http")
-                    ? doc.file_url
-                    : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`;
-                  return (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                        <span className="text-xs font-medium text-foreground truncate">
-                          {doc.file_name}
+                {tenderDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-medium text-foreground truncate">
+                        {doc.file_name}
+                      </span>
+                      {doc.category === "specification" && (
+                        <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400">
+                          Spec
                         </span>
-                      </div>
-                      <button
-                        onClick={() => openExternal(fileUrl)}
-                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 text-xs"
-                      >
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                        Open
-                      </button>
+                      )}
+                      {doc.category === "boq" && (
+                        <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400">
+                          BOQ
+                        </span>
+                      )}
                     </div>
-                  );
-                })}
+                    <button
+                      onClick={() => handleOpenDocument(doc)}
+                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 text-xs"
+                    >
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                      Open
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -825,8 +916,27 @@ export default function BidDetailPage() {
 
               <div className="text-center py-2">
                 <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                  ₹{priceSuggestion.recommended_price?.toLocaleString("en-IN") ?? "—"}
+                  {priceSuggestion.recommended_price != null
+                    ? `₹${priceSuggestion.recommended_price.toLocaleString("en-IN")}`
+                    : "Not enough data"}
                 </p>
+                {priceSuggestion.confidence && (
+                  <p className={`text-[10px] font-medium uppercase tracking-wide mt-0.5 ${
+                    priceSuggestion.confidence === "high" ? "text-emerald-600" :
+                    priceSuggestion.confidence === "medium" ? "text-amber-600" : "text-red-500"
+                  }`}>
+                    {priceSuggestion.confidence} confidence
+                    {priceSuggestion.user_adjusted ? " · rates adjusted by you" : ""}
+                  </p>
+                )}
+                {priceSuggestion.pricing_basis && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {priceSuggestion.pricing_basis === "buyer_estimate" ? "Based on the buyer's disclosed estimate"
+                      : priceSuggestion.pricing_basis === "extracted_rates" ? "Based on rates stated in the tender documents"
+                      : priceSuggestion.pricing_basis === "component_estimate" ? "Built up from component-wise market estimates"
+                      : ""}
+                  </p>
+                )}
                 {priceSuggestion.unit_price && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     ≈ ₹{priceSuggestion.unit_price.toLocaleString("en-IN")} {priceSuggestion.unit_price_label}
@@ -853,6 +963,67 @@ export default function BidDetailPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Component-wise cost build-up (used when buyer hides the estimate) */}
+              {priceSuggestion.cost_breakdown?.length > 0 && (
+                <div className="space-y-2 border-t border-emerald-200/50 dark:border-emerald-800/30 pt-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-foreground">Cost Build-up</p>
+                    {priceSuggestion.seller_approach && (
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-white/60 dark:bg-white/10 text-muted-foreground">
+                        {String(priceSuggestion.seller_approach).replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-amber-600 flex items-start gap-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                    Indicative market rates — edit any rate to recalculate the price. Verify with suppliers before bidding.
+                  </p>
+                  <div className="space-y-1">
+                    {priceSuggestion.cost_breakdown.map((row: any, idx: number) => (
+                      <div key={idx} className="bg-white/60 dark:bg-white/5 rounded-lg p-2 text-[11px]">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-foreground truncate" title={row.spec || ""}>{row.component}</span>
+                          <span className="font-semibold text-foreground shrink-0">₹{(row.subtotal ?? 0).toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+                          <span className="shrink-0">{row.qty} {row.unit} ×</span>
+                          <input
+                            type="number"
+                            value={row.indicative_unit_rate ?? 0}
+                            onChange={(e) => updateBreakdownRate(idx, Number(e.target.value) || 0)}
+                            className="w-20 px-1.5 py-0.5 text-[11px] rounded border border-border bg-background text-foreground"
+                          />
+                          {row.rate_basis && <span className="truncate text-[9px] italic" title={row.rate_basis}>{row.rate_basis}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {(priceSuggestion.overheads || []).map((o: any, idx: number) => (
+                      <div key={`oh-${idx}`} className="flex items-center justify-between text-[11px] px-2 py-1 text-muted-foreground">
+                        <span>{o.label}</span>
+                        <span className="font-medium text-foreground">₹{(o.amount ?? 0).toLocaleString("en-IN")}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-[11px] px-2 py-1 border-t border-emerald-200/50 dark:border-emerald-800/30">
+                      <span className="font-semibold text-foreground">
+                        Cost total {priceSuggestion.margin_percent != null ? `+ ${priceSuggestion.margin_percent}% margin` : ""}
+                      </span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                        ₹{(priceSuggestion.estimated_cost_total ?? 0).toLocaleString("en-IN")} → ₹{(priceSuggestion.recommended_price ?? 0).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+                  {priceSuggestion.verification_notes?.length > 0 && (
+                    <div className="space-y-0.5">
+                      {priceSuggestion.verification_notes.map((n: string, i: number) => (
+                        <p key={i} className="text-[10px] text-muted-foreground flex items-start gap-1">
+                          <span className="shrink-0">☐</span> {n}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {priceSuggestion.profit_margin_estimate && (
                 <div className="flex justify-between text-xs">
@@ -933,15 +1104,12 @@ export default function BidDetailPage() {
                     {existingDoc && (
                       <div className="ml-6 mb-1 flex items-center gap-2">
                         <span className="text-[10px] text-emerald-600 font-medium">Generated</span>
-                        <a
-                          href={existingDoc.file_url.startsWith("http") ? existingDoc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${existingDoc.file_url}`}
-                          download={existingDoc.file_name}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => handleOpenDocument(existingDoc)}
                           className="text-[10px] text-primary underline"
                         >
                           Download
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -985,15 +1153,12 @@ export default function BidDetailPage() {
                     <span className="flex-1 font-medium text-foreground truncate">
                       {doc.file_name}
                     </span>
-                    <a
-                      href={doc.file_url.startsWith("http") ? doc.file_url : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gem-documents/${doc.file_url}`}
-                      download={doc.file_name}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => handleOpenDocument(doc)}
                       className="p-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 flex items-center"
                     >
                       <Download className="w-3 h-3" />
-                    </a>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1003,6 +1168,14 @@ export default function BidDetailPage() {
           {/* Status Actions */}
           <div className="bg-card border border-border rounded-xl p-4 space-y-2">
             <h3 className="text-sm font-semibold text-foreground mb-2">Quick Actions</h3>
+            <Button
+              onClick={() => router.push(`/bids/${bid.id}/participate`)}
+              size="sm"
+              className="w-full rounded-md bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5" />
+              Participate in this Bid
+            </Button>
             <Button
               onClick={() => handleStatusChange("interested")}
               disabled={bid.status === "interested"}
@@ -1100,6 +1273,90 @@ export default function BidDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Dynamic Form Modal for Missing Document Info */}
+      {docFormModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <div>
+                <h3 className="text-sm font-bold text-foreground">
+                  Additional Information Required
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Please provide the following details to generate the document
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setDocFormModalOpen(false);
+                  setPendingDocType(null);
+                }}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {docFormFields.map((field) => (
+                <div key={field.field} className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">
+                    {field.label} <span className="text-red-500">*</span>
+                  </label>
+                  {field.type === "textarea" ? (
+                    <textarea
+                      value={docFormValues[field.field] || ""}
+                      onChange={(e) =>
+                        setDocFormValues((prev) => ({
+                          ...prev,
+                          [field.field]: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                      rows={3}
+                      placeholder={`Enter ${field.label.toLowerCase()}`}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={docFormValues[field.field] || ""}
+                      onChange={(e) =>
+                        setDocFormValues((prev) => ({
+                          ...prev,
+                          [field.field]: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      placeholder={`Enter ${field.label.toLowerCase()}`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border p-4 flex items-center justify-end gap-2">
+              <Button
+                onClick={() => {
+                  setDocFormModalOpen(false);
+                  setPendingDocType(null);
+                }}
+                variant="outline"
+                size="sm"
+                className="rounded-md"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDocFormSubmit}
+                size="sm"
+                className="rounded-md"
+                disabled={docFormFields.some((f) => !docFormValues[f.field]?.trim())}
+              >
+                Generate Document
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1162,9 +1419,22 @@ const SECTION_LABELS: Record<string, string> = {
   key_risks: "Key Risks",
 };
 
+interface ItemDetail {
+  item_name: string;
+  quantity: number;
+  unit: string;
+  specifications: string;
+  make_model?: string;
+  unit_price_estimate?: number | null;
+}
+
 function SummaryDisplay({ content }: { content: string }) {
   // Try to parse as JSON (new format with sections)
-  let parsed: { summary?: string; sections?: Record<string, string> } | null = null;
+  let parsed: {
+    summary?: string;
+    sections?: Record<string, string>;
+    item_details?: ItemDetail[];
+  } | null = null;
   try { parsed = JSON.parse(content); } catch {}
 
   if (parsed?.sections && Object.keys(parsed.sections).length > 0) {
@@ -1185,6 +1455,50 @@ function SummaryDisplay({ content }: { content: string }) {
             </div>
           );
         })}
+
+        {/* Item Details Table */}
+        {parsed.item_details && parsed.item_details.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5" />
+              Item-wise Specifications ({parsed.item_details.length} items)
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse">
+                <thead>
+                  <tr className="bg-muted/50">
+                    <th className="text-left p-2 border border-border font-semibold">Item</th>
+                    <th className="text-center p-2 border border-border font-semibold w-20">Qty</th>
+                    <th className="text-left p-2 border border-border font-semibold">Specifications</th>
+                    {parsed.item_details.some(i => i.make_model) && (
+                      <th className="text-left p-2 border border-border font-semibold w-28">Make/Model</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsed.item_details.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-muted/30">
+                      <td className="p-2 border border-border font-medium text-foreground">
+                        {item.item_name}
+                      </td>
+                      <td className="p-2 border border-border text-center text-muted-foreground">
+                        {item.quantity} {item.unit}
+                      </td>
+                      <td className="p-2 border border-border text-muted-foreground">
+                        {item.specifications}
+                      </td>
+                      {parsed.item_details?.some(i => i.make_model) && (
+                        <td className="p-2 border border-border text-muted-foreground">
+                          {item.make_model || "—"}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

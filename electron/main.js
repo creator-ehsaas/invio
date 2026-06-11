@@ -214,6 +214,10 @@ app.on("before-quit", () => {
 ipcMain.handle("get-app-version", () => app.getVersion());
 ipcMain.handle("open-external", (_, url) => shell.openExternal(url));
 
+// GeM bid participation automation (credential vault, OTP listener, automation window)
+const { registerGemAutomation } = require("./gem-automation");
+registerGemAutomation(() => mainWindow);
+
 // GeM scraper — runs in Node.js main process (no CORS, Indian IP from user's machine)
 const https = require("https");
 
@@ -426,93 +430,200 @@ function tableToText(tableHtml) {
   return out.join("\n");
 }
 
+// ── Document link discovery & categorization ─────────────────────────────────
+
+// File extensions that indicate downloadable documents
+const DOC_EXTENSIONS = /\.(pdf|docx?|xlsx?|zip|pptx?|rar|7z)($|\?|&)/i;
+// URL patterns that indicate document endpoints on GeM
+const DOC_URL_PATTERNS = /download|BidDocument|showDocument|specification|Specification|corrigendum|atc|tender_doc|tenderDoc|SpecDocument|getSpec|viewDoc|attachment|fileDownload|getFile|docView|showPdf|viewPdf|BoqDocument|TechnicalSpec|ItemSpec|BOQ|consignee|showradocumentPdf|bidding_doc/i;
+// Link text patterns that suggest specification or important documents.
+// Keep these specific — generic words like "document", "view", "terms"
+// match nav links ("Terms of Use", "View all bids") and pollute the list.
+const DOC_LABEL_PATTERNS = /specification|spec\b|technical|requirement|scope\s+of\s+work|boq|bill\s+of\s+quantities|annexure|appendix|corrigendum|amendment|addendum|drawing|\batc\b|buyer\s+added/i;
+
+function categorizeDoc(label, url) {
+  const s = `${label} ${url}`;
+  if (/boq|bill\s+of\s+quantit/i.test(s)) return "boq";
+  if (/specification|spec\b|technical|requirement|scope\s+of\s+work|itemspec|drawing/i.test(s)) return "specification";
+  if (/corrigendum|amendment|addendum/i.test(s)) return "corrigendum";
+  if (/\batc\b|additional\s+terms/i.test(s)) return "atc";
+  return "other";
+}
+
+function resolveGemUrl(href) {
+  const url = href.startsWith("http") ? href : `https://bidplus.gem.gov.in${href.startsWith("/") ? "" : "/"}${href}`;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || !isGemHost(u.hostname)) return null;
+    return url;
+  } catch { return null; }
+}
+
+// Extract document links from an HTML page
+function extractDocLinksFromHtml(html) {
+  const links = [];
+  const linkRegex = /<a[^>]+href="([^"#][^"]*)"[^>]*>([\s\S]{1,200}?)<\/a>/gi;
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    const href = match[1].trim();
+    const label = match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().substring(0, 150);
+    if (!href || href.startsWith("javascript:") || href.startsWith("mailto:")) continue;
+    const isDoc = DOC_EXTENSIONS.test(href) || DOC_URL_PATTERNS.test(href) || DOC_LABEL_PATTERNS.test(label);
+    if (!isDoc) continue;
+    const url = resolveGemUrl(href);
+    if (!url) continue;
+    links.push({ url, name: label || "Document", category: categorizeDoc(label, href) });
+  }
+  return links;
+}
+
+// Extract gem.gov.in document URLs printed INSIDE a PDF's text — spec PDFs
+// frequently reference further drawings/annexure documents this way.
+function extractDocLinksFromText(text) {
+  const links = [];
+  const urlRegex = /https?:\/\/[^\s"'<>)\]}]+/gi;
+  let match;
+  while ((match = urlRegex.exec(text)) !== null) {
+    const raw = match[0].replace(/[.,;:]+$/, "");
+    const url = resolveGemUrl(raw);
+    if (!url) continue;
+    if (!DOC_EXTENSIONS.test(url) && !DOC_URL_PATTERNS.test(url)) continue;
+    links.push({ url, name: url.split("/").pop()?.substring(0, 100) || "Linked Document", category: categorizeDoc("", url) });
+  }
+  return links;
+}
+
+// Extract financial figures from the combined page + PDF text. GeM's bid PDF
+// prints "Estimated Bid Value" — running this over PDF text (not just the
+// HTML page) is what makes estimated value extraction reliable.
+function parseGemFinancials(allText) {
+  const financials = {};
+  const estPatterns = [
+    /Estimated\s+Bid\s+Value[^0-9₹]{0,40}(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i,
+    /(?:estimated\s+(?:total\s+)?(?:bid\s+)?value|bid\s+value|budget|total\s+value)[^:\d\n]{0,20}:?\s*(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i,
+    /(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)\s*(?:lakh|lac|L|crore|cr)?\s*(?:estimated|estimate|budget|value)/i,
+  ];
+  for (const pat of estPatterns) {
+    const m = allText.match(pat);
+    if (m) {
+      const val = parseFloat(m[1].replace(/,/g, ""));
+      if (val > 100) { financials.estimated_value = val; break; }
+    }
+  }
+  const emdPatterns = [
+    /EMD\s+Amount[^0-9]{0,30}([\d,]+(?:\.\d+)?)/i,
+    /(?:EMD|Earnest\s+Money(?:\s+Deposit)?)\s*:?\s*(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i,
+  ];
+  for (const pat of emdPatterns) {
+    const m = allText.match(pat);
+    if (m) {
+      const val = parseFloat(m[1].replace(/,/g, ""));
+      if (val > 0) { financials.emd_amount = val; break; }
+    }
+  }
+  return financials;
+}
+
+const CATEGORY_ORDER = { main: 0, specification: 1, boq: 2, corrigendum: 3, atc: 4, other: 5 };
+const MAX_CRAWL_DOCS = 12;   // total fetches per bid
+const MAX_CRAWL_DEPTH = 3;   // bid page → linked doc → doc linked inside it
+
+/**
+ * Depth-limited crawler over a bid's document graph. GeM bids attach a
+ * variable set of documents (spec PDFs, BOQ, ATC, drawings, corrigenda) and
+ * those documents reference further documents — so we follow links found in
+ * both HTML pages and inside PDF text, prioritizing spec/BOQ, until the
+ * fetch/depth budget runs out.
+ */
 ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
   try {
     if (!bidUrl) return { error: "No bid URL provided" };
-    // Only allow requests to GeM's domain to prevent SSRF
-    try {
-      const u = new URL(bidUrl);
-      if (u.protocol !== "https:" || !u.hostname.replace(/\.$/, "").endsWith(".gem.gov.in")) {
-        return { error: "Invalid host — only gem.gov.in domains are allowed" };
-      }
-    } catch {
-      return { error: "Invalid URL" };
-    }
-    const res = await gemHttpGet(bidUrl);
-    if (res.status !== 200) return { error: `GeM returned HTTP ${res.status}` };
+    if (!resolveGemUrl(bidUrl)) return { error: "Invalid host — only gem.gov.in domains are allowed" };
 
-    const html = res.body;
-
-    // Convert HTML to structured readable text, preserving tables
-    const text = htmlToText(html);
-
-    // Find all downloadable / spec document links
+    const pdfParse = require("pdf-parse");
+    const visited = new Set();
+    const linkSeen = new Set();
     const docLinks = [];
-    const seen = new Set();
-    const linkRegex = /<a[^>]+href="([^"#][^"]*)"[^>]*>([\s\S]{1,200}?)<\/a>/gi;
-    let match;
-    const DOC_PATTERNS = /\.(pdf|docx?|xlsx?|zip|pptx?)/i;
-    const DOC_KEYWORDS = /download|BidDocument|showDocument|specification|Specification|corrigendum|atc|tender_doc|tenderDoc|SpecDocument|getSpec|viewDoc|attachment/i;
-    while ((match = linkRegex.exec(html)) !== null) {
-      const href = match[1].trim();
-      const label = match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().substring(0, 150);
-      if (!href || href.startsWith("javascript:") || href.startsWith("mailto:")) continue;
-      if (seen.has(href)) continue;
-      if (DOC_PATTERNS.test(href) || DOC_KEYWORDS.test(href)) {
-        seen.add(href);
-        const url = href.startsWith("http") ? href : `https://bidplus.gem.gov.in${href.startsWith("/") ? "" : "/"}${href}`;
-        docLinks.push({ url, name: label || "Document" });
-      }
-    }
-
-    // Parse financial values from the structured text
-    const financials = {};
-    const estPatterns = [
-      /(?:estimated\s+(?:total\s+)?(?:bid\s+)?value|bid\s+value|budget|total\s+value)[^:\d\n]{0,20}:?\s*(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i,
-      /(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)\s*(?:lakh|lac|L|crore|cr)?\s*(?:estimated|estimate|budget|value)/i,
-    ];
-    for (const pat of estPatterns) {
-      const m = text.match(pat);
-      if (m) {
-        const val = parseFloat(m[1].replace(/,/g, ""));
-        if (val > 100) { financials.estimated_value = val; break; }
-      }
-    }
-    // EMD — look for "EMD: 25000" or "Earnest Money Deposit: 25,000"
-    const emdMatch = text.match(/(?:EMD|Earnest\s+Money(?:\s+Deposit)?)\s*:?\s*(?:₹|inr|rs\.?)?\s*([\d,]+(?:\.\d+)?)/i);
-    if (emdMatch) {
-      const val = parseFloat(emdMatch[1].replace(/,/g, ""));
-      if (val > 0) financials.emd_amount = val;
-    }
-
-    // Download PDF spec documents and extract text (only gem.gov.in HTTPS URLs)
-    const pdfLinks = docLinks.filter(l => {
-      try {
-        const u = new URL(l.url);
-        return u.protocol === "https:" && isGemHost(u.hostname) && l.url.match(/\.pdf($|\?|&)/i);
-      } catch { return false; }
-    }).slice(0, 3);
+    const specDocs = [];
+    let pageText = "";
     let pdfText = "";
-    for (const link of pdfLinks) {
-      try {
-        const pdfRes = await gemHttpGetBinary(link.url);
-        if (pdfRes.status === 200 && pdfRes.buffer.length > 500) {
-          const pdfParse = require("pdf-parse");
-          const data = await pdfParse(pdfRes.buffer);
-          if (data.text && data.text.length > 100) {
-            pdfText += `\n\n=== Specification Document: ${link.name} ===\n${data.text.substring(0, 15000)}`;
-          }
+    let fetched = 0;
+
+    const queue = [{ url: bidUrl, name: "Bid Document", category: "main", depth: 0 }];
+
+    const enqueue = (links, parentDepth) => {
+      for (const l of links) {
+        if (linkSeen.has(l.url)) continue;
+        linkSeen.add(l.url);
+        docLinks.push({ url: l.url, name: l.name, category: l.category });
+        if (parentDepth + 1 <= MAX_CRAWL_DEPTH) {
+          queue.push({ ...l, depth: parentDepth + 1 });
         }
-      } catch (pdfErr) {
-        console.error(`PDF extract failed for ${link.url}:`, pdfErr.message);
+      }
+    };
+
+    while (queue.length && fetched < MAX_CRAWL_DOCS) {
+      // Most important documents first: main doc, then specs, BOQ, …
+      queue.sort((a, b) =>
+        (CATEGORY_ORDER[a.category] ?? 5) - (CATEGORY_ORDER[b.category] ?? 5) || a.depth - b.depth
+      );
+      const item = queue.shift();
+      if (visited.has(item.url)) continue;
+      visited.add(item.url);
+
+      let res;
+      try { res = await gemHttpGetBinary(item.url); } catch { continue; }
+      fetched++;
+      if (res.status !== 200 || res.buffer.length < 200) continue;
+
+      const isPdf = res.contentType.includes("pdf") || res.buffer.slice(0, 5).toString() === "%PDF-";
+      if (isPdf) {
+        try {
+          const data = await pdfParse(res.buffer);
+          if (data.text && data.text.length > 100) {
+            const header = item.depth === 0 ? "MAIN BID DOCUMENT" : (item.category || "other").toUpperCase();
+            const extracted = data.text.substring(0, 18000);
+            pdfText += `\n\n=== ${header}: ${item.name} ===\n${extracted}`;
+            specDocs.push({
+              name: item.name,
+              category: item.depth === 0 ? "specification" : item.category,
+              url: item.url,
+              depth: item.depth,
+              textLength: extracted.length,
+            });
+            // Follow document URLs referenced inside this PDF
+            enqueue(extractDocLinksFromText(data.text), item.depth);
+          }
+        } catch (pdfErr) {
+          console.error(`PDF extract failed for ${item.url}:`, pdfErr.message);
+        }
+      } else {
+        // HTML — either the bid page itself or an intermediate viewer page
+        const html = res.buffer.toString("utf-8");
+        const textContent = htmlToText(html);
+        if (item.depth === 0) {
+          pageText = textContent;
+        } else if (textContent.length > 300) {
+          pdfText += `\n\n=== LINKED PAGE: ${item.name} ===\n${textContent.substring(0, 8000)}`;
+        }
+        enqueue(extractDocLinksFromHtml(html), item.depth);
       }
     }
+
+    // Specs first in the returned link list too
+    docLinks.sort((a, b) => (CATEGORY_ORDER[a.category] ?? 5) - (CATEGORY_ORDER[b.category] ?? 5));
+
+    // Financials from EVERYTHING we fetched — GeM prints "Estimated Bid
+    // Value" in the bid PDF, not the HTML page
+    const financials = parseGemFinancials(`${pageText}\n${pdfText}`);
 
     return {
-      text: text.substring(0, 25000),
+      text: pageText.substring(0, 25000),
       docLinks,
-      pdfText: pdfText.substring(0, 20000),
+      pdfText: pdfText.substring(0, 60000),
       financials,
+      specDocs,
+      crawl: { fetched, discovered: docLinks.length, max_depth: MAX_CRAWL_DEPTH },
     };
   } catch (err) {
     return { error: err.message || "Failed to fetch bid document" };

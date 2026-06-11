@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LogoUpload } from "@/components/logo-upload";
+import { ImageUpload } from "@/components/image-upload";
 import { updateBusiness } from "./actions";
 import type { Business } from "@/types/database";
 import { INDIAN_STATES } from "@/types/database";
@@ -19,6 +20,8 @@ export function BusinessProfileForm({ business }: BusinessProfileFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(business.logo_url);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(business.signature_url);
+  const [stampUrl, setStampUrl] = useState<string | null>(business.stamp_url);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,12 +56,30 @@ export function BusinessProfileForm({ business }: BusinessProfileFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Logo Upload */}
-      <LogoUpload
-        currentLogoUrl={logoUrl}
-        businessId={business.id}
-        onUpload={setLogoUrl}
-      />
+      {/* Logo, Signature, Stamp Uploads */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <LogoUpload
+          currentLogoUrl={logoUrl}
+          businessId={business.id}
+          onUpload={setLogoUrl}
+        />
+        <ImageUpload
+          type="signature"
+          label="Authorized Signature"
+          description="Signature image for documents. PNG with transparent background recommended."
+          currentUrl={signatureUrl}
+          businessId={business.id}
+          onUpload={setSignatureUrl}
+        />
+        <ImageUpload
+          type="stamp"
+          label="Company Stamp"
+          description="Company seal/stamp for official documents. PNG with transparent background."
+          currentUrl={stampUrl}
+          businessId={business.id}
+          onUpload={setStampUrl}
+        />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
