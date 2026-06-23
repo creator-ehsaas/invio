@@ -158,6 +158,11 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
       const item = itemsToProcess[i];
       if (item.status === "done" || item.status === "error" || !processingRef.current) continue;
 
+      // Small delay between files to avoid AI rate limits on large batches
+      if (i > 0) await new Promise((r) => setTimeout(r, 3000));
+
+      if (!processingRef.current) break;
+
       try {
         await processSingleItem(item);
       } catch (err: any) {

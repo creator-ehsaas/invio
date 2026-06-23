@@ -158,32 +158,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Second pass: targeted verification of customer name + invoice number ──
-    if (verifyContext && extractedData.customer_name) {
+    // ── Second pass: verification only for images (text files have structured extraction) ──
+    if (verifyContext && verifyContext.type === "image" && extractedData.customer_name) {
       try {
-        let verifyRaw: string;
         const verifyPrompt = VERIFY_SALES_PROMPT(
           extractedData.customer_name,
           extractedData.invoice_number ?? ""
         );
-        if (verifyContext.type === "image") {
-          verifyRaw = await aiVision(verifyContext.base64, verifyContext.mimeType, verifyPrompt, {
-            temperature: 0.1,
-            maxTokens: 256,
-          });
-        } else {
-          verifyRaw = await aiChat(
-            [{ role: "user", content: `${verifyPrompt}\n\nInvoice text:\n${verifyContext.text.substring(0, 4000)}` }],
-            { temperature: 0.1, maxTokens: 256 }
-          );
-        }
+        const verifyRaw = await aiVision(verifyContext.base64, verifyContext.mimeType, verifyPrompt, {
+          temperature: 0.1,
+          maxTokens: 256,
+        });
         const verified = parseJSON(verifyRaw);
-        if (verified?.customer_name) {
-          extractedData.customer_name = verified.customer_name;
-        }
-        if (verified?.invoice_number) {
-          extractedData.invoice_number = verified.invoice_number;
-        }
+        if (verified?.customer_name) extractedData.customer_name = verified.customer_name;
+        if (verified?.invoice_number) extractedData.invoice_number = verified.invoice_number;
       } catch {
         // Verification pass failure is non-fatal — use first-pass result
       }

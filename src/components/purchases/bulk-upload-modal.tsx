@@ -156,11 +156,16 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
     
     for (let i = 0; i < itemsToProcess.length; i++) {
       const item = itemsToProcess[i];
-      
+
       // Skip if already processed or has error, or if loop was stopped
       if (item.status === "done" || item.status === "error" || !processingRef.current) {
         continue;
       }
+
+      // Small delay between files to avoid AI rate limits on large batches
+      if (i > 0) await new Promise((r) => setTimeout(r, 3000));
+
+      if (!processingRef.current) break;
 
       try {
         await processSingleItem(item);

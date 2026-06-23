@@ -160,29 +160,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Second pass: targeted verification of supplier name + bill number ──
-    if (verifyContext && extractedData.supplier_name) {
+    // ── Second pass: verification only for images (text files have structured extraction) ──
+    if (verifyContext && verifyContext.type === "image" && extractedData.supplier_name) {
       try {
-        let verifyRaw: string;
         const verifyPrompt = VERIFY_PURCHASE_PROMPT(
           extractedData.supplier_name,
           extractedData.bill_number ?? ""
         );
-        if (verifyContext.type === "image") {
-          verifyRaw = await aiVision(verifyContext.base64, verifyContext.mimeType, verifyPrompt, {
-            temperature: 0.1,
-            maxTokens: 256,
-          });
-        } else {
-          verifyRaw = await aiChat(
-            [{ role: "user", content: `${verifyPrompt}\n\nInvoice text:\n${verifyContext.text.substring(0, 4000)}` }],
-            { temperature: 0.1, maxTokens: 256 }
-          );
-        }
+        const verifyRaw = await aiVision(verifyContext.base64, verifyContext.mimeType, verifyPrompt, {
+          temperature: 0.1,
+          maxTokens: 256,
+        });
         const verified = parseJSON(verifyRaw);
-        if (verified?.supplier_name) {
-          extractedData.supplier_name = verified.supplier_name;
-        }
+        if (verified?.supplier_name) extractedData.supplier_name = verified.supplier_name;
         if (verified?.bill_number) {
           extractedData.bill_number = verified.bill_number;
         }
