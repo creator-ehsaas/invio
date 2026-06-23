@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { isNative } from "@/lib/capacitor";
 import Link from "next/link";
 import {
   Mic,
@@ -88,6 +90,15 @@ const testimonials = [
 
 export default function HomePage() {
   const [showDemo, setShowDemo] = useState(false);
+  const router = useRouter();
+
+  // The marketing landing page is for the web only. Inside the desktop
+  // (Electron) or mobile (Capacitor) shells, the app IS the product —
+  // go straight to the dashboard (which bounces to /login if signed out).
+  useEffect(() => {
+    const isElectron = typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
+    if (isNative || isElectron) router.replace("/dashboard");
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">

@@ -117,14 +117,17 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
     }
   };
 
+  const isAllowedFile = (f: File) =>
+    f.type === "application/pdf" ||
+    f.type.startsWith("image/") ||
+    f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    f.name.toLowerCase().endsWith(".docx");
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files) {
-      const allowedFiles = Array.from(e.dataTransfer.files).filter(
-        (f) => f.type === "application/pdf" || f.type.startsWith("image/")
-      );
-      addFilesToQueue(allowedFiles);
+      addFilesToQueue(Array.from(e.dataTransfer.files).filter(isAllowedFile));
     }
   };
 
@@ -458,7 +461,7 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,.pdf"
+              accept="image/*,.pdf,.docx"
               onChange={handleFileInput}
               className="hidden"
             />
@@ -467,7 +470,7 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
             </div>
             <p className="font-semibold text-foreground">Select multiple invoice files</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-              Drag & drop PDFs or images of bills here. AI will extract supplier, date, bill number, amounts, and save them directly.
+              Drag & drop PDFs, images, or DOCX files. AI extracts and double-verifies supplier, date, bill number, and amounts.
             </p>
           </div>
         )}
@@ -568,7 +571,7 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
                     )}
                     {item.status === "parsing" && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 animate-pulse text-amber-500" /> AI extracting details...
+                        <Sparkles className="w-3 h-3 animate-pulse text-amber-500" /> AI extracting &amp; verifying details...
                       </p>
                     )}
                     {item.status === "saving" && (
@@ -636,7 +639,7 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
         {/* Footer */}
         <div className="flex justify-between items-center border-t border-slate-200/50 dark:border-slate-800/50 p-4 bg-slate-50/50 dark:bg-slate-900/10">
           <p className="text-[10px] text-muted-foreground">
-            Supports PDFs & image formats. Max 10MB per file.
+            Supports PDF, DOCX & image formats. Max 10MB per file. AI double-verifies supplier & bill number.
           </p>
           <div className="flex gap-2">
             {!isProcessing && queue.length > 0 && (

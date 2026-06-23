@@ -79,21 +79,21 @@ export function Navbar({ user, business }: NavbarProps) {
   return (
     <>
       {/* Desktop Header */}
-      <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm">
+      <header className="fixed top-0 w-full z-50 bg-card/85 backdrop-blur-xl border-b border-border">
         <div className="hidden md:flex items-center justify-between px-4 lg:px-6 h-16 w-full max-w-7xl mx-auto min-w-0">
           {/* Left: Logo + Nav */}
           <div className="flex items-center gap-4 lg:gap-6 min-w-0">
-            <Link href="/dashboard" className="text-xl font-bold tracking-tight text-foreground shrink-0">
-              Invio
+            <Link href="/dashboard" className="font-display text-[1.4rem] font-semibold tracking-tight text-foreground shrink-0">
+              Invio<span className="text-vermillion">.</span>
             </Link>
             <nav className="flex items-center gap-1 text-sm font-medium min-w-0">
               {primaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm whitespace-nowrap transition-colors ${
+                  className={`relative px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm whitespace-nowrap transition-colors ${
                     isActive(link.href)
-                      ? "bg-primary/10 text-primary font-semibold"
+                      ? "text-foreground font-semibold after:absolute after:left-2.5 after:right-2.5 after:-bottom-[15px] after:h-[2px] after:bg-[var(--vermillion)]"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
@@ -105,9 +105,9 @@ export function Navbar({ user, business }: NavbarProps) {
               <div className="relative">
                 <button
                   onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-                  className={`flex items-center gap-1 px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm whitespace-nowrap transition-colors ${
+                  className={`relative flex items-center gap-1 px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm whitespace-nowrap transition-colors ${
                     isSecondaryActive
-                      ? "bg-primary/10 text-primary font-semibold"
+                      ? "text-foreground font-semibold after:absolute after:left-2.5 after:right-2.5 after:-bottom-[15px] after:h-[2px] after:bg-[var(--vermillion)]"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
@@ -219,8 +219,8 @@ export function Navbar({ user, business }: NavbarProps) {
 
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between px-4 h-14">
-          <Link href="/dashboard" className="text-lg font-bold tracking-tight text-foreground">
-            Invio
+          <Link href="/dashboard" className="font-display text-xl font-semibold tracking-tight text-foreground">
+            Invio<span className="text-vermillion">.</span>
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -235,7 +235,7 @@ export function Navbar({ user, business }: NavbarProps) {
       </header>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-card/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(31,36,51,0.08)]">
         <div className="flex justify-around items-center px-2 pb-safe pt-1.5 h-16">
           {mobileNavLinks.map((link) => {
             const Icon = link.icon;
@@ -245,10 +245,10 @@ export function Navbar({ user, business }: NavbarProps) {
                 key={link.href}
                 href={link.href}
                 className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 ${
-                  active ? "text-primary" : "text-muted-foreground"
+                  active ? "text-vermillion" : "text-muted-foreground"
                 }`}
               >
-                <div className={`p-1.5 rounded-xl transition-colors ${active ? "bg-primary/10" : ""}`}>
+                <div className={`p-1.5 rounded-xl transition-colors ${active ? "bg-vermillion-soft" : ""}`}>
                   <Icon className="w-5 h-5" />
                 </div>
                 <span className="text-[10px] font-medium mt-0.5">{link.label}</span>

@@ -4,15 +4,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
-  FileText, Users, IndianRupee, Clock, Package, AlertTriangle,
+  FileText, Users, Package, AlertTriangle,
   Sparkles, Check, BarChart3, ChevronRight, Loader2, X,
   Lightbulb, CheckCircle, Zap, GripVertical, Settings2, Eye, EyeOff,
-  TrendingUp, Plus, ExternalLink, Receipt, ShoppingCart, Calendar, Key,
+  Plus, ExternalLink, Calendar, ArrowUpRight, ArrowDownRight, Scale,
 } from "lucide-react";
 import { UpgradeBanner } from "@/components/billing/UpgradeBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -24,30 +23,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import {
+  computeKpis, formatINR,
+  type PeriodKey, type InvoiceRow, type PurchaseRow, type ExpenseRow,
+} from "@/lib/kpi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DashboardStats {
-  totalInvoices: number;
-  totalCustomers: number;
-  totalRevenue: number;
-  pendingAmount: number;
-  inventoryItems: number;
-  lowStockItems: number;
-  hasBusinessProfile: boolean;
-  recentInvoices: RecentInvoice[];
-  lowStockList: LowStockItem[];
-  totalExpenses: number;
-  totalPayables: number;
-}
-
-interface RecentInvoice {
-  id: string;
-  invoice_number: string;
-  customer_name: string;
-  total: number;
-  status: string;
-}
 
 interface LowStockItem {
   id: string;
@@ -63,7 +44,9 @@ interface Insight {
   message: string;
 }
 
-type WidgetId = "stats" | "quick-start" | "revenue" | "recent-invoices" | "low-stock" | "ai-insights" | "shortcuts-by-role";
+type WidgetId =
+  | "stats" | "money-flow" | "gst-position" | "top-debtors"
+  | "quick-start" | "recent-invoices" | "low-stock" | "ai-insights" | "shortcuts-by-role";
 
 interface Widget {
   id: WidgetId;
@@ -72,116 +55,108 @@ interface Widget {
 }
 
 const ALL_WIDGETS: Widget[] = [
-  { id: "stats", label: "Stats Overview", defaultVisible: true },
-  { id: "revenue", label: "Revenue Overview", defaultVisible: true },
-  { id: "quick-start", label: "Quick Start", defaultVisible: true },
+  { id: "stats", label: "Ledger Summary", defaultVisible: true },
+  { id: "money-flow", label: "Money Flow", defaultVisible: true },
+  { id: "gst-position", label: "GST Position", defaultVisible: true },
+  { id: "top-debtors", label: "Who Owes You", defaultVisible: true },
   { id: "recent-invoices", label: "Recent Invoices", defaultVisible: true },
+  { id: "quick-start", label: "Quick Start", defaultVisible: true },
   { id: "low-stock", label: "Low Stock Alerts", defaultVisible: true },
   { id: "ai-insights", label: "AI Insights", defaultVisible: true },
-  { id: "shortcuts-by-role", label: "Role-Based Shortcuts", defaultVisible: true },
+  { id: "shortcuts-by-role", label: "Quick Actions", defaultVisible: true },
 ];
 
-const WIDGET_ORDER_KEY = "invio_dashboard_order_v2";
-const WIDGET_VISIBILITY_KEY = "invio_dashboard_visibility_v2";
+const WIDGET_ORDER_KEY = "invio_dashboard_order_v3";
+const WIDGET_VISIBILITY_KEY = "invio_dashboard_visibility_v3";
 
-type PeriodFilter = "all" | "this_month" | "last_month" | "this_quarter" | "this_year";
+const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
+  { value: "all", label: "All Time" },
+  { value: "this_month", label: "This Month" },
+  { value: "last_month", label: "Last Month" },
+  { value: "this_quarter", label: "This Quarter (FY)" },
+  { value: "this_fy", label: "This Financial Year" },
+];
 
-// Helper to determine if a date falls within a selected period
-function isDateInPeriod(dateStr: string | null | undefined, period: PeriodFilter): boolean {
-  if (!dateStr) return false;
-  if (period === "all") return true;
-
-  const date = new Date(dateStr);
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-
-  switch (period) {
-    case "this_month":
-      return date.getMonth() === month && date.getFullYear() === year;
-    case "last_month": {
-      const lastMonth = month === 0 ? 11 : month - 1;
-      const lastMonthYear = month === 0 ? year - 1 : year;
-      return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
-    }
-    case "this_quarter": {
-      const quarterStart = Math.floor(month / 3) * 3;
-      const quarterStartLimit = new Date(year, quarterStart, 1);
-      const quarterEndLimit = new Date(year, quarterStart + 3, 0, 23, 59, 59);
-      return date >= quarterStartLimit && date <= quarterEndLimit;
-    }
-    case "this_year": {
-      // Indian financial year (April 1st to March 31st)
-      const fyStartYear = month >= 3 ? year : year - 1;
-      const fyStart = new Date(fyStartYear, 3, 1);
-      const fyEnd = new Date(fyStartYear + 1, 2, 31, 23, 59, 59);
-      return date >= fyStart && date <= fyEnd;
-    }
-    default:
-      return true;
-  }
-}
-
-// ─── Sortable Widget Wrapper ──────────────────────────────────────────────────
+// ─── Small pieces ─────────────────────────────────────────────────────────────
 
 function SortableWidget({
-  id, customizing, children,
+  id, customizing, children, className,
 }: {
   id: string;
   customizing: boolean;
   children: React.ReactNode;
+  className?: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div ref={setNodeRef} style={style} className={cn("relative", className)}>
       {customizing && (
         <div
           {...attributes}
           {...listeners}
-          className="absolute left-3 top-3 z-10 cursor-grab active:cursor-grabbing p-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors touch-none"
+          className="absolute left-3 top-3 z-10 cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-muted hover:bg-muted/80 transition-colors touch-none"
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
       )}
-      <div className={cn(customizing && "ring-2 ring-primary/20 ring-offset-2 ring-offset-background rounded-2xl")}>
+      <div className={cn("h-full", customizing && "ring-2 ring-[var(--vermillion)]/30 ring-offset-2 ring-offset-background rounded-xl")}>
         {children}
       </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    paid: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    sent: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    draft: "bg-muted text-muted-foreground",
-    overdue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    cancelled: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-  };
+const STATUS_STYLES: Record<string, string> = {
+  paid: "bg-ledger-green-soft text-ledger-green",
+  sent: "bg-peacock-soft text-peacock",
+  draft: "bg-muted text-muted-foreground",
+  overdue: "bg-vermillion-soft text-vermillion",
+  partial: "bg-marigold-soft text-marigold",
+  cancelled: "bg-muted text-muted-foreground line-through",
+};
+
+function StatusStamp({ status }: { status: string }) {
   return (
-    <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize", map[status] || map.draft)}>
+    <span className={cn(
+      "inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+      STATUS_STYLES[status] || STATUS_STYLES.draft
+    )}>
       {status}
+    </span>
+  );
+}
+
+/** ▲ / ▼ percentage vs the previous period. `goodWhenUp` flips the colors. */
+function Delta({ value, goodWhenUp = true }: { value: number | null; goodWhenUp?: boolean }) {
+  if (value == null) return <span className="text-xs text-muted-foreground">—</span>;
+  const up = value >= 0;
+  const good = goodWhenUp ? up : !up;
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold tnum", good ? "text-ledger-green" : "text-vermillion")}>
+      <Icon className="w-3 h-3" />
+      {Math.abs(value).toFixed(0)}%
     </span>
   );
 }
 
 function getInsightIcon(type: string) {
   switch (type) {
-    case "success": return <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />;
-    case "warning": return <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />;
-    case "action": return <Zap className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />;
-    default: return <Lightbulb className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />;
+    case "success": return <CheckCircle className="w-4 h-4 text-ledger-green shrink-0 mt-0.5" />;
+    case "warning": return <AlertTriangle className="w-4 h-4 text-marigold shrink-0 mt-0.5" />;
+    case "action": return <Zap className="w-4 h-4 text-peacock shrink-0 mt-0.5" />;
+    default: return <Lightbulb className="w-4 h-4 text-vermillion shrink-0 mt-0.5" />;
   }
 }
 
 function getInsightBg(type: string) {
   switch (type) {
-    case "success": return "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800";
-    case "warning": return "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800";
-    case "action": return "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800";
-    default: return "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800";
+    case "success": return "bg-ledger-green-soft/60";
+    case "warning": return "bg-marigold-soft/60";
+    case "action": return "bg-peacock-soft/60";
+    default: return "bg-vermillion-soft/60";
   }
 }
 
@@ -196,13 +171,12 @@ function getGreeting() {
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [period, setPeriod] = useState<PeriodKey>("this_month");
   const [userRole, setUserRole] = useState<"owner" | "staff">("owner");
 
-  // Raw Database states
-  const [rawInvoices, setRawInvoices] = useState<any[]>([]);
-  const [rawPurchases, setRawPurchases] = useState<any[]>([]);
-  const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+  const [rawInvoices, setRawInvoices] = useState<(InvoiceRow & { id: string; invoice_number?: string })[]>([]);
+  const [rawPurchases, setRawPurchases] = useState<PurchaseRow[]>([]);
+  const [rawExpenses, setRawExpenses] = useState<ExpenseRow[]>([]);
   const [customersCount, setCustomersCount] = useState(0);
   const [inventoryCount, setInventoryCount] = useState(0);
   const [lowStockList, setLowStockList] = useState<LowStockItem[]>([]);
@@ -216,20 +190,26 @@ export default function DashboardPage() {
     if (typeof window === "undefined") return ALL_WIDGETS.map((w) => w.id);
     try {
       const saved = localStorage.getItem(WIDGET_ORDER_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved) as WidgetId[];
+        // tolerate widget additions between releases
+        const known = new Set(ALL_WIDGETS.map((w) => w.id));
+        const valid = parsed.filter((id) => known.has(id));
+        const missing = ALL_WIDGETS.map((w) => w.id).filter((id) => !valid.includes(id));
+        return [...valid, ...missing];
+      }
     } catch { /* ignore */ }
     return ALL_WIDGETS.map((w) => w.id);
   });
 
   const [visibility, setVisibility] = useState<Record<WidgetId, boolean>>(() => {
-    if (typeof window === "undefined") {
-      return Object.fromEntries(ALL_WIDGETS.map((w) => [w.id, w.defaultVisible])) as Record<WidgetId, boolean>;
-    }
+    const defaults = Object.fromEntries(ALL_WIDGETS.map((w) => [w.id, w.defaultVisible])) as Record<WidgetId, boolean>;
+    if (typeof window === "undefined") return defaults;
     try {
       const saved = localStorage.getItem(WIDGET_VISIBILITY_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) return { ...defaults, ...JSON.parse(saved) };
     } catch { /* ignore */ }
-    return Object.fromEntries(ALL_WIDGETS.map((w) => [w.id, w.defaultVisible])) as Record<WidgetId, boolean>;
+    return defaults;
   });
 
   const sensors = useSensors(
@@ -244,67 +224,58 @@ export default function DashboardPage() {
 
     const { data: userData } = await supabase
       .from("users").select("business_id, role").eq("id", user.id).single();
-    if (userData) {
-      setUserRole(userData.role || "owner");
-    }
+    if (userData) setUserRole(userData.role || "owner");
     if (!userData?.business_id) { setLoading(false); return; }
 
     const bId = userData.business_id;
 
     const [invoicesRes, customersRes, inventoryRes, businessRes, expensesRes, purchasesRes] = await Promise.all([
       supabase.from("invoices")
-        .select("id, invoice_number, status, total, created_at, customers(name)")
+        .select("id, invoice_number, status, total, cgst, sgst, igst, invoice_date, due_date, created_at, customers(name)")
         .eq("business_id", bId)
         .order("created_at", { ascending: false }),
       supabase.from("customers").select("id").eq("business_id", bId),
       supabase.from("inventory_items").select("id, name, current_stock, reorder_level, unit").eq("business_id", bId),
       supabase.from("businesses").select("name, gstin").eq("id", bId).single(),
       supabase.from("expenses").select("amount, expense_date, created_at").eq("business_id", bId),
-      supabase.from("purchase_invoices").select("total, amount_paid, status, bill_date, created_at").eq("business_id", bId),
+      supabase.from("purchase_invoices").select("total, amount_paid, status, cgst, sgst, igst, bill_date, created_at").eq("business_id", bId),
     ]);
 
-    setRawInvoices(invoicesRes.data || []);
+    setRawInvoices((invoicesRes.data || []).map((i: any) => ({
+      ...i,
+      customer_name: i.customers?.name || null,
+    })));
     setRawPurchases(purchasesRes.data || []);
     setRawExpenses(expensesRes.data || []);
     setCustomersCount((customersRes.data || []).length);
     setInventoryCount((inventoryRes.data || []).length);
 
     const inventory = inventoryRes.data || [];
-    const lowStock = inventory.filter((item) => item.current_stock <= item.reorder_level);
-    setLowStockList(lowStock);
-
+    setLowStockList(inventory.filter((item) => item.current_stock <= item.reorder_level));
     setHasBusinessProfile(!!(businessRes.data?.name && businessRes.data?.gstin));
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
-  // Recalculated values depending on date period filter
-  const stats = useMemo(() => {
-    const filteredInvoices = rawInvoices.filter((i) => isDateInPeriod(i.created_at, period));
-    const filteredExpenses = rawExpenses.filter((e) => isDateInPeriod(e.expense_date || e.created_at, period));
-    const filteredPurchases = rawPurchases.filter((p) => isDateInPeriod(p.bill_date || p.created_at, period));
+  // ── KPI engine (pure, tested in scripts/test-kpi.js) ──
+  const kpi = useMemo(
+    () => computeKpis(rawInvoices, rawPurchases, rawExpenses, period),
+    [rawInvoices, rawPurchases, rawExpenses, period]
+  );
 
-    const totalRevenue = filteredInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
-    const pendingAmount = filteredInvoices.filter((i) => i.status !== "paid" && i.status !== "cancelled").reduce((s, i) => s + (i.total || 0), 0);
-    const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0);
-    const totalPayables = filteredPurchases.filter((p) => p.status !== "paid" && p.status !== "cancelled").reduce((s, p) => s + (p.total - p.amount_paid), 0);
-
-    return {
-      totalInvoices: filteredInvoices.length,
-      totalRevenue,
-      pendingAmount,
-      totalExpenses,
-      totalPayables,
-      recentInvoices: filteredInvoices.slice(0, 8).map((inv) => ({
+  const recentInvoices = useMemo(() => {
+    return rawInvoices
+      .filter((i) => i.status !== "cancelled")
+      .slice(0, 7)
+      .map((inv) => ({
         id: inv.id,
         invoice_number: inv.invoice_number || `INV-${inv.id.slice(0, 6)}`,
-        customer_name: (inv.customers as any)?.name || "Unknown",
+        customer_name: inv.customer_name || "Unknown",
         total: inv.total || 0,
         status: inv.status || "draft",
-      })),
-    };
-  }, [rawInvoices, rawExpenses, rawPurchases, period]);
+      }));
+  }, [rawInvoices]);
 
   const fetchInsights = async () => {
     setLoadingInsights(true);
@@ -335,10 +306,8 @@ export default function DashboardPage() {
   };
 
   const resetLayout = () => {
-    const order = ALL_WIDGETS.map((w) => w.id);
-    const vis = Object.fromEntries(ALL_WIDGETS.map((w) => [w.id, w.defaultVisible])) as Record<WidgetId, boolean>;
-    setWidgetOrder(order);
-    setVisibility(vis);
+    setWidgetOrder(ALL_WIDGETS.map((w) => w.id));
+    setVisibility(Object.fromEntries(ALL_WIDGETS.map((w) => [w.id, w.defaultVisible])) as Record<WidgetId, boolean>);
     localStorage.removeItem(WIDGET_ORDER_KEY);
     localStorage.removeItem(WIDGET_VISIBILITY_KEY);
   };
@@ -351,87 +320,228 @@ export default function DashboardPage() {
   ];
   const completedSteps = quickStartSteps.filter((s) => s.completed).length;
 
-  const statCards = [
-    { title: "Invoices", value: stats.totalInvoices, fmt: "n", icon: FileText, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30", href: "/invoices" },
-    { title: "Customers", value: customersCount, fmt: "n", icon: Users, color: "text-violet-600", bg: "bg-violet-100 dark:bg-violet-900/30", href: "/customers" },
-    { title: "Revenue Collected", value: stats.totalRevenue, fmt: "c", icon: IndianRupee, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30", href: "/invoices" },
-    { title: "Receivables", value: stats.pendingAmount, fmt: "c", icon: Clock, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30", href: "/invoices" },
-    { title: "Payables", value: stats.totalPayables, fmt: "c", icon: ShoppingCart, color: "text-indigo-600", bg: "bg-indigo-100 dark:bg-indigo-900/30", href: "/purchases" },
-    { title: "Expenses", value: stats.totalExpenses, fmt: "c", icon: Receipt, color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30", href: "/expenses" },
+  // ── The six ledger summary entries ──
+  const ledgerEntries = [
+    {
+      title: "Collected",
+      value: formatINR(kpi.collected, kpi.collected >= 1000000),
+      sub: <Delta value={kpi.collectedDelta} />,
+      href: "/invoices",
+      tone: "text-ledger-green",
+    },
+    {
+      title: "Billed",
+      value: formatINR(kpi.billed, kpi.billed >= 1000000),
+      sub: <span className="text-xs text-muted-foreground tnum">{kpi.billedCount} invoice{kpi.billedCount === 1 ? "" : "s"}</span>,
+      href: "/invoices",
+      tone: "text-foreground",
+    },
+    {
+      title: "Receivables",
+      value: formatINR(kpi.receivables, kpi.receivables >= 1000000),
+      sub: kpi.overdueCount > 0
+        ? <span className="text-xs font-semibold text-vermillion tnum">{kpi.overdueCount} overdue · {formatINR(kpi.overdueAmount, true)}</span>
+        : <span className="text-xs text-muted-foreground tnum">{kpi.receivablesCount} open</span>,
+      href: "/reports/receivables",
+      tone: kpi.overdueCount > 0 ? "text-vermillion" : "text-foreground",
+    },
+    {
+      title: "Payables",
+      value: formatINR(kpi.payables, kpi.payables >= 1000000),
+      sub: <span className="text-xs text-muted-foreground tnum">{kpi.payablesCount} open bill{kpi.payablesCount === 1 ? "" : "s"}</span>,
+      href: "/purchases",
+      tone: "text-foreground",
+    },
+    {
+      title: "Expenses",
+      value: formatINR(kpi.expenses, kpi.expenses >= 1000000),
+      sub: <Delta value={kpi.expensesDelta} goodWhenUp={false} />,
+      href: "/expenses",
+      tone: "text-foreground",
+    },
+    {
+      title: "GST Due",
+      value: kpi.gstNet >= 0 ? formatINR(kpi.gstNet, kpi.gstNet >= 1000000) : formatINR(Math.abs(kpi.gstNet), true),
+      sub: <span className={cn("text-xs font-semibold", kpi.gstNet >= 0 ? "text-marigold" : "text-ledger-green")}>
+        {kpi.gstNet >= 0 ? "payable" : "ITC credit"}
+      </span>,
+      href: "/reports/gstr3b",
+      tone: kpi.gstNet > 0 ? "text-marigold" : "text-ledger-green",
+    },
   ];
 
-  const renderWidget = (id: WidgetId): React.ReactNode => {
+  const renderWidget = (id: WidgetId, stagger: number): React.ReactNode => {
     if (!visibility[id]) return null;
     const pl = customizing ? "pl-10" : "";
+    const anim = `rise-in stagger-${Math.min(stagger + 1, 8)}`;
 
     switch (id) {
       case "stats":
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <div className={cn("grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4", pl)}>
-              {statCards.map((s) => {
-                const Icon = s.icon;
-                const val = s.fmt === "c" ? `₹${s.value.toLocaleString("en-IN")}` : String(s.value);
-                return (
-                  <Link key={s.title} href={s.href}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className={cn("p-2 rounded-xl", s.bg)}>
-                            <Icon className={cn("w-4 h-4", s.color)} />
-                          </div>
-                        </div>
-                        <p className="text-xl font-bold truncate">{val}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{s.title}</p>
-                      </CardContent>
-                    </Card>
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("py-0 gap-0", pl)}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 divide-x divide-y sm:divide-y xl:divide-y-0 divide-border">
+                {ledgerEntries.map((e) => (
+                  <Link
+                    key={e.title}
+                    href={e.href}
+                    className="group/entry px-4 py-4 hover:bg-accent/40 transition-colors"
+                  >
+                    <p className="ledger-label mb-2">{e.title}</p>
+                    <p className={cn("font-display text-[1.45rem] leading-none font-semibold tnum truncate", e.tone)}>
+                      {e.value}
+                    </p>
+                    <div className="mt-1.5 h-4">{e.sub}</div>
                   </Link>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            </Card>
           </SortableWidget>
         );
 
-      case "revenue":
+      case "money-flow": {
+        const maxBar = Math.max(...kpi.monthlyTrend.map((p) => p.collected), 1);
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <Card className={cn(pl)}>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">Revenue & Liability</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle>Money Flow</CardTitle>
+                <span className="ledger-label col-start-2 justify-self-end self-center">12 months</span>
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-end gap-8 mb-6">
-                  <div>
-                    <p className="text-3xl font-bold text-emerald-600">₹{stats.totalRevenue.toLocaleString("en-IN")}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Total revenue collected</p>
+              <CardContent>
+                {/* 12-month collected bars — current month inked in vermillion */}
+                <div className="flex items-end gap-1.5 h-28 mb-1">
+                  {kpi.monthlyTrend.map((p, i) => (
+                    <div
+                      key={p.fullLabel}
+                      className="flex-1 flex flex-col justify-end h-full group/bar"
+                      title={`${p.fullLabel}: ${formatINR(p.collected)} collected · ${formatINR(p.billed)} billed`}
+                    >
+                      <div
+                        className={cn(
+                          "w-full rounded-t-xs grow-bar transition-colors",
+                          i === 11 ? "bg-[var(--vermillion)]" : "bg-[var(--chart-2)] opacity-70 group-hover/bar:opacity-100"
+                        )}
+                        style={{
+                          height: `${Math.max((p.collected / maxBar) * 100, p.collected > 0 ? 4 : 1.5)}%`,
+                          animationDelay: `${i * 0.035}s`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 mb-5">
+                  {kpi.monthlyTrend.map((p, i) => (
+                    <span key={p.fullLabel} className={cn("flex-1 text-center text-[9px] uppercase tracking-wide", i === 11 ? "text-vermillion font-bold" : "text-muted-foreground")}>
+                      {i % 2 === 1 ? p.label : ""}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Cash ledger for the selected period */}
+                <div className="space-y-0 text-sm">
+                  <div className="flex justify-between py-2 border-t border-border">
+                    <span className="text-muted-foreground">Cash in <span className="text-xs">(collected)</span></span>
+                    <span className="font-semibold tnum text-ledger-green">{formatINR(kpi.cashIn)}</span>
                   </div>
-                  <div>
-                    <p className="text-lg font-semibold text-amber-600">₹{stats.pendingAmount.toLocaleString("en-IN")}</p>
-                    <p className="text-xs text-muted-foreground">Outstanding Receivables</p>
+                  <div className="flex justify-between py-2 border-t border-border">
+                    <span className="text-muted-foreground">Cash out <span className="text-xs">(expenses + purchases)</span></span>
+                    <span className="font-semibold tnum text-vermillion">−{formatINR(kpi.cashOut)}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-t-2 border-foreground/60">
+                    <span className="font-semibold">Net cash · {kpi.periodLabel}</span>
+                    <span className={cn("font-display font-semibold tnum", kpi.netCash >= 0 ? "text-ledger-green" : "text-vermillion")}>
+                      {formatINR(kpi.netCash)}
+                    </span>
+                  </div>
+                  {kpi.collectionRate != null && (
+                    <p className="pt-1 text-xs text-muted-foreground tnum">
+                      Collection rate {kpi.collectionRate.toFixed(0)}% of billed
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </SortableWidget>
+        );
+      }
+
+      case "gst-position":
+        return (
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-muted-foreground" />
+                  GST Position
+                </CardTitle>
+                <span className="ledger-label col-start-2 justify-self-end self-center">{kpi.periodLabel}</span>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm">
+                  <div className="flex justify-between py-2.5 border-t border-border">
+                    <span className="text-muted-foreground">Output tax on sales</span>
+                    <span className="font-semibold tnum">{formatINR(kpi.gstOutput)}</span>
+                  </div>
+                  <div className="flex justify-between py-2.5 border-t border-border">
+                    <span className="text-muted-foreground">Less: input tax credit</span>
+                    <span className="font-semibold tnum text-ledger-green">−{formatINR(kpi.gstItc)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-3 border-t-2 border-foreground/60">
+                    <span className="font-semibold">{kpi.gstNet >= 0 ? "Net GST payable" : "ITC credit to carry"}</span>
+                    <span className={cn("font-display text-xl font-semibold tnum", kpi.gstNet > 0 ? "text-marigold" : "text-ledger-green")}>
+                      {formatINR(Math.abs(kpi.gstNet))}
+                    </span>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  {[
-                    { label: "Revenue", value: stats.totalRevenue, color: "bg-emerald-500" },
-                    { label: "Receivables", value: stats.pendingAmount, color: "bg-amber-400" },
-                    { label: "Payables (Outstanding purchases)", value: stats.totalPayables, color: "bg-indigo-500" },
-                    { label: "Expenses", value: stats.totalExpenses, color: "bg-rose-400" },
-                  ].map((bar) => {
-                    const max = Math.max(stats.totalRevenue + stats.pendingAmount, stats.totalPayables, stats.totalExpenses) || 1;
-                    return (
-                      <div key={bar.label} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">{bar.label}</span>
-                          <span className="font-medium">₹{bar.value.toLocaleString("en-IN")}</span>
+                <div className="flex gap-2 mt-3">
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/reports/gstr1">GSTR-1</Link>
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/reports/gstr3b">GSTR-3B</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </SortableWidget>
+        );
+
+      case "top-debtors":
+        return (
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle>Who Owes You</CardTitle>
+                <Button variant="ghost" size="sm" className="col-start-2 justify-self-end h-7 text-xs gap-1" asChild>
+                  <Link href="/reports/receivables"><ExternalLink className="h-3 w-3" /> Receivables</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {kpi.topDebtors.length > 0 ? (
+                  <div>
+                    {kpi.topDebtors.map((d, i) => (
+                      <div key={d.name} className={cn("flex items-center gap-3 py-2.5", i > 0 && "border-t border-border")}>
+                        <span className="font-display text-sm text-muted-foreground w-5 tnum">{i + 1}.</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{d.name}</p>
+                          <p className="text-xs text-muted-foreground tnum">{d.count} invoice{d.count === 1 ? "" : "s"}</p>
                         </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div className={cn("h-full rounded-full transition-all", bar.color)} style={{ width: `${Math.min((bar.value / max) * 100, 100)}%` }} />
-                        </div>
+                        {d.overdue && (
+                          <span className="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] bg-vermillion-soft text-vermillion">
+                            overdue
+                          </span>
+                        )}
+                        <span className="font-semibold tnum text-sm">{formatINR(d.outstanding)}</span>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-8 text-center">
+                    <CheckCircle className="h-8 w-8 text-ledger-green/50 mb-2" />
+                    <p className="text-sm text-muted-foreground">Nothing outstanding in this period</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </SortableWidget>
@@ -439,19 +549,22 @@ export default function DashboardPage() {
 
       case "quick-start":
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <Card className={cn(pl)}>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">Quick Start</CardTitle>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{completedSteps}/{quickStartSteps.length}</span>
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle>Quick Start</CardTitle>
+                <span className="ledger-label col-start-2 justify-self-end self-center tnum">{completedSteps}/{quickStartSteps.length}</span>
               </CardHeader>
-              <CardContent className="pt-0">
-                <Progress value={(completedSteps / quickStartSteps.length) * 100} className="h-1.5 mb-4" />
-                <ul className="space-y-1">
-                  {quickStartSteps.map((step) => (
-                    <li key={step.id}>
-                      <Link href={step.href} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 transition-colors group">
-                        <span className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium shrink-0", step.completed ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600" : "bg-muted text-muted-foreground")}>
+              <CardContent>
+                <Progress value={(completedSteps / quickStartSteps.length) * 100} className="h-1 mb-4" />
+                <ul>
+                  {quickStartSteps.map((step, i) => (
+                    <li key={step.id} className={cn(i > 0 && "border-t border-border")}>
+                      <Link href={step.href} className="flex items-center gap-3 py-2.5 hover:bg-accent/40 -mx-2 px-2 transition-colors group">
+                        <span className={cn(
+                          "h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 font-display",
+                          step.completed ? "bg-ledger-green-soft text-ledger-green" : "bg-muted text-muted-foreground"
+                        )}>
                           {step.completed ? <Check className="w-3.5 h-3.5" /> : step.id}
                         </span>
                         <span className={cn("flex-1 text-sm", step.completed && "line-through text-muted-foreground")}>{step.label}</span>
@@ -467,37 +580,37 @@ export default function DashboardPage() {
 
       case "recent-invoices":
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <Card className={cn(pl)}>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">Recent Invoices</CardTitle>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" asChild>
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle>Recent Invoices</CardTitle>
+                <Button variant="ghost" size="sm" className="col-start-2 justify-self-end h-7 text-xs gap-1" asChild>
                   <Link href="/invoices"><ExternalLink className="h-3 w-3" /> View all</Link>
                 </Button>
               </CardHeader>
-              <CardContent className="pt-0">
-                {stats.recentInvoices.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {stats.recentInvoices.map((inv) => (
-                      <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 transition-colors">
-                        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                          <FileText className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{inv.customer_name}</p>
-                          <p className="text-xs text-muted-foreground">{inv.invoice_number}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold">₹{inv.total.toLocaleString("en-IN")}</p>
-                          <StatusBadge status={inv.status} />
-                        </div>
+              <CardContent>
+                {recentInvoices.length > 0 ? (
+                  <div>
+                    {recentInvoices.map((inv, i) => (
+                      <Link
+                        key={inv.id}
+                        href={`/invoices/${inv.id}`}
+                        className={cn(
+                          "flex items-center gap-3 py-2.5 hover:bg-accent/40 -mx-2 px-2 transition-colors",
+                          i > 0 && "border-t border-border"
+                        )}
+                      >
+                        <span className="font-mono text-[11px] text-muted-foreground w-20 truncate shrink-0">{inv.invoice_number}</span>
+                        <p className="flex-1 text-sm font-medium truncate min-w-0">{inv.customer_name}</p>
+                        <StatusStamp status={inv.status} />
+                        <span className="font-semibold tnum text-sm w-20 text-right shrink-0">{formatINR(inv.total)}</span>
                       </Link>
                     ))}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center py-8 text-center">
                     <FileText className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No invoices in this period</p>
+                    <p className="text-sm text-muted-foreground">No invoices yet</p>
                     <Button size="sm" variant="outline" className="mt-3 gap-1.5" asChild>
                       <Link href="/invoices/new"><Plus className="h-3.5 w-3.5" /> Create Invoice</Link>
                     </Button>
@@ -510,35 +623,33 @@ export default function DashboardPage() {
 
       case "low-stock":
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <Card className={cn(pl)}>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  Low Stock Alerts
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  Low Stock
                   {lowStockList.length > 0 && (
-                    <Badge variant="destructive" className="text-[10px] h-4 px-1.5">{lowStockList.length}</Badge>
+                    <span className="inline-flex items-center rounded-sm px-1.5 text-[10px] font-bold bg-vermillion-soft text-vermillion tnum">
+                      {lowStockList.length}
+                    </span>
                   )}
                 </CardTitle>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" asChild>
+                <Button variant="ghost" size="sm" className="col-start-2 justify-self-end h-7 text-xs gap-1" asChild>
                   <Link href="/inventory"><ExternalLink className="h-3 w-3" /> Inventory</Link>
                 </Button>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent>
                 {lowStockList.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {lowStockList.slice(0, 6).map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50">
-                        <div className="h-7 w-7 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
-                          <AlertTriangle className="h-3.5 w-3.5 text-orange-600" />
-                        </div>
+                  <div>
+                    {lowStockList.slice(0, 6).map((item, i) => (
+                      <div key={item.id} className={cn("flex items-center gap-3 py-2.5", i > 0 && "border-t border-border")}>
+                        <AlertTriangle className="h-4 w-4 text-marigold shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">Reorder at {item.reorder_level} {item.unit}</p>
+                          <p className="text-xs text-muted-foreground tnum">reorder at {item.reorder_level} {item.unit || ""}</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-orange-600">{item.current_stock}</p>
-                          <p className="text-xs text-muted-foreground">{item.unit || "units"}</p>
-                        </div>
+                        <span className="font-display font-semibold text-marigold tnum">{item.current_stock}</span>
+                        <span className="text-xs text-muted-foreground">{item.unit || "units"}</span>
                       </div>
                     ))}
                   </div>
@@ -555,35 +666,37 @@ export default function DashboardPage() {
 
       case "ai-insights":
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <Card className={cn("border-violet-200/50 dark:border-violet-800/50 bg-gradient-to-br from-violet-500/5 to-purple-500/5", pl)}>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-violet-500" />
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full ledger-margin", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-vermillion" />
                   AI Insights
                 </CardTitle>
-                {insights.length === 0 ? (
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300" onClick={fetchInsights} disabled={loadingInsights}>
-                    {loadingInsights ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    {loadingInsights ? "Analyzing…" : "Analyze"}
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setInsights([])}>
-                    <X className="h-3 w-3 mr-1" /> Clear
-                  </Button>
-                )}
+                <div className="col-start-2 justify-self-end">
+                  {insights.length === 0 ? (
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={fetchInsights} disabled={loadingInsights}>
+                      {loadingInsights ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {loadingInsights ? "Analyzing…" : "Analyze"}
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setInsights([])}>
+                      <X className="h-3 w-3 mr-1" /> Clear
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent>
                 {loadingInsights && (
                   <div className="flex flex-col items-center py-8">
-                    <Loader2 className="h-7 w-7 animate-spin text-violet-500 mb-2" />
-                    <p className="text-sm text-muted-foreground">Analyzing your business data…</p>
+                    <Loader2 className="h-7 w-7 animate-spin text-vermillion mb-2" />
+                    <p className="text-sm text-muted-foreground">Reading your books…</p>
                   </div>
                 )}
                 {!loadingInsights && insights.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {insights.map((ins, i) => (
-                      <div key={i} className={cn("p-3.5 rounded-xl border", getInsightBg(ins.type))}>
+                      <div key={i} className={cn("p-3 rounded-md", getInsightBg(ins.type))}>
                         <div className="flex gap-3">
                           {getInsightIcon(ins.type)}
                           <div>
@@ -598,8 +711,8 @@ export default function DashboardPage() {
                 {!loadingInsights && insights.length === 0 && (
                   <div className="flex flex-col items-center py-8 text-center">
                     <Lightbulb className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">Click Analyze to get AI-powered insights</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Powered by your invoices, customers & inventory</p>
+                    <p className="text-sm text-muted-foreground">Click Analyze for AI-powered insights</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Drawn from your invoices, customers & inventory</p>
                   </div>
                 )}
               </CardContent>
@@ -607,56 +720,47 @@ export default function DashboardPage() {
           </SortableWidget>
         );
 
-      case "shortcuts-by-role":
+      case "shortcuts-by-role": {
+        const tiles = [
+          { href: "/invoices/new", label: "New Invoice", icon: Plus },
+          { href: "/customers/new", label: "New Customer", icon: Users },
+          { href: "/inventory/new", label: "New Item", icon: Package },
+          ...(userRole === "owner"
+            ? [
+                { href: "/expenses/new", label: "Record Expense", icon: Plus },
+                { href: "/purchases/new", label: "Add Purchase", icon: Plus },
+                { href: "/reports", label: "Reports", icon: BarChart3 },
+              ]
+            : [{ href: "/invoices", label: "Sales Directory", icon: FileText }]),
+        ];
         return (
-          <SortableWidget key={id} id={id} customizing={customizing}>
-            <Card className={cn(pl)}>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Key className="h-4 w-4 text-primary" />
-                  Quick Actions ({userRole === "owner" ? "Owner/Admin" : "Staff"})
-                </CardTitle>
+          <SortableWidget key={id} id={id} customizing={customizing} className={anim}>
+            <Card className={cn("h-full", pl)}>
+              <CardHeader className="border-b [.border-b]:pb-3">
+                <CardTitle>Quick Actions</CardTitle>
+                <span className="ledger-label col-start-2 justify-self-end self-center">{userRole === "owner" ? "Owner" : "Staff"}</span>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent>
                 <div className="grid grid-cols-2 gap-2">
-                  <Link href="/invoices/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                    <Plus className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs font-medium">New Invoice</span>
-                  </Link>
-                  <Link href="/customers/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                    <Plus className="h-4 w-4 text-violet-600" />
-                    <span className="text-xs font-medium">New Customer</span>
-                  </Link>
-                  <Link href="/inventory/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                    <Plus className="h-4 w-4 text-orange-600" />
-                    <span className="text-xs font-medium">New Item</span>
-                  </Link>
-                  {userRole === "owner" ? (
-                    <>
-                      <Link href="/expenses/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                        <Plus className="h-4 w-4 text-rose-600" />
-                        <span className="text-xs font-medium">Record Expense</span>
+                  {tiles.map((t) => {
+                    const Icon = t.icon;
+                    return (
+                      <Link
+                        key={t.label}
+                        href={t.href}
+                        className="flex items-center gap-2 p-2.5 rounded-md border border-border hover:bg-accent/50 hover:border-[var(--vermillion)]/40 transition-colors"
+                      >
+                        <Icon className="h-4 w-4 text-vermillion" />
+                        <span className="text-xs font-medium">{t.label}</span>
                       </Link>
-                      <Link href="/purchases/new" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                        <Plus className="h-4 w-4 text-emerald-600" />
-                        <span className="text-xs font-medium">Add Purchase</span>
-                      </Link>
-                      <Link href="/reports" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                        <BarChart3 className="h-4 w-4 text-indigo-600" />
-                        <span className="text-xs font-medium">Business Reports</span>
-                      </Link>
-                    </>
-                  ) : (
-                    <Link href="/invoices" className="flex items-center gap-2 p-2.5 rounded-xl border hover:bg-muted/50 transition-colors">
-                      <FileText className="h-4 w-4 text-indigo-600" />
-                      <span className="text-xs font-medium">Sales Directory</span>
-                    </Link>
-                  )}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
           </SortableWidget>
         );
+      }
 
       default:
         return null;
@@ -666,32 +770,29 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-vermillion" />
       </div>
     );
   }
 
-  // Unified Dashboard Empty State for new accounts
+  // Fresh-account empty state
   if (rawInvoices.length === 0 && customersCount === 0 && inventoryCount === 0) {
     return (
       <div className="space-y-6 pb-8">
         <UpgradeBanner />
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">{getGreeting()} 👋</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome to your billing & accounting dashboard.</p>
-          </div>
+        <div className="rise-in">
+          <h1 className="text-2xl sm:text-3xl">{getGreeting()}</h1>
+          <p className="ledger-label mt-1.5">Your books, ready to open</p>
         </div>
 
-        <div className="text-center py-20 bg-card border border-border rounded-2xl max-w-2xl mx-auto mt-8 p-8 shadow-sm">
-          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-          </div>
-          <h2 className="text-xl font-bold mb-2">No activity yet</h2>
+        <div className="rise-in stagger-2 text-center py-16 bg-card border border-border rounded-xl max-w-2xl mx-auto mt-8 p-8 shadow-sm relative overflow-hidden">
+          <div aria-hidden className="absolute left-8 top-0 bottom-0 w-[2px] bg-[var(--vermillion)]/60 hidden sm:block" />
+          <h2 className="font-display text-3xl mb-3">A fresh page.</h2>
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-8">
-            Get started by setting up your business profile, adding your first customer, or creating a GST-compliant sales invoice.
+            Set up your business profile, add a customer, and write your first GST-compliant
+            invoice — your ledger starts here.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
             <Button asChild className="w-full sm:w-auto">
               <Link href="/invoices/new">
                 <Plus className="w-4 h-4 mr-2" /> Create First Invoice
@@ -714,32 +815,32 @@ export default function DashboardPage() {
   }
 
   const visibleWidgets = widgetOrder.filter((id) => visibility[id]);
-  const otherWidgets = visibleWidgets.filter((id) => id !== "stats");
+  const fullWidth = new Set<WidgetId>(["stats"]);
+  const gridWidgets = visibleWidgets.filter((id) => !fullWidth.has(id));
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-5 pb-8">
       <UpgradeBanner />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="rise-in flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">{getGreeting()} 👋</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Here&apos;s what&apos;s happening with your business.</p>
+          <h1 className="text-2xl sm:text-[2rem] leading-tight">{getGreeting()}</h1>
+          <p className="ledger-label mt-1.5 tnum">
+            {kpi.periodLabel} · {kpi.billedCount} invoice{kpi.billedCount === 1 ? "" : "s"} entered
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Period selector */}
-          <div className="flex items-center gap-2 bg-card border rounded-lg px-2.5 py-1.5 text-xs font-medium">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex items-center gap-2 bg-card border border-border rounded-md px-2.5 py-1.5 text-xs font-medium">
+            <Calendar className="h-3.5 w-3.5 text-vermillion" />
             <select
               value={period}
-              onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
+              onChange={(e) => setPeriod(e.target.value as PeriodKey)}
               className="bg-transparent border-none focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all">All Time</option>
-              <option value="this_month">This Month</option>
-              <option value="last_month">Last Month</option>
-              <option value="this_quarter">This Quarter</option>
-              <option value="this_year">This Year (FY)</option>
+              {PERIOD_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </div>
 
@@ -757,8 +858,8 @@ export default function DashboardPage() {
 
       {/* Customize panel */}
       {customizing && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
+        <Card className="border-[var(--vermillion)]/30 bg-vermillion-soft/30">
+          <CardContent>
             <p className="text-sm font-medium mb-3">Toggle widgets</p>
             <div className="flex flex-wrap gap-2">
               {ALL_WIDGETS.map((w) => (
@@ -766,7 +867,7 @@ export default function DashboardPage() {
                   key={w.id}
                   onClick={() => toggleVisibility(w.id)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
                     visibility[w.id]
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background text-muted-foreground border-border hover:bg-muted"
@@ -787,11 +888,11 @@ export default function DashboardPage() {
       {/* Draggable layout */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={widgetOrder} strategy={verticalListSortingStrategy}>
-          <div className="space-y-6">
-            {visibility["stats"] && renderWidget("stats")}
-            {otherWidgets.length > 0 && (
-              <div className="grid md:grid-cols-2 gap-6">
-                {otherWidgets.map((id) => renderWidget(id))}
+          <div className="space-y-5">
+            {visibility["stats"] && renderWidget("stats", 0)}
+            {gridWidgets.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-5 items-stretch">
+                {gridWidgets.map((id, i) => renderWidget(id, i + 1))}
               </div>
             )}
           </div>

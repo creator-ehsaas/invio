@@ -65,6 +65,17 @@ export default function BidsPage() {
     const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
     if (!userData?.business_id) return;
 
+    // Persist expiry: bids past their deadline that were never acted on
+    // become "expired" so the status filter and counts reflect reality.
+    // Submitted bids (applied/won/lost) keep their status — the deadline
+    // passing is expected for those.
+    await supabase
+      .from("gem_bids")
+      .update({ status: "expired" })
+      .eq("business_id", userData.business_id)
+      .lt("end_date", new Date().toISOString())
+      .in("status", ["new", "shortlisted", "analyzing", "analyzed", "interested"]);
+
     let query = supabase
       .from("gem_bids")
       .select("*")

@@ -171,6 +171,37 @@ export default function BidDetailPage() {
         return;
       }
 
+      // Scanned (image-only) documents — transcribe via OCR so their
+      // specs and financials reach the analysis too
+      let pdfText = result.pdfText || "";
+      let financials = result.financials;
+      let ocrDocCount = 0;
+      if (result.scannedDocs?.length) {
+        const pageTotal = result.scannedDocs.reduce((n, d) => n + (d.pages?.length || 0), 0);
+        toast.info(`Reading ${pageTotal} scanned page(s) with OCR...`);
+        try {
+          const ocrRes = await fetch("/api/gem-scraper/ocr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bid_id: bid.id, docs: result.scannedDocs }),
+          });
+          if (ocrRes.ok) {
+            const ocr = await ocrRes.json();
+            for (const doc of ocr.docs || []) {
+              pdfText += `\n\n=== SCANNED ${(doc.category || "document").toUpperCase()} (OCR): ${doc.name} ===\n${doc.text}`;
+              ocrDocCount++;
+            }
+            // OCR-extracted financials fill gaps left by machine-readable docs
+            financials = {
+              estimated_value: financials?.estimated_value ?? ocr.financials?.estimated_value,
+              emd_amount: financials?.emd_amount ?? ocr.financials?.emd_amount,
+            };
+          }
+        } catch {
+          // OCR is best-effort — continue with the machine-readable text
+        }
+      }
+
       await fetch("/api/gem-scraper/save-doc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,17 +209,17 @@ export default function BidDetailPage() {
           bid_id: bid.id,
           text: result.text,
           doc_links: result.docLinks,
-          pdfText: result.pdfText,
-          financials: result.financials,
+          pdfText,
+          financials,
           specDocs: result.specDocs,
         }),
       });
 
       await fetchBid();
-      const docCount = result.specDocs?.length || 0;
+      const docCount = (result.specDocs?.length || 0) + ocrDocCount;
       toast.success(
         docCount > 0
-          ? `Fetched bid + ${docCount} linked document(s) (${result.crawl?.discovered || docCount} discovered). Running AI analysis...`
+          ? `Fetched bid + ${docCount} linked document(s)${ocrDocCount ? ` incl. ${ocrDocCount} scanned via OCR` : ""} (${result.crawl?.discovered || docCount} discovered). Running AI analysis...`
           : "Bid document fetched. Running AI analysis..."
       );
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/ai-client";
+import { buildTenderContext } from "@/lib/tender-context";
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +59,7 @@ Evaluation Method: ${bid.ai_evaluation_method || "L1 (likely lowest bidder wins)
 Risk Assessment: ${bid.ai_risk_assessment || "N/A"}
 ${analyzedFinancials ? `Analyzed Financial Details: ${analyzedFinancials}` : ""}
 ${analyzedItems ? `Items (from analysis):\n${analyzedItems}` : ""}
-${bid.raw_full_text ? `Specifications (raw):\n${bid.raw_full_text.substring(0, 12000)}` : ""}
+${bid.raw_full_text ? `Specifications (raw):\n${buildTenderContext(bid.raw_full_text, 12000)}` : ""}
 `.trim();
 
     const businessContext = profile ? `

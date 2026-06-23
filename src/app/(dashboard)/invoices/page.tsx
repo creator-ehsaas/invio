@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { buildWaUrl, paymentReminderMessage } from "@/lib/whatsapp";
 import {
   FileText, Plus, Download, Trash2, Send, CheckCircle,
-  MoreHorizontal, ExternalLink, IndianRupee, MessageCircle,
+  MoreHorizontal, ExternalLink, IndianRupee, MessageCircle, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { type ColumnDef, type RowSelectionState } from "@tanstack/react-table";
@@ -30,6 +30,7 @@ import { AdvancedFilter, type FilterGroup, type FilterField } from "@/components
 import { DataView, ViewSwitcher, BulkActionsBar, type ViewType, type KanbanColumn } from "@/components/ui/data-view";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ActivityTimeline, type ActivityEvent } from "@/components/ui/activity-timeline";
+import SalesBulkUploadModal from "@/components/invoices/bulk-upload-modal";
 
 interface Invoice {
   id: string;
@@ -87,6 +88,7 @@ export default function InvoicesPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const fetch = useCallback(async () => {
     const supabase = createClient();
@@ -331,6 +333,9 @@ export default function InvoicesPage() {
           <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
             <Download className="h-4 w-4" /> Export
           </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsBulkUploadOpen(true)}>
+            <Upload className="h-4 w-4" /> Bulk Upload
+          </Button>
           <Button asChild className="gap-2 rounded-full px-5">
             <Link href="/invoices/new">
               <Plus className="h-4 w-4" /> New Invoice
@@ -510,6 +515,13 @@ export default function InvoicesPage() {
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={handleBulkDelete}
+      />
+
+      {/* Bulk Upload */}
+      <SalesBulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={() => { fetch(); toast.success("Invoices imported successfully"); }}
       />
     </div>
   );

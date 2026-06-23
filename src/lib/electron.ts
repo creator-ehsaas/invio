@@ -97,7 +97,8 @@ export const gemFetchDoc = async (opts: {
   docLinks?: { url: string; name: string; category?: string }[];
   pdfText?: string;
   financials?: { estimated_value?: number; emd_amount?: number };
-  specDocs?: { name: string; category: string; url: string; depth?: number; textLength: number }[];
+  specDocs?: { name: string; category: string; url: string; depth?: number; format?: string; textLength: number }[];
+  scannedDocs?: { name: string; category: string; url: string; pages: string[] }[];
   crawl?: { fetched: number; discovered: number; max_depth: number };
   error?: string;
 } | null> => {

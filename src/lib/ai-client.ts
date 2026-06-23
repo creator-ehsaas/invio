@@ -70,10 +70,12 @@ export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): 
       ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
     });
     return completion.choices[0]?.message?.content?.trim() || "";
-  } catch (err) {
+  } catch (err: any) {
     // JSON mode can fail validation on very long outputs — fall back to a
     // plain completion; callers already have tolerant JSON parsers.
-    if (jsonMode) {
+    // Never re-send on rate-limit / request-too-large errors: the retry
+    // would be just as big and burns the caller's token budget twice.
+    if (jsonMode && err?.status !== 413 && err?.status !== 429) {
       const completion = await groq.chat.completions.create(params);
       return completion.choices[0]?.message?.content?.trim() || "";
     }

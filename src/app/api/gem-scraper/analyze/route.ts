@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/ai-client";
+import { extractPdfText } from "@/lib/pdf-text";
+import { buildTenderContext } from "@/lib/tender-context";
 
 /**
  * GeM Bid AI Analyzer — Deep-dives into tender documents using Groq AI.
@@ -179,8 +181,8 @@ Bid Type: ${bid.bid_type || "N/A"}
     `.trim();
 
     if (bid.raw_full_text) {
-      // Send more content to AI - specs are crucial
-      tenderText += `\n\n--- Fetched Tender Content (includes specification documents) ---\n${bid.raw_full_text.substring(0, 70000)}`;
+      // Full stored text — buildTenderContext dedupes and budgets it below
+      tenderText += `\n\n--- Fetched Tender Content (includes specification documents) ---\n${bid.raw_full_text}`;
     }
 
     // External tender links (https://...) can't be downloaded from storage —
@@ -194,11 +196,9 @@ Bid Type: ${bid.bid_type || "N/A"}
 
         if (fileData) {
           const buffer = Buffer.from(await fileData.arrayBuffer());
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-          const pdfData = await pdfParse(buffer);
-          if (pdfData.text?.trim()) {
-            tenderText += `\n\n--- Document: ${doc.file_name} ---\n${pdfData.text.substring(0, 15000)}`;
+          const docText = await extractPdfText(buffer);
+          if (docText?.trim()) {
+            tenderText += `\n\n=== UPLOADED DOCUMENT: ${doc.file_name} ===\n${docText.substring(0, 15000)}`;
           }
         }
       } catch (docErr) {
@@ -247,23 +247,48 @@ Known Eligibility Gaps: ${gemProfile?.ai_eligibility_gaps?.length ? gemProfile.a
 Completed Sales Orders: ${recentSales?.length || 0} recent (Total value: ₹${recentSales?.reduce((s: number, p: any) => s + (p.total || 0), 0)?.toLocaleString("en-IN") || "0"})`
       : "";
 
-    // Send to AI for deep analysis - use larger context for comprehensive spec extraction
-    const rawResult = await aiChat(
-      [
-        {
-          role: "user",
-          content: `${TENDER_ANALYSIS_PROMPT}\n\n--- TENDER DOCUMENT TEXT ---\n${tenderText.substring(0, 78000)}${businessContext}`,
-        },
-      ],
-      {
+    // Deduped, priority-ordered context — keeps every document represented
+    // while spending roughly half the tokens of naive truncation.
+    const FULL_OUTPUT_TOKENS = 8000;
+    const buildPrompt = (contextBudget: number) =>
+      `${TENDER_ANALYSIS_PROMPT}\n\n--- TENDER DOCUMENT TEXT ---\n${buildTenderContext(tenderText, contextBudget)}${businessContext}`;
+    const runAnalysis = (prompt: string, maxTokens: number) =>
+      aiChat([{ role: "user", content: prompt }], {
         tier: "enhanced",
         // Extraction must be reproducible: same tender → same analysis
         temperature: 0,
         seed: 42,
         jsonMode: true,
-        maxTokens: 8000,
+        maxTokens,
+      });
+
+    let rawResult: string;
+    const fullPrompt = buildPrompt(48000);
+    try {
+      rawResult = await runAnalysis(fullPrompt, FULL_OUTPUT_TOKENS);
+    } catch (err: any) {
+      // Free-tier provider plans enforce a per-minute token ceiling that
+      // counts prompt + max output tokens. The rejection message reports
+      // both the limit and what we requested — use that to calibrate the
+      // real chars-per-token of THIS tender (Hindi text tokenizes much
+      // denser than English) and refit the request to the caller's tier.
+      const fit = /Limit (\d+), Requested (\d+)/.exec(err?.message || "");
+      if ((err?.status !== 413 && err?.status !== 429) || !fit) throw err;
+      const limit = parseInt(fit[1], 10);
+      const requested = parseInt(fit[2], 10);
+
+      const inputTokens = Math.max(1, requested - FULL_OUTPUT_TOKENS);
+      const charsPerToken = fullPrompt.length / inputTokens;
+      const outputTokens = Math.min(5000, Math.floor(limit / 3));
+      const allowedPromptChars = Math.floor((limit * 0.92 - outputTokens) * charsPerToken);
+      const contextBudget = allowedPromptChars - buildPrompt(0).length;
+      if (contextBudget < 3000) {
+        throw new Error(
+          "This tender is too large for your current AI usage limit. Try again in a minute."
+        );
       }
-    );
+      rawResult = await runAnalysis(buildPrompt(contextBudget), outputTokens);
+    }
 
     // Parse AI response
     const analysis = parseJSON(rawResult);

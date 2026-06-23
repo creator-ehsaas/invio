@@ -1,11 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, Archivo, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ["latin"] });
+// Ledger Heritage type system — serif ink headlines over warm paper,
+// a working grotesque for UI, and a mono for document numbers.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+  axes: ["SOFT", "WONK", "opsz"],
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono-doc",
+});
 
 export const metadata: Metadata = {
   title: "Invio — Voice to Invoice",
@@ -26,7 +40,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#6366f1",
+  themeColor: "#20283a",
 };
 
 export default function RootLayout({
@@ -41,7 +55,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className={inter.className}>
+      <body className={`${archivo.variable} ${fraunces.variable} ${jetbrainsMono.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <CapacitorProvider>
             {children}

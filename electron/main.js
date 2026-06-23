@@ -63,7 +63,7 @@ function createWindow() {
       contextIsolation: true,
       spellcheck: true,
     },
-    backgroundColor: "#0d001f",
+    backgroundColor: "#f6f1e6",
     show: false,
   });
 
@@ -73,7 +73,9 @@ function createWindow() {
     if (isDev) mainWindow.webContents.openDevTools({ mode: "detach" });
   });
 
-  mainWindow.loadURL(APP_URL);
+  // Skip the marketing landing page — the desktop app is the product.
+  // /dashboard redirects to /login when there is no session.
+  mainWindow.loadURL(`${APP_URL}/dashboard`);
 
   // Open external links in system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -540,11 +542,13 @@ ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
     if (!bidUrl) return { error: "No bid URL provided" };
     if (!resolveGemUrl(bidUrl)) return { error: "Invalid host — only gem.gov.in domains are allowed" };
 
-    const pdfParse = require("pdf-parse");
+    const { sniffDocType, pdfToText, pdfToImages, docxToText, xlsxToText, zipToText, stripBilingualNoise } = require("./doc-extract");
     const visited = new Set();
     const linkSeen = new Set();
     const docLinks = [];
     const specDocs = [];
+    const scannedDocs = [];
+    let scannedPageCount = 0;
     let pageText = "";
     let pdfText = "";
     let fetched = 0;
@@ -576,37 +580,68 @@ ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
       fetched++;
       if (res.status !== 200 || res.buffer.length < 200) continue;
 
-      const isPdf = res.contentType.includes("pdf") || res.buffer.slice(0, 5).toString() === "%PDF-";
-      if (isPdf) {
-        try {
-          const data = await pdfParse(res.buffer);
-          if (data.text && data.text.length > 100) {
-            const header = item.depth === 0 ? "MAIN BID DOCUMENT" : (item.category || "other").toUpperCase();
-            const extracted = data.text.substring(0, 18000);
-            pdfText += `\n\n=== ${header}: ${item.name} ===\n${extracted}`;
-            specDocs.push({
-              name: item.name,
-              category: item.depth === 0 ? "specification" : item.category,
-              url: item.url,
-              depth: item.depth,
-              textLength: extracted.length,
-            });
-            // Follow document URLs referenced inside this PDF
-            enqueue(extractDocLinksFromText(data.text), item.depth);
+      const docType = sniffDocType(res.buffer, item.url, res.contentType || "");
+      const header = item.depth === 0 ? "MAIN BID DOCUMENT" : (item.category || "other").toUpperCase();
+
+      const addExtracted = (rawText, format) => {
+        // Drop the mangled Hindi half of bilingual GeM text BEFORE the cap
+        // so the cap is spent on real content (tail tables, schedules)
+        const text = stripBilingualNoise(rawText);
+        const extracted = text.substring(0, 18000);
+        pdfText += `\n\n=== ${header}${format !== "pdf" ? ` (${format.toUpperCase()})` : ""}: ${item.name} ===\n${extracted}`;
+        specDocs.push({
+          name: item.name,
+          category: item.depth === 0 ? "specification" : item.category,
+          url: item.url,
+          depth: item.depth,
+          format,
+          textLength: extracted.length,
+        });
+        // Follow document URLs referenced inside this document's text
+        enqueue(extractDocLinksFromText(text), item.depth);
+      };
+
+      try {
+        if (docType === "pdf") {
+          const { text, numPages } = await pdfToText(res.buffer);
+          if (text && text.replace(/\s|-- \d+ of \d+ --/g, "").length > 100) {
+            addExtracted(text, "pdf");
+          } else if (numPages >= 1 && scannedPageCount < 6 && scannedDocs.length < 3) {
+            // Scanned/image-only PDF — render pages for OCR by the app
+            const pages = await pdfToImages(res.buffer, Math.min(4, 6 - scannedPageCount), 1.5);
+            if (pages.length) {
+              scannedPageCount += pages.length;
+              scannedDocs.push({
+                name: item.name,
+                category: item.depth === 0 ? "specification" : item.category,
+                url: item.url,
+                pages,
+              });
+            }
           }
-        } catch (pdfErr) {
-          console.error(`PDF extract failed for ${item.url}:`, pdfErr.message);
+        } else if (docType === "docx") {
+          const text = await docxToText(res.buffer);
+          if (text.trim().length > 100) addExtracted(text, "docx");
+        } else if (docType === "xlsx") {
+          const text = xlsxToText(res.buffer);
+          if (text.trim().length > 20) addExtracted(text, "xlsx");
+        } else if (docType === "zip") {
+          // Office file served without an extension — try docx, then xlsx
+          const result = await zipToText(res.buffer);
+          if (result) addExtracted(result.text, result.format);
+        } else if (docType === "html") {
+          const html = res.buffer.toString("utf-8");
+          const textContent = htmlToText(html);
+          if (item.depth === 0) {
+            pageText = textContent;
+          } else if (textContent.length > 300) {
+            pdfText += `\n\n=== LINKED PAGE: ${item.name} ===\n${textContent.substring(0, 8000)}`;
+          }
+          enqueue(extractDocLinksFromHtml(html), item.depth);
         }
-      } else {
-        // HTML — either the bid page itself or an intermediate viewer page
-        const html = res.buffer.toString("utf-8");
-        const textContent = htmlToText(html);
-        if (item.depth === 0) {
-          pageText = textContent;
-        } else if (textContent.length > 300) {
-          pdfText += `\n\n=== LINKED PAGE: ${item.name} ===\n${textContent.substring(0, 8000)}`;
-        }
-        enqueue(extractDocLinksFromHtml(html), item.depth);
+        // "binary" / legacy .doc/.xls — skip; dumping raw bytes would pollute the text
+      } catch (extractErr) {
+        console.error(`Extract failed (${docType}) for ${item.url}:`, extractErr.message);
       }
     }
 
@@ -623,6 +658,7 @@ ipcMain.handle("gem-fetch-doc", async (_, { bidUrl }) => {
       pdfText: pdfText.substring(0, 60000),
       financials,
       specDocs,
+      scannedDocs,
       crawl: { fetched, discovered: docLinks.length, max_depth: MAX_CRAWL_DEPTH },
     };
   } catch (err) {

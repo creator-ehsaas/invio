@@ -46,8 +46,9 @@ export async function POST(request: NextRequest) {
 
     if (combinedText) {
       const updateData: Record<string, any> = {
-        // 25k page text + 60k crawled document text — keep all of it
-        raw_full_text: combinedText.substring(0, 90000),
+        // 25k page text + 60k crawled document text + OCR'd scanned pages.
+        // Analysis dedupes/budgets this down before it reaches the AI.
+        raw_full_text: combinedText.substring(0, 120000),
         updated_at: new Date().toISOString(),
       };
 

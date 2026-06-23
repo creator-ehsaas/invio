@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { extractPdfText } from "@/lib/pdf-text";
 
 const GEM_HEADERS = {
   "User-Agent":
@@ -12,14 +13,8 @@ const GEM_HEADERS = {
 
 // Extracts text from a PDF buffer using pdf-parse
 async function pdfToText(buffer: Buffer): Promise<string | null> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse");
-    const result = await pdfParse(buffer);
-    return result.text?.replace(/\s{3,}/g, "\n\n").trim().substring(0, 30000) || null;
-  } catch {
-    return null;
-  }
+  const text = await extractPdfText(buffer);
+  return text?.replace(/\s{3,}/g, "\n\n").trim().substring(0, 30000) || null;
 }
 
 // Try to obtain a fresh GeM session cookie for the current request

@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiVision, aiChat } from "@/lib/ai-client";
 
-// Max file size: 10MB
 const MAX_SIZE = 10 * 1024 * 1024;
 
 const PURCHASE_EXTRACTION_PROMPT = `You are an expert at reading Indian purchase invoices, bills, and receipts.
-Extract all information from this invoice image/document.
+Extract all information from this invoice document.
+
+CRITICAL DISTINCTION - READ THIS CAREFULLY:
+- The SUPPLIER (seller/vendor) is the company that ISSUED this invoice: appears in the letterhead, top header, "From:", "Sold By:", "Vendor Details:", or the main company branding at the top of the document
+- YOUR COMPANY (the buyer) appears in the "Bill To:", "Ship To:", "Sold To:", "Buyer Details:" section — DO NOT use this as the supplier_name
+- When in doubt: the supplier is at the TOP of the invoice issuing it; the buyer is in the "Bill To" box
 
 Return ONLY valid JSON with this exact structure:
 {
-  "supplier_name": "Vendor/Supplier company name",
-  "supplier_gstin": "Supplier GSTIN if visible (15 char)",
+  "supplier_name": "Name of the company that ISSUED this invoice (letterhead/top/From section) — NOT the Bill To name",
+  "supplier_gstin": "Supplier GSTIN if visible (15 char) — from the issuer section, NOT Bill To",
   "bill_number": "Invoice/Bill number",
   "bill_date": "YYYY-MM-DD format",
   "due_date": "YYYY-MM-DD format or null",
@@ -33,6 +37,7 @@ Return ONLY valid JSON with this exact structure:
 }
 
 RULES:
+- supplier_name = the company in the LETTERHEAD/HEADER that sent you this bill — NEVER the "Bill To" company
 - Extract ALL line items, even if many
 - rate = price per unit EXCLUDING GST
 - If only total with GST is shown, back-calculate: subtotal = total / (1 + gst%/100)
@@ -42,6 +47,21 @@ RULES:
 - bill_date and due_date must be YYYY-MM-DD format
 - If a field is not visible, use null
 - NEVER make up data - only extract what is clearly visible`;
+
+const VERIFY_PURCHASE_PROMPT = (supplierName: string, billNumber: string) =>
+  `You previously extracted a purchase invoice and identified:
+- Supplier Name: "${supplierName}"
+- Bill Number: "${billNumber}"
+
+VERIFY these two fields:
+1. supplier_name must be the company that ISSUED the invoice (top header / letterhead / "From" section). If it looks like a buyer name from "Bill To" / "Ship To", correct it.
+2. bill_number must be an actual invoice/bill number (e.g. "INV-001", "2024-25/1234"). If it looks like a date or amount, correct it.
+
+Return ONLY valid JSON:
+{
+  "supplier_name": "verified or corrected supplier name",
+  "bill_number": "verified or corrected bill number"
+}`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,26 +79,31 @@ export async function POST(request: NextRequest) {
     const mimeType = file.type;
     const isPDF = mimeType === "application/pdf";
     const isImage = mimeType.startsWith("image/");
+    const isDocx =
+      mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.name.toLowerCase().endsWith(".docx");
 
-    if (!isPDF && !isImage) {
+    if (!isPDF && !isImage && !isDocx) {
       return NextResponse.json(
-        { error: "Unsupported file type. Please upload an image or PDF." },
+        { error: "Unsupported file type. Upload a PDF, image, or DOCX." },
         { status: 400 }
       );
     }
 
     let extractedData: any;
+    // Keep text/base64 available for the verification pass
+    let verifyContext: { type: "image"; base64: string; mimeType: string } | { type: "text"; text: string } | null = null;
 
     if (isImage) {
       const bytes = await file.arrayBuffer();
       const base64 = Buffer.from(bytes).toString("base64");
+      verifyContext = { type: "image", base64, mimeType };
       const raw = await aiVision(base64, mimeType, PURCHASE_EXTRACTION_PROMPT, {
         temperature: 0.1,
         maxTokens: 4096,
       });
       extractedData = parseJSON(raw);
-    } else {
-      // PDF: extract text then use LLM
+    } else if (isPDF) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
@@ -100,11 +125,31 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const raw = await aiChat([{
-        role: "user",
-        content: `${PURCHASE_EXTRACTION_PROMPT}\n\nInvoice text:\n${text.substring(0, 8000)}`,
-      }], { temperature: 0.1, maxTokens: 4096 });
+      verifyContext = { type: "text", text };
+      const raw = await aiChat(
+        [{ role: "user", content: `${PURCHASE_EXTRACTION_PROMPT}\n\nInvoice text:\n${text.substring(0, 8000)}` }],
+        { temperature: 0.1, maxTokens: 4096 }
+      );
+      extractedData = parseJSON(raw);
+    } else {
+      // DOCX
+      const bytes = await file.arrayBuffer();
+      const mammoth = await import("mammoth");
+      const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
+      const text = result.value;
 
+      if (!text || text.trim().length < 20) {
+        return NextResponse.json(
+          { error: "Could not extract text from DOCX file." },
+          { status: 400 }
+        );
+      }
+
+      verifyContext = { type: "text", text };
+      const raw = await aiChat(
+        [{ role: "user", content: `${PURCHASE_EXTRACTION_PROMPT}\n\nInvoice text:\n${text.substring(0, 8000)}` }],
+        { temperature: 0.1, maxTokens: 4096 }
+      );
       extractedData = parseJSON(raw);
     }
 
@@ -113,6 +158,37 @@ export async function POST(request: NextRequest) {
         { error: "Could not parse invoice data. Please fill in manually." },
         { status: 422 }
       );
+    }
+
+    // ── Second pass: targeted verification of supplier name + bill number ──
+    if (verifyContext && extractedData.supplier_name) {
+      try {
+        let verifyRaw: string;
+        const verifyPrompt = VERIFY_PURCHASE_PROMPT(
+          extractedData.supplier_name,
+          extractedData.bill_number ?? ""
+        );
+        if (verifyContext.type === "image") {
+          verifyRaw = await aiVision(verifyContext.base64, verifyContext.mimeType, verifyPrompt, {
+            temperature: 0.1,
+            maxTokens: 256,
+          });
+        } else {
+          verifyRaw = await aiChat(
+            [{ role: "user", content: `${verifyPrompt}\n\nInvoice text:\n${verifyContext.text.substring(0, 4000)}` }],
+            { temperature: 0.1, maxTokens: 256 }
+          );
+        }
+        const verified = parseJSON(verifyRaw);
+        if (verified?.supplier_name) {
+          extractedData.supplier_name = verified.supplier_name;
+        }
+        if (verified?.bill_number) {
+          extractedData.bill_number = verified.bill_number;
+        }
+      } catch {
+        // Verification pass failure is non-fatal — use first-pass result
+      }
     }
 
     return NextResponse.json({ data: extractedData });
@@ -127,16 +203,12 @@ export async function POST(request: NextRequest) {
 
 function parseJSON(raw: string): any {
   try {
-    // Strip markdown code fences
     let text = raw
       .replace(/^```json?\s*\n?/im, "")
       .replace(/\n?```\s*$/im, "")
       .trim();
-
-    // Extract JSON object if embedded in text
     const match = text.match(/\{[\s\S]*\}/);
     if (match) text = match[0];
-
     return JSON.parse(text);
   } catch {
     return null;
