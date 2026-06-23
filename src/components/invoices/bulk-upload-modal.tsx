@@ -194,28 +194,12 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !businessId) throw new Error("User session or Business not found");
 
-    // ── Step 1: Upload to Supabase Storage (non-fatal — invoice saved regardless) ──
+    // ── Step 1: Parse + double-verify using AI ──
     updateItemState(item.id, { status: "uploading", progress: 20 });
-    const ext = item.file.name.split(".").pop();
-    const path = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-
-    let attachmentUrl: string | null = null;
-    try {
-      const { data: uploadData } = await supabase.storage
-        .from("invoice-attachments")
-        .upload(path, item.file, { upsert: true });
-      if (uploadData) {
-        const { data: { publicUrl } } = supabase.storage.from("invoice-attachments").getPublicUrl(path);
-        attachmentUrl = publicUrl;
-      }
-    } catch {
-      // Bucket may not exist yet — proceed without attachment
-    }
-
-    // ── Step 2: Parse + double-verify using AI ──
-    updateItemState(item.id, { status: "parsing", progress: 50 });
     const formData = new FormData();
     formData.append("file", item.file);
+
+    updateItemState(item.id, { status: "parsing", progress: 40 });
 
     const parseRes = await fetch("/api/parse-sales-image", {
       method: "POST",
@@ -333,7 +317,6 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
         total,
         status: "draft",
         notes: parsedData.notes || "Bulk uploaded invoice",
-        attachment_url: attachmentUrl,
       })
       .select()
       .single();
@@ -533,7 +516,7 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
                     )}
                     {item.status === "uploading" && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Uploading to storage...
+                        <Loader2 className="w-3 h-3 animate-spin" /> Reading file...
                       </p>
                     )}
                     {item.status === "parsing" && (
