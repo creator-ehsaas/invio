@@ -17,6 +17,7 @@ import {
   Trash2,
   ExternalLink,
   MoreHorizontal,
+  Download,
 } from "lucide-react";
 import type { PurchaseInvoice } from "@/types/database";
 import { type ColumnDef, type RowSelectionState } from "@tanstack/react-table";
@@ -210,6 +211,28 @@ export default function PurchasesPage() {
     } catch {
       toast.error("Failed to update bills");
     }
+  };
+
+  const handleBulkExport = () => {
+    const rows = purchases.filter((p) => selectedIds.includes(p.id));
+    if (rows.length === 0) { toast.error("No bills selected"); return; }
+    const headers = ["Bill No", "Supplier", "Date", "Subtotal", "Tax", "Total", "Paid", "Status"];
+    const csvRows = rows.map((p) => [
+      p.bill_number || "",
+      p.supplier_name || "",
+      p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "",
+      (p.subtotal || 0).toFixed(2),
+      ((p.cgst || 0) + (p.sgst || 0) + (p.igst || 0)).toFixed(2),
+      (p.total || 0).toFixed(2),
+      (p.amount_paid || 0).toFixed(2),
+      p.status || "",
+    ]);
+    const csv = [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `purchases-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    toast.success(`Exported ${rows.length} bill${rows.length > 1 ? "s" : ""}`);
   };
 
   // Calculate totals from filtered purchases
@@ -513,6 +536,7 @@ export default function PurchasesPage() {
             { label: "Mark Paid", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: handleBulkMarkPaid },
             { label: "Mark Pending", icon: <Clock className="h-3.5 w-3.5" />, onClick: handleBulkMarkPending },
             { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: handleBulkMarkCancelled },
+            { label: "Export", icon: <Download className="h-3.5 w-3.5" />, onClick: handleBulkExport },
             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setDeleteConfirm(true), variant: "destructive" },
           ]}
         />

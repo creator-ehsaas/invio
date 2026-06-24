@@ -24,6 +24,7 @@ import {
   Calendar,
   CreditCard,
   Pencil,
+  Clock,
 } from "lucide-react";
 import { downloadInvoicePDF, type InvoicePDFData } from "@/components/invoice-pdf";
 import { buildWaUrl, paymentReminderMessage, invoiceShareMessage } from "@/lib/whatsapp";
@@ -758,6 +759,16 @@ This is a computer-generated receipt.
                 >
                   <CheckCircle className="w-4 h-4" />
                   Mark as Paid
+                </button>
+              )}
+              {invoice.status === "paid" && (
+                <button
+                  onClick={() => updateStatus("sent")}
+                  disabled={updating}
+                  className="w-full py-2.5 bg-muted text-foreground font-medium rounded-xl hover:bg-muted/80 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Clock className="w-4 h-4" />
+                  Mark as Unpaid
                 </button>
               )}
               {invoice.status === "draft" && (

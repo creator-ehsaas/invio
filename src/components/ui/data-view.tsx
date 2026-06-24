@@ -352,11 +352,13 @@ export function BulkActionsBar({
 }) {
   if (selectedCount === 0) return null;
   return (
-    <div className="flex items-center gap-3 rounded-lg border bg-primary/5 border-primary/20 px-3 py-2 text-sm animate-in slide-in-from-bottom-2">
-      <button onClick={onClear} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
-      <span className="font-medium text-primary">{selectedCount} selected</span>
-      <div className="h-4 w-px bg-border" />
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-primary/5 border-primary/20 px-3 py-2 text-sm animate-in slide-in-from-bottom-2">
+      <div className="flex items-center gap-2 shrink-0">
+        <button onClick={onClear} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+        <span className="font-medium text-primary whitespace-nowrap">{selectedCount} selected</span>
+        <div className="h-4 w-px bg-border hidden sm:block" />
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
         {actions.map((action) => (
           <Button
             key={action.label}

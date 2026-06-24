@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { buildWaUrl, paymentReminderMessage } from "@/lib/whatsapp";
 import {
-  FileText, Plus, Download, Trash2, Send, CheckCircle,
+  FileText, Plus, Download, Trash2, Send, CheckCircle, Clock,
   MoreHorizontal, ExternalLink, IndianRupee, MessageCircle, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -184,6 +184,34 @@ export default function InvoicesPage() {
     toast.success(`Marked ${selectedIds.length} invoice${selectedIds.length > 1 ? "s" : ""} as paid`);
     setRowSelection({});
     fetch();
+  };
+
+  const handleBulkMarkUnpaid = async () => {
+    const supabase = createClient();
+    await supabase.from("invoices").update({ status: "sent" }).in("id", selectedIds);
+    toast.success(`Marked ${selectedIds.length} invoice${selectedIds.length > 1 ? "s" : ""} as unpaid`);
+    setRowSelection({});
+    fetch();
+  };
+
+  const handleBulkExport = () => {
+    const rows = invoices.filter((inv) => selectedIds.includes(inv.id));
+    if (rows.length === 0) { toast.error("No invoices selected"); return; }
+    const headers = ["Invoice No", "Customer", "Date", "Due Date", "Total", "Status"];
+    const csvRows = rows.map((inv) => [
+      inv.invoice_number || "",
+      inv.customer_name || "",
+      inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString("en-IN") : "",
+      inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-IN") : "",
+      (inv.total || 0).toFixed(2),
+      inv.status || "",
+    ]);
+    const csv = [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `invoices-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    toast.success(`Exported ${rows.length} invoice${rows.length > 1 ? "s" : ""}`);
   };
 
   const handleKanbanMove = async (invoice: Invoice, toColumnId: string) => {
@@ -397,8 +425,9 @@ export default function InvoicesPage() {
           onClear={() => setRowSelection({})}
           actions={[
             { label: "Mark paid", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: handleBulkMarkPaid },
+            { label: "Mark unpaid", icon: <Clock className="h-3.5 w-3.5" />, onClick: handleBulkMarkUnpaid },
             { label: "Send", icon: <Send className="h-3.5 w-3.5" />, onClick: () => toast.info("Bulk send coming soon") },
-            { label: "Export", icon: <Download className="h-3.5 w-3.5" />, onClick: () => toast.info("Exporting...") },
+            { label: "Export", icon: <Download className="h-3.5 w-3.5" />, onClick: handleBulkExport },
             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setDeleteConfirm(true), variant: "destructive" },
           ]}
         />
@@ -483,15 +512,27 @@ export default function InvoicesPage() {
 
             {/* Quick actions */}
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={async () => {
-                const supabase = createClient();
-                await supabase.from("invoices").update({ status: "paid" }).eq("id", selectedInvoice.id);
-                toast.success("Marked as paid");
-                setSelectedInvoice({ ...selectedInvoice, status: "paid" });
-                fetch();
-              }}>
-                <CheckCircle className="h-4 w-4 text-emerald-500" /> Mark paid
-              </Button>
+              {selectedInvoice.status === "paid" ? (
+                <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.from("invoices").update({ status: "sent" }).eq("id", selectedInvoice.id);
+                  toast.success("Marked as unpaid");
+                  setSelectedInvoice({ ...selectedInvoice, status: "sent" });
+                  fetch();
+                }}>
+                  <Clock className="h-4 w-4 text-amber-500" /> Mark unpaid
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.from("invoices").update({ status: "paid" }).eq("id", selectedInvoice.id);
+                  toast.success("Marked as paid");
+                  setSelectedInvoice({ ...selectedInvoice, status: "paid" });
+                  fetch();
+                }}>
+                  <CheckCircle className="h-4 w-4 text-emerald-500" /> Mark paid
+                </Button>
+              )}
               <Button size="sm" variant="outline" className="flex-1 gap-2">
                 <Send className="h-4 w-4" /> Send
               </Button>
