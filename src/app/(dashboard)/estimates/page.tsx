@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 interface Estimate {
   id: string;
   estimate_number: string;
+  customer_id?: string | null;
   customer_name: string;
   total: number;
   estimate_date: string;
@@ -92,7 +93,7 @@ export default function EstimatesPage() {
     const { data } = await supabase
       .from("estimates")
       .select(`
-        id, estimate_number, customer_name, total, estimate_date, valid_until, status, converted_invoice_id, subtotal, cgst, sgst, igst, notes, terms,
+        id, estimate_number, customer_id, customer_name, total, estimate_date, valid_until, status, converted_invoice_id, subtotal, cgst, sgst, igst, notes, terms,
         customers(gstin, billing_address)
       `)
       .eq("business_id", userData.business_id)
@@ -147,6 +148,101 @@ export default function EstimatesPage() {
     const supabase = createClient();
     await supabase.from("estimates").delete().in("id", selectedIds);
     toast.success(`Deleted ${selectedIds.length} estimate${selectedIds.length > 1 ? "s" : ""}`);
+    setRowSelection({});
+    fetchEstimates();
+  };
+
+  const handleBulkMarkAccepted = async () => {
+    const supabase = createClient();
+    await supabase.from("estimates").update({ status: "accepted" }).in("id", selectedIds);
+    toast.success(`Marked ${selectedIds.length} estimate${selectedIds.length > 1 ? "s" : ""} as accepted`);
+    setRowSelection({});
+    fetchEstimates();
+  };
+
+  const handleBulkMarkRejected = async () => {
+    const supabase = createClient();
+    await supabase.from("estimates").update({ status: "rejected" }).in("id", selectedIds);
+    toast.success(`Marked ${selectedIds.length} estimate${selectedIds.length > 1 ? "s" : ""} as rejected`);
+    setRowSelection({});
+    fetchEstimates();
+  };
+
+  const handleBulkConvertToInvoice = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error("Not authenticated"); return; }
+
+    const { data: userData } = await supabase.from("users").select("business_id").eq("id", user.id).single();
+    if (!userData?.business_id) { toast.error("No business found"); return; }
+
+    const { data: business } = await supabase
+      .from("businesses").select("invoice_prefix, next_invoice_number").eq("id", userData.business_id).single();
+
+    const prefix = business?.invoice_prefix || "INV-";
+    let seqNum = business?.next_invoice_number || 1;
+
+    const toConvert = estimates.filter((e) => selectedIds.includes(e.id) && e.status !== "converted");
+    let convertedCount = 0;
+
+    for (const est of toConvert) {
+      try {
+        const invoiceNumber = `${prefix}${String(seqNum).padStart(4, "0")}`;
+        const due = new Date();
+        due.setDate(due.getDate() + 15);
+
+        const { data: inv, error: invErr } = await supabase.from("invoices").insert({
+          business_id: userData.business_id,
+          customer_id: est.customer_id || null,
+          customer_name: est.customer_name || null,
+          invoice_number: invoiceNumber,
+          invoice_date: new Date().toISOString().split("T")[0],
+          due_date: due.toISOString().split("T")[0],
+          status: "draft",
+          subtotal: est.subtotal,
+          cgst: est.cgst,
+          sgst: est.sgst,
+          igst: est.igst,
+          total: est.total,
+          notes: est.notes,
+          terms: est.terms,
+        }).select().single();
+
+        if (invErr) continue;
+
+        // Copy items
+        const { data: estItems } = await supabase.from("estimate_items").select("*").eq("estimate_id", est.id);
+        if (estItems && estItems.length > 0) {
+          await supabase.from("invoice_items").insert(
+            estItems.map((it: any) => ({
+              invoice_id: inv.id,
+              description: it.description,
+              hsn_code: it.hsn_code || null,
+              quantity: it.quantity,
+              unit: it.unit,
+              rate: it.rate,
+              gst_rate: it.gst_rate,
+              cgst: it.cgst,
+              sgst: it.sgst,
+              igst: it.igst,
+              amount: it.amount,
+            }))
+          );
+        }
+
+        await supabase.from("estimates").update({
+          status: "converted",
+          converted_invoice_id: inv.id,
+          converted_at: new Date().toISOString(),
+        }).eq("id", est.id);
+
+        seqNum++;
+        convertedCount++;
+      } catch { /* skip individual failures */ }
+    }
+
+    await supabase.from("businesses").update({ next_invoice_number: seqNum }).eq("id", userData.business_id);
+    toast.success(`Converted ${convertedCount} estimate${convertedCount !== 1 ? "s" : ""} to draft invoices`);
     setRowSelection({});
     fetchEstimates();
   };
@@ -300,7 +396,12 @@ export default function EstimatesPage() {
       </div>
 
       <BulkActionsBar selectedCount={selectedCount} onClear={() => setRowSelection({})}
-        actions={[{ label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setDeleteConfirm(true), variant: "destructive" }]}
+        actions={[
+          { label: "Convert to Invoice", icon: <ArrowRight className="h-3.5 w-3.5" />, onClick: handleBulkConvertToInvoice },
+          { label: "Mark Accepted", icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: handleBulkMarkAccepted },
+          { label: "Mark Rejected", icon: <XCircle className="h-3.5 w-3.5" />, onClick: handleBulkMarkRejected },
+          { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+        ]}
       />
 
       <DataView

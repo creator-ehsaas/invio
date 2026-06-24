@@ -168,6 +168,50 @@ export default function PurchasesPage() {
     }
   };
 
+  const handleBulkMarkPaid = async () => {
+    try {
+      const supabase = createClient();
+      // Set amount_paid = total for each selected bill
+      const selectedPurchases = purchases.filter((p) => selectedIds.includes(p.id));
+      await Promise.all(
+        selectedPurchases.map((p) =>
+          supabase.from("purchase_invoices")
+            .update({ status: "paid", amount_paid: p.total })
+            .eq("id", p.id)
+        )
+      );
+      toast.success(`Marked ${selectedIds.length} bill${selectedIds.length > 1 ? "s" : ""} as paid`);
+      setRowSelection({});
+      fetchPurchases();
+    } catch {
+      toast.error("Failed to update bills");
+    }
+  };
+
+  const handleBulkMarkPending = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.from("purchase_invoices").update({ status: "pending", amount_paid: 0 }).in("id", selectedIds);
+      toast.success(`Marked ${selectedIds.length} bill${selectedIds.length > 1 ? "s" : ""} as pending`);
+      setRowSelection({});
+      fetchPurchases();
+    } catch {
+      toast.error("Failed to update bills");
+    }
+  };
+
+  const handleBulkMarkCancelled = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.from("purchase_invoices").update({ status: "cancelled" }).in("id", selectedIds);
+      toast.success(`Cancelled ${selectedIds.length} bill${selectedIds.length > 1 ? "s" : ""}`);
+      setRowSelection({});
+      fetchPurchases();
+    } catch {
+      toast.error("Failed to update bills");
+    }
+  };
+
   // Calculate totals from filtered purchases
   const totalPending = filteredPurchases
     .filter((p) => p.status === "pending" || p.status === "partial")
@@ -466,6 +510,9 @@ export default function PurchasesPage() {
           selectedCount={selectedCount}
           onClear={() => setRowSelection({})}
           actions={[
+            { label: "Mark Paid", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: handleBulkMarkPaid },
+            { label: "Mark Pending", icon: <Clock className="h-3.5 w-3.5" />, onClick: handleBulkMarkPending },
+            { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: handleBulkMarkCancelled },
             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setDeleteConfirm(true), variant: "destructive" },
           ]}
         />

@@ -95,14 +95,11 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
     };
 
     fetchData();
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) {
+    return () => {
       setQueue([]);
       setIsProcessing(false);
       processingRef.current = false;
-    }
+    };
   }, [isOpen]);
 
   const isAllowedFile = (f: File) =>
@@ -165,11 +162,11 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
 
       try {
         await processSingleItem(item);
-      } catch (err: any) {
+      } catch (err) {
         console.error(`Error processing ${item.file.name}:`, err);
         updateItemState(item.id, {
           status: "error",
-          error: err.message || "Unknown error occurred",
+          error: err instanceof Error ? err.message : "Unknown error occurred",
           progress: 100,
         });
       }

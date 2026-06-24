@@ -421,6 +421,25 @@ export default function ReportsPage() {
       highlight: true,
     },
     {
+      title: "Balance Sheet",
+      description: "Assets, liabilities, and equity snapshot",
+      icon: FileSpreadsheet,
+      href: "/reports/balance-sheet",
+      highlight: true,
+    },
+    {
+      title: "Trial Balance",
+      description: "Debit/credit summary for all accounts",
+      icon: Calculator,
+      href: "/reports/trial-balance",
+    },
+    {
+      title: "Cash Flow Statement",
+      description: "Cash inflows and outflows by period",
+      icon: ArrowDownLeft,
+      href: "/reports/cashflow",
+    },
+    {
       title: "Aged Receivables",
       description: "Unpaid invoices by age bucket (0-30, 31-60, 60+)",
       icon: Calendar,
@@ -455,10 +474,16 @@ export default function ReportsPage() {
       onClick: downloadGSTReport,
     },
     {
+      title: "Sales Register",
+      description: "Full GST-wise sales register with export",
+      icon: TrendingUp,
+      href: "/reports/sales-register",
+    },
+    {
       title: "Purchase Register",
-      description: "All purchase invoices for ITC claims",
+      description: "All purchase invoices with ITC details",
       icon: ShoppingCart,
-      href: "/purchases",
+      href: "/reports/purchase-register",
     },
   ];
 

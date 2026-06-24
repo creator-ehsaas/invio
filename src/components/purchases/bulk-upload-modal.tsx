@@ -89,15 +89,11 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUplo
     };
 
     fetchData();
-  }, [isOpen]);
-
-  // Clean queue when modal opens/closes
-  useEffect(() => {
-    if (!isOpen) {
+    return () => {
       setQueue([]);
       setIsProcessing(false);
       processingRef.current = false;
-    }
+    };
   }, [isOpen]);
 
   const addFilesToQueue = (files: File[]) => {

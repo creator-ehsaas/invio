@@ -22,6 +22,7 @@ import {
   Keyboard,
   Gavel,
   ChevronDown,
+  BookOpen,
 } from "lucide-react";
 import type { User as UserType, Business } from "@/types/database";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -45,6 +46,7 @@ const primaryLinks = [
 const secondaryLinks = [
   { href: "/estimates", label: "Estimates", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Package },
+  { href: "/accounting", label: "Accounting", icon: BookOpen },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/bids", label: "Bids", icon: Gavel },
 ];
