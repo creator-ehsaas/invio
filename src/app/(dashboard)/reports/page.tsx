@@ -468,10 +468,10 @@ export default function ReportsPage() {
       highlight: true,
     },
     {
-      title: "GSTR-1 Summary",
-      description: "Outward supplies summary for filing",
-      icon: TrendingUp,
-      onClick: downloadGSTReport,
+      title: "GSTR-1",
+      description: "Outward supplies return — B2B, B2CS, HSN",
+      icon: FileText,
+      href: "/reports/gstr1",
     },
     {
       title: "Sales Register",
@@ -613,10 +613,7 @@ export default function ReportsPage() {
                   </div>
                 );
 
-                if (report.href) {
-                  return <Link key={report.title} href={report.href}>{content}</Link>;
-                }
-                return <div key={report.title} onClick={report.onClick}>{content}</div>;
+                return <Link key={report.title} href={report.href}>{content}</Link>;
               })}
             </div>
           </div>

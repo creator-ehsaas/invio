@@ -66,15 +66,47 @@ const STATE_CODES: Record<string, string> = {
   "Jammu and Kashmir": "01", "Ladakh": "38",
 };
 
+const QUARTERS_G1 = [
+  { label: "Q1 (Apr–Jun)", q: 1 },
+  { label: "Q2 (Jul–Sep)", q: 2 },
+  { label: "Q3 (Oct–Dec)", q: 3 },
+  { label: "Q4 (Jan–Mar)", q: 4 },
+];
+
+function getG1QuarterRange(quarter: number, fyYear: number) {
+  switch (quarter) {
+    case 1: return { start: `${fyYear}-04-01`, end: `${fyYear}-06-30` };
+    case 2: return { start: `${fyYear}-07-01`, end: `${fyYear}-09-30` };
+    case 3: return { start: `${fyYear}-10-01`, end: `${fyYear}-12-31` };
+    default: return { start: `${fyYear + 1}-01-01`, end: `${fyYear + 1}-03-31` };
+  }
+}
+
+function g1CurrentFYYear() {
+  const m = new Date().getMonth();
+  return m >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+}
+
+function g1CurrentQuarter() {
+  const m = new Date().getMonth();
+  if (m >= 3 && m <= 5) return 1;
+  if (m >= 6 && m <= 8) return 2;
+  if (m >= 9 && m <= 11) return 3;
+  return 4;
+}
+
 export default function GSTR1Page() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GSTR1Data | null>(null);
+  const [viewType, setViewType] = useState<"monthly" | "quarterly">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedQuarter, setSelectedQuarter] = useState(g1CurrentQuarter());
+  const [selectedFYYear, setSelectedFYYear] = useState(g1CurrentFYYear());
   const [businessGstin, setBusinessGstin] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"b2b" | "b2cs" | "hsn">("b2b");
 
-  useEffect(() => { fetchData(); }, [selectedMonth, selectedYear]);
+  useEffect(() => { fetchData(); }, [viewType, selectedMonth, selectedYear, selectedQuarter, selectedFYYear]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -91,8 +123,14 @@ export default function GSTR1Page() {
         .from("businesses").select("gstin").eq("id", userData.business_id).single();
       setBusinessGstin(business?.gstin || null);
 
-      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split("T")[0];
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split("T")[0];
+      let startDate: string, endDate: string;
+      if (viewType === "quarterly") {
+        const r = getG1QuarterRange(selectedQuarter, selectedFYYear);
+        startDate = r.start; endDate = r.end;
+      } else {
+        startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split("T")[0];
+        endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split("T")[0];
+      }
 
       const { data: invoices } = await supabase
         .from("invoices")
@@ -188,7 +226,9 @@ export default function GSTR1Page() {
 
   const downloadJSON = () => {
     if (!data) return;
-    const fp = `${String(selectedMonth + 1).padStart(2, "0")}${selectedYear}`;
+    const fp = viewType === "quarterly"
+      ? `Q${selectedQuarter}FY${selectedFYYear}`
+      : `${String(selectedMonth + 1).padStart(2, "0")}${selectedYear}`;
     const json = {
       gstin: businessGstin,
       fp,
@@ -244,7 +284,9 @@ export default function GSTR1Page() {
     const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `GSTR1_${selectedYear}_${String(selectedMonth + 1).padStart(2, "0")}.json`;
+    a.download = viewType === "quarterly"
+      ? `GSTR1_FY${selectedFYYear}_Q${selectedQuarter}.json`
+      : `GSTR1_${selectedYear}_${String(selectedMonth + 1).padStart(2, "0")}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -272,32 +314,45 @@ export default function GSTR1Page() {
 
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
-        <select
-          value={selectedMonth}
-          onChange={e => { setSelectedMonth(Number(e.target.value)); }}
-          className="h-8 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-        </select>
-        <select
-          value={selectedYear}
-          onChange={e => { setSelectedYear(Number(e.target.value)); }}
-          className="h-8 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-        <button
-          onClick={fetchData}
-          className="h-8 w-8 flex items-center justify-center rounded-md border hover:bg-muted transition-colors"
-          title="Refresh"
-        >
+        {/* Monthly / Quarterly toggle */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg">
+          {(["monthly", "quarterly"] as const).map((t) => (
+            <button key={t} onClick={() => setViewType(t)}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all capitalize ${viewType === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        {viewType === "monthly" ? (
+          <>
+            <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}
+              className="h-8 rounded-md border border-input bg-background px-3 text-sm">
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
+              className="h-8 rounded-md border border-input bg-background px-3 text-sm">
+              {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </>
+        ) : (
+          <>
+            <select value={selectedQuarter} onChange={e => setSelectedQuarter(Number(e.target.value))}
+              className="h-8 rounded-md border border-input bg-background px-3 text-sm">
+              {QUARTERS_G1.map((q) => <option key={q.q} value={q.q}>{q.label}</option>)}
+            </select>
+            <select value={selectedFYYear} onChange={e => setSelectedFYYear(Number(e.target.value))}
+              className="h-8 rounded-md border border-input bg-background px-3 text-sm">
+              {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>FY {y}–{y + 1}</option>)}
+            </select>
+          </>
+        )}
+        <button onClick={fetchData}
+          className="h-8 w-8 flex items-center justify-center rounded-md border hover:bg-muted transition-colors" title="Refresh">
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
         {data && (
-          <button
-            onClick={downloadJSON}
-            className="ml-auto h-8 flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
+          <button onClick={downloadJSON}
+            className="ml-auto h-8 flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
             <Download className="h-3.5 w-3.5" /> Download JSON
           </button>
         )}

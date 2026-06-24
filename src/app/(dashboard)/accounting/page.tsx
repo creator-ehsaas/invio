@@ -68,12 +68,20 @@ const modules = [
     bg: "bg-primary/5",
   },
   {
-    title: "GST Returns",
-    description: "GSTR-1, GSTR-3B filing summaries",
+    title: "GSTR-3B",
+    description: "Monthly/quarterly GST return with ITC",
     href: "/reports/gstr3b",
     icon: CreditCard,
     color: "text-rose-600 dark:text-rose-400",
     bg: "bg-rose-50 dark:bg-rose-950/20",
+  },
+  {
+    title: "GSTR-1",
+    description: "Outward supplies return — B2B, B2CS, HSN",
+    href: "/reports/gstr1",
+    icon: FileText,
+    color: "text-orange-600 dark:text-orange-400",
+    bg: "bg-orange-50 dark:bg-orange-950/20",
   },
 ];
 

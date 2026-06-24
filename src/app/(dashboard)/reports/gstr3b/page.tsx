@@ -51,17 +51,51 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+// Indian FY quarters: Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec, Q4=Jan-Mar
+const QUARTERS = [
+  { label: "Q1 (Apr–Jun)", q: 1 },
+  { label: "Q2 (Jul–Sep)", q: 2 },
+  { label: "Q3 (Oct–Dec)", q: 3 },
+  { label: "Q4 (Jan–Mar)", q: 4 },
+];
+
+function getQuarterRange(quarter: number, fyYear: number) {
+  // fyYear = start year of FY (e.g. 2026 for FY 2026-27)
+  switch (quarter) {
+    case 1: return { start: `${fyYear}-04-01`, end: `${fyYear}-06-30`, label: `Q1 Apr–Jun ${fyYear}` };
+    case 2: return { start: `${fyYear}-07-01`, end: `${fyYear}-09-30`, label: `Q2 Jul–Sep ${fyYear}` };
+    case 3: return { start: `${fyYear}-10-01`, end: `${fyYear}-12-31`, label: `Q3 Oct–Dec ${fyYear}` };
+    default: return { start: `${fyYear + 1}-01-01`, end: `${fyYear + 1}-03-31`, label: `Q4 Jan–Mar ${fyYear + 1}` };
+  }
+}
+
+function currentFYYear() {
+  const m = new Date().getMonth(); // 0-indexed
+  return m >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+}
+
+function currentFYQuarter() {
+  const m = new Date().getMonth();
+  if (m >= 3 && m <= 5) return 1;
+  if (m >= 6 && m <= 8) return 2;
+  if (m >= 9 && m <= 11) return 3;
+  return 4;
+}
+
 export default function GSTR3BPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [data, setData] = useState<GSTR3BData | null>(null);
+  const [viewType, setViewType] = useState<"monthly" | "quarterly">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedQuarter, setSelectedQuarter] = useState(currentFYQuarter());
+  const [selectedFYYear, setSelectedFYYear] = useState(currentFYYear());
   const [businessGstin, setBusinessGstin] = useState<string | null>(null);
 
   useEffect(() => {
     fetchGSTR3BData();
-  }, [selectedMonth, selectedYear]);
+  }, [viewType, selectedMonth, selectedYear, selectedQuarter, selectedFYYear]);
 
   const fetchGSTR3BData = async () => {
     setLoading(true);
@@ -77,7 +111,6 @@ export default function GSTR3BPage() {
 
     if (!userData?.business_id) return;
 
-    // Fetch business GSTIN
     const { data: business } = await supabase
       .from("businesses")
       .select("gstin")
@@ -86,9 +119,15 @@ export default function GSTR3BPage() {
 
     setBusinessGstin(business?.gstin || null);
 
-    // Calculate date range
-    const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split("T")[0];
-    const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split("T")[0];
+    let startDate: string, endDate: string, periodLabel: string;
+    if (viewType === "quarterly") {
+      const qr = getQuarterRange(selectedQuarter, selectedFYYear);
+      startDate = qr.start; endDate = qr.end; periodLabel = qr.label;
+    } else {
+      startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split("T")[0];
+      endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split("T")[0];
+      periodLabel = `${MONTHS[selectedMonth]} ${selectedYear}`;
+    }
 
     // Fetch sales invoices for the period
     const { data: invoices } = await supabase
@@ -149,7 +188,7 @@ export default function GSTR3BPage() {
     }
 
     setData({
-      taxPeriod: `${MONTHS[selectedMonth]} ${selectedYear}`,
+      taxPeriod: periodLabel,
       outwardTaxable,
       outwardZeroRated: 0,
       outwardNilRated: 0,
@@ -178,7 +217,9 @@ export default function GSTR3BPage() {
 
     const gstr3bFormat = {
       gstin: businessGstin,
-      ret_period: `${String(selectedMonth + 1).padStart(2, "0")}${selectedYear}`,
+      ret_period: viewType === "quarterly"
+        ? `Q${selectedQuarter}${selectedFYYear}`
+        : `${String(selectedMonth + 1).padStart(2, "0")}${selectedYear}`,
       sup_details: {
         osup_det: {
           txval: data.outwardTaxable,
@@ -257,7 +298,9 @@ export default function GSTR3BPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `GSTR3B_${selectedYear}_${String(selectedMonth + 1).padStart(2, "0")}.json`;
+    a.download = viewType === "quarterly"
+      ? `GSTR3B_FY${selectedFYYear}_Q${selectedQuarter}.json`
+      : `GSTR3B_${selectedYear}_${String(selectedMonth + 1).padStart(2, "0")}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -283,7 +326,7 @@ export default function GSTR3BPage() {
           </Link>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">GSTR-3B</h1>
-            <p className="text-muted-foreground mt-1">Monthly GST return summary</p>
+            <p className="text-muted-foreground mt-1">Monthly &amp; Quarterly GST return summary</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -308,31 +351,51 @@ export default function GSTR3BPage() {
 
       {/* Period Selector */}
       <div className="bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-muted-foreground" />
             <span className="font-medium text-foreground">Tax Period:</span>
           </div>
-          <div className="flex gap-2">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="bg-secondary border-none rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              {MONTHS.map((month, index) => (
-                <option key={month} value={index}>{month}</option>
-              ))}
-            </select>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-secondary border-none rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              {[2024, 2025, 2026, 2027].map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+          {/* Monthly / Quarterly toggle */}
+          <div className="flex gap-1 p-1 bg-muted rounded-xl">
+            {(["monthly", "quarterly"] as const).map((t) => (
+              <button key={t} onClick={() => setViewType(t)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all capitalize ${viewType === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                {t}
+              </button>
+            ))}
           </div>
+          {viewType === "monthly" ? (
+            <div className="flex gap-2">
+              <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="bg-secondary border-none rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-primary/20 outline-none text-sm">
+                {MONTHS.map((month, index) => (
+                  <option key={month} value={index}>{month}</option>
+                ))}
+              </select>
+              <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="bg-secondary border-none rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-primary/20 outline-none text-sm">
+                {[2023, 2024, 2025, 2026, 2027].map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <select value={selectedQuarter} onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+                className="bg-secondary border-none rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-primary/20 outline-none text-sm">
+                {QUARTERS.map((q) => (
+                  <option key={q.q} value={q.q}>{q.label}</option>
+                ))}
+              </select>
+              <select value={selectedFYYear} onChange={(e) => setSelectedFYYear(Number(e.target.value))}
+                className="bg-secondary border-none rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-primary/20 outline-none text-sm">
+                {[2023, 2024, 2025, 2026, 2027].map((y) => (
+                  <option key={y} value={y}>FY {y}–{y + 1}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {!businessGstin && (
             <div className="flex items-center gap-2 text-amber-600 text-sm">
               <AlertCircle className="w-4 h-4" />
