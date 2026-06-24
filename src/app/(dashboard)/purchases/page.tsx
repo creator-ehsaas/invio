@@ -36,6 +36,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DataView, ViewSwitcher, BulkActionsBar, type ViewType } from "@/components/ui/data-view";
 import BulkUploadModal from "@/components/purchases/bulk-upload-modal";
+import { toCSV } from "@/lib/csv";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -227,7 +228,7 @@ export default function PurchasesPage() {
       (p.amount_paid || 0).toFixed(2),
       p.status || "",
     ]);
-    const csv = [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV([headers, ...csvRows]);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `purchases-${new Date().toISOString().split("T")[0]}.csv`;

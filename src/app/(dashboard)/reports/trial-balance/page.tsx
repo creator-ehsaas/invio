@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Download, RefreshCw } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { toCSV } from "@/lib/csv";
 
 type Period = "this_month" | "last_month" | "this_quarter" | "this_year" | "all_time";
 
@@ -111,7 +112,7 @@ export default function TrialBalancePage() {
     const header = ["Account", "Type", "Debit", "Credit"];
     const dataRows = rows.map((r) => [r.account, r.type, r.debit.toFixed(2), r.credit.toFixed(2)]);
     const total = ["TOTAL", "", totalDebit.toFixed(2), totalCredit.toFixed(2)];
-    const csv = [header, ...dataRows, total].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV([header, ...dataRows, total]);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `trial-balance-${new Date().toISOString().split("T")[0]}.csv`;

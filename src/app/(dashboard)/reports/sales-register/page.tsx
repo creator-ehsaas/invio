@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Download, Search, FileText } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { toCSV } from "@/lib/csv";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
@@ -87,7 +88,7 @@ export default function SalesRegisterPage() {
       i.total?.toFixed(2), i.status,
     ]);
     const totRow = ["TOTAL", "", "", totals.subtotal.toFixed(2), totals.cgst.toFixed(2), totals.sgst.toFixed(2), totals.igst.toFixed(2), totals.total.toFixed(2), ""];
-    const csv = [headers, ...rows, totRow].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV([headers, ...rows, totRow]);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `sales-register-${period}-${new Date().toISOString().split("T")[0]}.csv`;

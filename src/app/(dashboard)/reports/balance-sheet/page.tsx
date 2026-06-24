@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Download, RefreshCw, Scale } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { toCSV } from "@/lib/csv";
 
 interface BalanceSheetData {
   // Assets
@@ -162,7 +163,7 @@ export default function BalanceSheetPage() {
       ["Retained Earnings", data.retainedEarnings.toFixed(2)],
       ["Total Equity", data.totalEquity.toFixed(2)],
     ];
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV(rows);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `balance-sheet-${new Date().toISOString().split("T")[0]}.csv`;

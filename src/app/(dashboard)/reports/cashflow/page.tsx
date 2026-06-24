@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Download, RefreshCw, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { toCSV } from "@/lib/csv";
 
 type Period = "this_month" | "last_month" | "this_quarter" | "this_year";
 const periods: { id: Period; label: string }[] = [
@@ -111,7 +112,7 @@ export default function CashFlowPage() {
       ["Cash Paid for Expenses", (-data.cashToExpenses).toFixed(2)],
       ["Net Cash from Operating Activities", data.netOperating.toFixed(2)],
     ];
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV(rows);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `cashflow-${period}-${new Date().toISOString().split("T")[0]}.csv`;

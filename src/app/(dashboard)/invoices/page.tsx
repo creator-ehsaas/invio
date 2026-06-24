@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { buildWaUrl, paymentReminderMessage } from "@/lib/whatsapp";
+import { toCSV } from "@/lib/csv";
 import {
   FileText, Plus, Download, Trash2, Send, CheckCircle, Clock,
   MoreHorizontal, ExternalLink, IndianRupee, MessageCircle, Upload,
@@ -206,7 +207,7 @@ export default function InvoicesPage() {
       (inv.total || 0).toFixed(2),
       inv.status || "",
     ]);
-    const csv = [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV([headers, ...csvRows]);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `invoices-${new Date().toISOString().split("T")[0]}.csv`;

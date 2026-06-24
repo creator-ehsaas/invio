@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Download, Search } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { toCSV } from "@/lib/csv";
 import { Input } from "@/components/ui/input";
 
 type Period = "this_month" | "last_month" | "this_quarter" | "this_year" | "all_time";
@@ -87,7 +88,7 @@ export default function PurchaseRegisterPage() {
       p.total?.toFixed(2), p.amount_paid?.toFixed(2), p.status,
     ]);
     const totRow = ["TOTAL", "", "", totals.subtotal.toFixed(2), totals.cgst.toFixed(2), totals.sgst.toFixed(2), totals.igst.toFixed(2), totals.total.toFixed(2), totals.paid.toFixed(2), ""];
-    const csv = [headers, ...rows, totRow].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = toCSV([headers, ...rows, totRow]);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `purchase-register-${period}-${new Date().toISOString().split("T")[0]}.csv`;
