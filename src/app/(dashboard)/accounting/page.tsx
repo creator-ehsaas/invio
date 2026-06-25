@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Scale, TrendingUp, TrendingDown, ArrowRightLeft, BookOpen, Building2, CreditCard, BarChart3, FileText, RefreshCw } from "lucide-react";
+import { Loader2, Scale, TrendingUp, TrendingDown, ArrowRightLeft, BookOpen, Building2, CreditCard, BarChart3, FileText, RefreshCw, Landmark } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 
@@ -58,6 +58,14 @@ const modules = [
     icon: Building2,
     color: "text-sky-600 dark:text-sky-400",
     bg: "bg-sky-50 dark:bg-sky-950/20",
+  },
+  {
+    title: "Balance Sheet Items",
+    description: "Fixed assets, loans, capital, advance/income tax",
+    href: "/accounting/balances",
+    icon: Landmark,
+    color: "text-indigo-600 dark:text-indigo-400",
+    bg: "bg-indigo-50 dark:bg-indigo-950/20",
   },
   {
     title: "P&L Statement",
