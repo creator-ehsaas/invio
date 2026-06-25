@@ -317,7 +317,9 @@ export default function SalesBulkUploadModal({ isOpen, onClose, onSuccess }: Bul
         sgst,
         igst,
         total,
-        status: "draft",
+        // Imported invoices are historical/already-issued, so finalize as "sent"
+        // (not "draft") — drafts are excluded from GSTR-1.
+        status: "sent",
         notes: parsedData.notes || "Bulk uploaded invoice",
       })
       .select()

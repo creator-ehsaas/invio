@@ -132,11 +132,13 @@ export default function GSTR1Page() {
         endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split("T")[0];
       }
 
-      const { data: invoices } = await supabase
+      // GSTIN and state live on the customer record, not the invoice — join them in.
+      const { data: invoices, error: invErr } = await supabase
         .from("invoices")
         .select(`
           id, invoice_number, invoice_date, total, subtotal, cgst, sgst, igst,
-          customer_name, customer_gstin, customer_state,
+          customer_name, customer_id,
+          customers ( gstin, billing_address ),
           invoice_items (
             description, hsn_code, quantity, unit, amount, cgst, sgst, igst, gst_rate
           )
@@ -147,7 +149,17 @@ export default function GSTR1Page() {
         .neq("status", "cancelled")
         .neq("status", "draft");
 
-      const rows = (invoices || []) as any[];
+      if (invErr) console.error("GSTR-1 query error:", invErr.message);
+
+      // Normalize joined customer GSTIN/state onto each row
+      const rows = ((invoices || []) as any[]).map((inv) => {
+        const cust = Array.isArray(inv.customers) ? inv.customers[0] : inv.customers;
+        return {
+          ...inv,
+          customer_gstin: cust?.gstin || null,
+          customer_state: cust?.billing_address?.state || null,
+        };
+      });
 
       // B2B
       const b2b: B2BEntry[] = rows
