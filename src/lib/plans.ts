@@ -49,7 +49,7 @@ export const PLANS = {
   // the Anthropic integration ships. Set productId + comingSoon:false to launch.
   BUSINESS_MONTHLY: {
     id: "business_monthly",
-    productId: "", // create in DodoPayments before launch
+    productId: "pdt_0NhnLJRNg6GngVJrYR4oD", // live; flip comingSoon:false to launch
     name: "Business",
     price: 1999,
     invoicesPerMonth: -1, // Unlimited
@@ -66,7 +66,7 @@ export const PLANS = {
   },
   BUSINESS_YEARLY: {
     id: "business_yearly",
-    productId: "", // create in DodoPayments before launch
+    productId: "pdt_0NhnLJasDHgI7ggVYhky7", // live; flip comingSoon:false to launch
     name: "Business Yearly",
     price: 19999,
     invoicesPerMonth: -1, // Unlimited
