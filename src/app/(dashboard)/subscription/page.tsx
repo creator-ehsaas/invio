@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PLANS } from "@/lib/plans";
+import { useFlag } from "@/components/providers/FlagsProvider";
 import {
   CreditCard,
   Check,
@@ -31,6 +32,8 @@ export default function SubscriptionPage() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
+  // Flag-gated: flip `business_tier_live` in feature_flags to launch without a redeploy.
+  const businessLive = useFlag("business_tier_live");
 
   useEffect(() => {
     fetchSubscription();
@@ -292,12 +295,31 @@ export default function SubscriptionPage() {
                 </li>
               ))}
             </ul>
-            <button
-              disabled
-              className="w-full py-3 border border-violet-200 dark:border-violet-900/50 text-muted-foreground rounded-xl font-semibold cursor-not-allowed opacity-70"
-            >
-              Coming Soon
-            </button>
+            {businessLive ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleUpgrade("business_monthly")}
+                  disabled={upgrading === "business_monthly"}
+                  className="py-3 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {upgrading === "business_monthly" ? <Loader2 className="w-5 h-5 animate-spin" /> : "Monthly"}
+                </button>
+                <button
+                  onClick={() => handleUpgrade("business_yearly")}
+                  disabled={upgrading === "business_yearly"}
+                  className="py-3 border border-violet-300 dark:border-violet-800 text-foreground rounded-xl font-semibold hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {upgrading === "business_yearly" ? <Loader2 className="w-5 h-5 animate-spin" /> : "Yearly"}
+                </button>
+              </div>
+            ) : (
+              <button
+                disabled
+                className="w-full py-3 border border-violet-200 dark:border-violet-900/50 text-muted-foreground rounded-xl font-semibold cursor-not-allowed opacity-70"
+              >
+                Coming Soon
+              </button>
+            )}
           </div>
         </>
       )}

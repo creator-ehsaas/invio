@@ -18,7 +18,9 @@ export async function POST(request: NextRequest) {
 
     // Validate plan
     const plan = planId === "pro_monthly" ? PLANS.PRO_MONTHLY :
-                 planId === "pro_yearly" ? PLANS.PRO_YEARLY : null;
+                 planId === "pro_yearly" ? PLANS.PRO_YEARLY :
+                 planId === "business_monthly" ? PLANS.BUSINESS_MONTHLY :
+                 planId === "business_yearly" ? PLANS.BUSINESS_YEARLY : null;
 
     if (!plan || !plan.productId) {
       return NextResponse.json(

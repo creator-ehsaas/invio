@@ -7,6 +7,7 @@ import { AIAssistant } from "@/components/ai-assistant";
 import { CommandPalette } from "@/components/command-palette";
 import { KeyboardShortcutsModal } from "@/components/keyboard-shortcuts";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { FlagsProvider } from "@/components/providers/FlagsProvider";
 import type { User, Business } from "@/types/database";
 
 export default async function DashboardLayout({
@@ -43,6 +44,7 @@ export default async function DashboardLayout({
   }
 
   return (
+    <FlagsProvider>
     <div className="min-h-screen bg-background">
       <Navbar user={user as User} business={business} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-8">
@@ -61,5 +63,6 @@ export default async function DashboardLayout({
       {/* Onboarding wizard — shows on first visit */}
       <OnboardingWizard />
     </div>
+    </FlagsProvider>
   );
 }
