@@ -577,7 +577,7 @@ This is a computer-generated receipt.
             <p className="text-muted-foreground mt-1">{invoice.customer_name}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {/* Download PDF with template selector */}
           <div className="relative">
             <button
