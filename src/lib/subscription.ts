@@ -1,8 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
+import { PLANS } from "@/lib/plans";
+
+const FREE_LIMIT = PLANS.FREE.invoicesPerMonth;
+
+export type SubscriptionPlan = "free" | "pro_monthly" | "pro_yearly" | "business_monthly" | "business_yearly";
 
 export interface SubscriptionStatus {
   canCreateInvoice: boolean;
-  plan: "free" | "pro_monthly" | "pro_yearly";
+  plan: SubscriptionPlan;
   invoicesUsed: number;
   invoicesLimit: number;
   isProUser: boolean;
@@ -17,7 +22,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
       canCreateInvoice: false,
       plan: "free",
       invoicesUsed: 0,
-      invoicesLimit: 50,
+      invoicesLimit: FREE_LIMIT,
       isProUser: false,
     };
   }
@@ -33,13 +38,13 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
       canCreateInvoice: true,
       plan: "free",
       invoicesUsed: 0,
-      invoicesLimit: 50,
+      invoicesLimit: FREE_LIMIT,
       isProUser: false,
     };
   }
 
-  const plan = userData.subscription_plan as "free" | "pro_monthly" | "pro_yearly";
-  const isProUser = plan === "pro_monthly" || plan === "pro_yearly";
+  const plan = userData.subscription_plan as SubscriptionPlan;
+  const isProUser = plan === "pro_monthly" || plan === "pro_yearly" || plan === "business_monthly" || plan === "business_yearly";
   let invoicesUsed = userData.invoices_this_month || 0;
 
   // Reset counter if new month
@@ -63,10 +68,10 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
   }
 
   return {
-    canCreateInvoice: isProUser || invoicesUsed < 50,
+    canCreateInvoice: isProUser || invoicesUsed < FREE_LIMIT,
     plan,
     invoicesUsed,
-    invoicesLimit: isProUser ? -1 : 50,
+    invoicesLimit: isProUser ? -1 : FREE_LIMIT,
     isProUser,
   };
 }

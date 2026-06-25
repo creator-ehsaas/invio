@@ -839,7 +839,7 @@ export default function NewInvoicePage() {
         .single();
 
       const plan = userSubscription?.subscription_plan || "free";
-      const isPro = plan === "pro_monthly" || plan === "pro_yearly";
+      const isPro = plan !== "free";
       let invoicesUsed = userSubscription?.invoices_this_month || 0;
 
       const resetDate = userSubscription?.invoices_reset_date
@@ -857,8 +857,8 @@ export default function NewInvoicePage() {
         invoicesUsed = 0;
       }
 
-      if (!isPro && invoicesUsed >= 50) {
-        setError("You've reached the free plan limit of 50 invoices/month. Upgrade to Pro for unlimited invoices.");
+      if (!isPro && invoicesUsed >= 20) {
+        setError("You've reached the free plan limit of 20 invoices/month. Upgrade to Pro for unlimited invoices.");
         setSaving(false);
         return;
       }

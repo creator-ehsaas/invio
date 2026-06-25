@@ -163,14 +163,14 @@ export default function SubscriptionPage() {
             <div className="flex justify-between text-sm mb-2">
               <span className="text-muted-foreground">Monthly usage</span>
               <span className="font-medium">
-                {userData?.invoices_this_month || 0} / 50 invoices
+                {userData?.invoices_this_month || 0} / {PLANS.FREE.invoicesPerMonth} invoices
               </span>
             </div>
             <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div
                 className="h-full bg-primary rounded-full transition-all"
                 style={{
-                  width: `${Math.min(((userData?.invoices_this_month || 0) / 50) * 100, 100)}%`,
+                  width: `${Math.min(((userData?.invoices_this_month || 0) / PLANS.FREE.invoicesPerMonth) * 100, 100)}%`,
                 }}
               />
             </div>
@@ -193,7 +193,7 @@ export default function SubscriptionPage() {
                   <p className="text-sm text-muted-foreground">Billed monthly</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-foreground">₹{PLANS.PRO_MONTHLY.price}</p>
+                  <p className="text-2xl font-bold text-foreground">₹{PLANS.PRO_MONTHLY.price.toLocaleString("en-IN")}</p>
                   <p className="text-sm text-muted-foreground">/month</p>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export default function SubscriptionPage() {
             {/* Pro Yearly */}
             <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl border-2 border-primary p-6 relative">
               <div className="absolute -top-3 left-4 px-3 py-1 bg-primary text-white text-xs font-semibold rounded-full">
-                Save ₹999
+                Save ₹1,589
               </div>
 
               <div className="flex justify-between items-start mb-4">
@@ -235,7 +235,7 @@ export default function SubscriptionPage() {
                   <p className="text-sm text-muted-foreground">Billed yearly</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-foreground">₹{PLANS.PRO_YEARLY.price}</p>
+                  <p className="text-2xl font-bold text-foreground">₹{PLANS.PRO_YEARLY.price.toLocaleString("en-IN")}</p>
                   <p className="text-sm text-muted-foreground">/year</p>
                 </div>
               </div>
@@ -264,6 +264,40 @@ export default function SubscriptionPage() {
                 )}
               </button>
             </div>
+          </div>
+
+          {/* Business — Coming Soon (Claude-powered) */}
+          <div className="mt-6 bg-gradient-to-br from-violet-500/5 to-fuchsia-500/5 rounded-2xl border-2 border-dashed border-violet-300 dark:border-violet-800 p-6 relative">
+            <div className="absolute -top-3 left-4 px-3 py-1 bg-violet-500 text-white text-xs font-semibold rounded-full">
+              Coming Soon
+            </div>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
+              <div>
+                <h4 className="font-semibold text-foreground">{PLANS.BUSINESS_MONTHLY.name} <span className="text-violet-500">· AI+</span></h4>
+                <p className="text-sm text-muted-foreground">Claude-powered AI for growing teams</p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-2xl font-bold text-foreground">
+                  ₹{PLANS.BUSINESS_MONTHLY.price.toLocaleString("en-IN")}
+                  <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                </p>
+                <p className="text-xs text-muted-foreground">or ₹{PLANS.BUSINESS_YEARLY.price.toLocaleString("en-IN")}/year</p>
+              </div>
+            </div>
+            <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5 mb-6">
+              {PLANS.BUSINESS_MONTHLY.features.map((feature, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                  <span className="text-foreground">{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              disabled
+              className="w-full py-3 border border-violet-200 dark:border-violet-900/50 text-muted-foreground rounded-xl font-semibold cursor-not-allowed opacity-70"
+            >
+              Coming Soon
+            </button>
           </div>
         </>
       )}

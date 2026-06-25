@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Crown, X, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { PLANS } from "@/lib/plans";
+
+const FREE_LIMIT = PLANS.FREE.invoicesPerMonth;
 
 export function UpgradeBanner() {
   const [show, setShow] = useState(false);
@@ -52,7 +55,7 @@ export function UpgradeBanner() {
 
   if (!show || dismissed) return null;
 
-  const remaining = 50 - invoicesUsed;
+  const remaining = FREE_LIMIT - invoicesUsed;
   const urgency = remaining <= 10 ? "high" : remaining <= 25 ? "medium" : "low";
 
   return (
@@ -125,7 +128,7 @@ export function UpgradeBanner() {
           <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
             <div
               className="h-full bg-white rounded-full transition-all"
-              style={{ width: `${(invoicesUsed / 50) * 100}%` }}
+              style={{ width: `${Math.min((invoicesUsed / FREE_LIMIT) * 100, 100)}%` }}
             />
           </div>
         )}

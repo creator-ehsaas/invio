@@ -13,7 +13,7 @@
 
 import { groq } from "@/lib/groq";
 
-export type AITier = "standard" | "enhanced";
+export type AITier = "standard" | "enhanced" | "premium";
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -45,10 +45,13 @@ interface AIOptions {
 export async function aiChat(messages: ChatMessage[], options: AIOptions = {}): Promise<string> {
   const { tier = "standard", temperature = 0.3, maxTokens = 1024, systemPrompt, seed, jsonMode } = options;
 
-  // Enhanced tier uses the most capable available model
-  // When @anthropic-ai/sdk is installed and ANTHROPIC_API_KEY set,
-  // you can enable Claude here for even better results
-  const model = tier === "enhanced"
+  // Tier → model routing.
+  // "premium" is reserved for the Business plan's Claude-powered features.
+  // Once @anthropic-ai/sdk is installed and ANTHROPIC_API_KEY is set, route
+  // "premium" to Claude here; for now it falls back to the best Groq model.
+  const model = tier === "premium"
+    ? "llama-3.3-70b-versatile"   // TODO: route to Claude when integrated
+    : tier === "enhanced"
     ? "llama-3.3-70b-versatile"   // Best Groq model
     : "llama-3.3-70b-versatile";  // Standard tier
 
@@ -118,6 +121,7 @@ export async function aiVision(
  * Pass the user's plan ID.
  */
 export function resolveAITier(planId: string | null | undefined): AITier {
+  if (planId === "business_monthly" || planId === "business_yearly") return "premium";
   if (planId === "pro_monthly" || planId === "pro_yearly") return "enhanced";
   return "standard";
 }

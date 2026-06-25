@@ -193,7 +193,7 @@ export default function HomePage() {
               </button>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              No credit card required. Free for first 50 invoices.
+              No credit card required. Free for your first 20 invoices/month.
             </p>
           </div>
 
@@ -437,30 +437,30 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-start">
             {/* Free Plan */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
               <h3 className="text-xl font-semibold text-foreground">Free</h3>
-              <p className="text-muted-foreground mt-2">Perfect to get started</p>
+              <p className="text-muted-foreground mt-2 text-sm">Perfect to get started</p>
               <div className="mt-6">
                 <span className="text-4xl font-bold text-foreground">₹0</span>
                 <span className="text-muted-foreground">/month</span>
               </div>
-              <ul className="mt-8 space-y-4">
+              <ul className="mt-6 space-y-3 text-sm">
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
-                  <span className="text-foreground">50 invoices/month</span>
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <span className="text-foreground">20 invoices/month</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">Voice input in 3 languages</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">Basic PDF templates</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">WhatsApp sharing</span>
                 </li>
               </ul>
@@ -473,39 +473,39 @@ export default function HomePage() {
             </div>
 
             {/* Pro Monthly - Featured */}
-            <div className="bg-gradient-to-br from-primary to-blue-500 rounded-2xl p-8 text-white relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-400 text-amber-900 text-sm font-semibold rounded-full">
+            <div className="bg-gradient-to-br from-primary to-blue-500 rounded-2xl p-6 text-white relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-400 text-amber-900 text-sm font-semibold rounded-full whitespace-nowrap">
                 Most Popular
               </div>
               <h3 className="text-xl font-semibold">Pro Monthly</h3>
-              <p className="text-white/70 mt-2">For growing businesses</p>
+              <p className="text-white/70 mt-2 text-sm">For growing businesses</p>
               <div className="mt-6">
-                <span className="text-4xl font-bold">₹499</span>
+                <span className="text-4xl font-bold">₹799</span>
                 <span className="text-white/70">/month</span>
               </div>
-              <ul className="mt-8 space-y-4">
+              <ul className="mt-6 space-y-3 text-sm">
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-white" />
+                  <Check className="w-5 h-5 text-white shrink-0" />
                   <span>Unlimited invoices</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-white" />
-                  <span>All 4 PDF templates</span>
+                  <Check className="w-5 h-5 text-white shrink-0" />
+                  <span>All PDF templates</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-white" />
-                  <span>AI learning from corrections</span>
+                  <Check className="w-5 h-5 text-white shrink-0" />
+                  <span>Enhanced AI & insights</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-white" />
-                  <span>Business insights & analytics</span>
+                  <Check className="w-5 h-5 text-white shrink-0" />
+                  <span>Full accounting & GST (GSTR-1/3B)</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-white" />
+                  <Check className="w-5 h-5 text-white shrink-0" />
                   <span>Inventory management</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-white" />
+                  <Check className="w-5 h-5 text-white shrink-0" />
                   <span>Priority support</span>
                 </li>
               </ul>
@@ -518,28 +518,28 @@ export default function HomePage() {
             </div>
 
             {/* Pro Yearly */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
               <h3 className="text-xl font-semibold text-foreground">Pro Yearly</h3>
-              <p className="text-muted-foreground mt-2">Best value - save ₹999</p>
+              <p className="text-muted-foreground mt-2 text-sm">Best value — save ₹1,589</p>
               <div className="mt-6">
-                <span className="text-4xl font-bold text-foreground">₹4,999</span>
+                <span className="text-4xl font-bold text-foreground">₹7,999</span>
                 <span className="text-muted-foreground">/year</span>
               </div>
-              <ul className="mt-8 space-y-4">
+              <ul className="mt-6 space-y-3 text-sm">
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">Everything in Pro Monthly</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">2 months free</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">Early access to features</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-emerald-500" />
+                  <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                   <span className="text-foreground">Dedicated account manager</span>
                 </li>
               </ul>
@@ -549,6 +549,47 @@ export default function HomePage() {
               >
                 Get Pro Yearly
               </Link>
+            </div>
+
+            {/* Business - Coming Soon (Claude-powered) */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-violet-300 dark:border-violet-800 p-6 relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-violet-500 text-white text-sm font-semibold rounded-full whitespace-nowrap">
+                Coming Soon
+              </div>
+              <h3 className="text-xl font-semibold text-foreground">Business</h3>
+              <p className="text-muted-foreground mt-2 text-sm">AI-powered, for scale</p>
+              <div className="mt-6">
+                <span className="text-4xl font-bold text-foreground">₹1,999</span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+              <ul className="mt-6 space-y-3 text-sm">
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-violet-500 shrink-0" />
+                  <span className="text-foreground">Everything in Pro</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-violet-500 shrink-0" />
+                  <span className="text-foreground">AI Accountant (Claude-powered)</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-violet-500 shrink-0" />
+                  <span className="text-foreground">Document intelligence</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-violet-500 shrink-0" />
+                  <span className="text-foreground">Smart tender & bid analysis</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-violet-500 shrink-0" />
+                  <span className="text-foreground">Multi-user / team access</span>
+                </li>
+              </ul>
+              <button
+                disabled
+                className="mt-8 block w-full py-3 text-center border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-muted-foreground cursor-not-allowed opacity-70"
+              >
+                Coming Soon
+              </button>
             </div>
           </div>
         </div>
